@@ -3,6 +3,7 @@ import { ArrowRight, ArrowLeft, CheckCircle2, AlertCircle, Database, ChevronDown
 import { Button, Input, Card } from '../ui/Common';
 import { WizardState } from '../../types';
 import { postgresApi, ApiError } from '../../services/api';
+const POSTGRES_LOGO = "https://upload.wikimedia.org/wikipedia/commons/2/29/Postgresql_elephant.svg";
 
 interface DbConnectStepProps {
   data: WizardState;
@@ -93,7 +94,7 @@ export const DbConnectStep: React.FC<DbConnectStepProps> = ({ data, updateData, 
            <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-blue-900/10 ring-1 ring-slate-100 overflow-hidden relative group p-1.5">
              <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
              <img 
-               src="assets/postgres.svg" 
+               src={POSTGRES_LOGO} 
                alt="PostgreSQL Logo" 
                className="w-full h-full object-contain drop-shadow-sm" 
              />
