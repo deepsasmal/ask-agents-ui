@@ -1,0 +1,5 @@
+{
+  "name": "Graph Builder Wizard",
+  "description": "A modern, minimalist wizard interface for building knowledge graphs from relational databases.",
+  "requestFramePermissions": []
+}
