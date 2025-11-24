@@ -80,7 +80,7 @@ interface CardProps {
 export const Card: React.FC<CardProps> = ({ children, className = '', noPadding = false }) => {
   return (
     <div className={`bg-white rounded-2xl border border-slate-100 shadow-card overflow-hidden transition-all duration-300 hover:shadow-lg ${className}`}>
-      <div className={noPadding ? '' : 'p-6'}>
+      <div className={noPadding ? 'h-full' : 'p-6 h-full'}>
         {children}
       </div>
     </div>

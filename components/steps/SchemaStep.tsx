@@ -158,10 +158,10 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
         </div>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-8 h-full">
+      <div className="flex flex-col lg:flex-row gap-8 items-start">
         {/* Left Sidebar: Table List */}
-        <div className="lg:w-1/3 flex-shrink-0">
-          <Card className="sticky top-6 shadow-supreme border-0" noPadding>
+        <div className="lg:w-1/3 flex-shrink-0 sticky top-6">
+          <Card className="shadow-supreme border-0" noPadding>
             <div className="p-5 border-b border-slate-100 bg-slate-50/50">
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Schema Source</label>
                 <div className="relative group">
@@ -234,8 +234,8 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
         </div>
 
         {/* Main Area: Column Details */}
-        <div className="flex-1">
-            <Card className="min-h-[600px] shadow-supreme border-0">
+        <div className="flex-1 sticky top-6 min-w-0">
+            <Card className="h-[calc(100vh-6rem)] shadow-supreme border-0" noPadding>
                 {expandedTableId ? (
                     (() => {
                         const table = data.tables.find(t => t.id === expandedTableId)!;
@@ -251,29 +251,34 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
                         }
 
                         return (
-                            <div className="space-y-6 animate-fade-in">
-                                <div className="flex items-center gap-5 pb-6 border-b border-slate-100">
-                                    <div className="w-16 h-16 rounded-2xl bg-brand-50 flex items-center justify-center ring-1 ring-brand-100 shadow-sm">
-                                        <Table2 className="w-8 h-8 text-brand-600" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-2xl font-bold text-slate-900">{table.name}</h3>
-                                        <div className="flex items-center gap-3 mt-1.5">
-                                            <p className="text-sm text-slate-500 font-medium">Table Configuration</p>
-                                            {!table.selected && (
-                                                <span className="px-3 py-0.5 text-[10px] uppercase font-bold tracking-wide text-amber-700 bg-amber-50 rounded-full border border-amber-200">
-                                                    Ignored
-                                                </span>
-                                            )}
+                            <div className="flex flex-col h-full animate-fade-in">
+                                {/* Fixed Header */}
+                                <div className="flex-none p-6 border-b border-slate-100 bg-white z-10">
+                                    <div className="flex items-center gap-5">
+                                        <div className="w-14 h-14 rounded-2xl bg-brand-50 flex items-center justify-center ring-1 ring-brand-100 shadow-sm shrink-0">
+                                            <Table2 className="w-7 h-7 text-brand-600" />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-2xl font-bold text-slate-900 leading-none mb-2">{table.name}</h3>
+                                            <div className="flex items-center gap-3">
+                                                <p className="text-sm text-slate-500 font-medium">Table Configuration</p>
+                                                {!table.selected && (
+                                                    <span className="px-2.5 py-0.5 text-[10px] uppercase font-bold tracking-wide text-amber-700 bg-amber-50 rounded-full border border-amber-200">
+                                                        Ignored
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
+                                
+                                <div className="flex-none px-6 py-2.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between text-xs font-bold uppercase tracking-wider text-slate-400">
+                                    <span>Column Details</span>
+                                    <span>Description</span>
+                                </div>
 
-                                <div className="space-y-4">
-                                    <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-slate-400 px-2">
-                                        <span>Column Details</span>
-                                        <span>Description</span>
-                                    </div>
+                                {/* Scrollable Columns List */}
+                                <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
                                     {table.columns.length === 0 ? (
                                          <div className="text-center py-10 text-slate-400 italic">No columns found</div>
                                     ) : (
@@ -281,8 +286,8 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
                                             <div key={col.name} className="flex flex-col xl:flex-row xl:items-start gap-4 p-5 rounded-2xl border border-slate-100 bg-slate-50/30 hover:shadow-md hover:border-brand-200 hover:bg-white transition-all duration-300 group">
                                                 <div className="w-full xl:w-1/3 space-y-2">
                                                     <div className="flex items-center gap-2">
-                                                        <span className="font-bold text-sm text-slate-800">{col.name}</span>
-                                                        <div className="flex gap-1.5">
+                                                        <span className="font-bold text-sm text-slate-800 break-all">{col.name}</span>
+                                                        <div className="flex gap-1.5 shrink-0">
                                                             {col.isPrimaryKey && (
                                                                 <span className="flex items-center justify-center w-6 h-6 rounded-md bg-amber-100 text-amber-600 cursor-help" title="Primary Key">
                                                                     <KeyRound className="w-3.5 h-3.5" />
@@ -309,7 +314,7 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
                                                     />
                                                     <button 
                                                         onClick={() => handleAiAutofill(table.id, col)}
-                                                        className={`p-3 rounded-xl border transition-all relative overflow-hidden ${
+                                                        className={`p-3 rounded-xl border transition-all relative overflow-hidden flex-shrink-0 ${
                                                             autofilling === `${table.id}-${col.name}` 
                                                             ? 'bg-brand-50 text-brand-600 border-brand-200' 
                                                             : 'border-slate-200 bg-white text-slate-400 hover:bg-brand-50 hover:border-brand-200 hover:text-brand-600 hover:shadow-sm'
