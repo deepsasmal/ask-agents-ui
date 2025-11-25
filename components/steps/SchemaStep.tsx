@@ -11,6 +11,12 @@ interface SchemaStepProps {
   onBack: () => void;
 }
 
+// Cache structure for AI generated metadata
+interface AiMetadata {
+  tableDescription?: string;
+  columns: Record<string, string>;
+}
+
 export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext, onBack }) => {
   const [expandedTableId, setExpandedTableId] = useState<string | null>(null);
   const [autofilling, setAutofilling] = useState<string | null>(null);
@@ -24,7 +30,7 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
   const [loadingColumns, setLoadingColumns] = useState<Set<string>>(new Set());
   
   // Cache for AI generated descriptions to persist across column loads
-  const aiMetadataRef = useRef<Record<string, Record<string, string>>>({});
+  const aiMetadataRef = useRef<Record<string, AiMetadata>>({});
 
   const connectionId = data.connectionId;
 
@@ -93,16 +99,23 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
       const columnsRaw = await postgresApi.getColumns(connectionId, tableId, selectedSchema);
       
       // Merge with AI metadata if available in cache
-      const aiCols = aiMetadataRef.current[tableId];
+      const aiData = aiMetadataRef.current[tableId];
+      
+      // Apply cached table description if current is empty
+      let tableDescription = table?.description;
+      if (!tableDescription && aiData?.tableDescription) {
+          tableDescription = aiData.tableDescription;
+      }
+
       const columns = columnsRaw.map(col => {
-          if (aiCols && aiCols[col.name]) {
-              return { ...col, description: aiCols[col.name] };
+          if (aiData?.columns[col.name]) {
+              return { ...col, description: aiData.columns[col.name] };
           }
           return col;
       });
       
       const updatedTables = data.tables.map(t => 
-        t.id === tableId ? { ...t, columns, loaded: true } : t
+        t.id === tableId ? { ...t, columns, loaded: true, description: tableDescription } : t
       );
       updateData({ tables: updatedTables });
     } catch (err) {
@@ -163,6 +176,15 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
     setTimeout(() => {
         const table = data.tables.find(t => t.id === tableId);
         const name = table?.name || '';
+
+        // Check cache first
+        const cachedDesc = aiMetadataRef.current[tableId]?.tableDescription;
+        if (cachedDesc) {
+             updateTableDescription(tableId, cachedDesc);
+             setAutofilling(null);
+             return;
+        }
+
         const aiText = generateMockDescription(name, 'table');
         updateTableDescription(tableId, aiText);
         setAutofilling(null);
@@ -173,7 +195,7 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
     setAutofilling(`${tableId}-${column.name}`);
     setTimeout(() => {
         // Check cache first
-        const cached = aiMetadataRef.current[tableId]?.[column.name];
+        const cached = aiMetadataRef.current[tableId]?.columns[column.name];
         if (cached) {
             updateColumnDescription(tableId, column.name, cached);
             setAutofilling(null);
@@ -202,7 +224,10 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
             t.columns.forEach(c => {
                 colMap[c.name] = c.description;
             });
-            aiMetadataRef.current[t.name] = colMap;
+            aiMetadataRef.current[t.name] = {
+                tableDescription: t.description,
+                columns: colMap
+            };
         });
 
         // 2. Update State
@@ -211,7 +236,8 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
             if (!aiTable) return t;
 
             let newDesc = t.description;
-            // Only autofill if empty
+            // Only autofill if empty, or overwrite? Usually filling empty is safer, but "Smart Fill" implies using the AI data.
+            // Let's assume we fill if empty or if we want to force updates. Here we fill if empty.
             if (!newDesc && aiTable.description) {
                 newDesc = aiTable.description;
             }
@@ -220,7 +246,7 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
             let newColumns = t.columns;
             if (t.loaded) {
                 newColumns = t.columns.map(c => {
-                    const aiColDesc = aiMetadataRef.current[t.name]?.[c.name];
+                    const aiColDesc = aiMetadataRef.current[t.name]?.columns[c.name];
                     // Only autofill if empty
                     if (aiColDesc && !c.description) {
                          return { ...c, description: aiColDesc };
@@ -253,7 +279,7 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
                 if (col.description) return col;
                 
                 // Check cache first
-                const cached = aiMetadataRef.current[tableId]?.[col.name];
+                const cached = aiMetadataRef.current[tableId]?.columns[col.name];
                 if (cached) return { ...col, description: cached };
 
                 let aiText = `Automatically inferred: This represents the ${col.name.replace(/_/g, ' ')} of the ${table.name}.`;
