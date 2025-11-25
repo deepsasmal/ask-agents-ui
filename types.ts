@@ -31,6 +31,7 @@ export interface WizardState {
   connectionId?: string; // Store the connection token
 
   // Step 3: Schema
+  schemaName?: string;
   tables: Table[];
 }
 

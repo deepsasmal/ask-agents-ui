@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ArrowRight, ArrowLeft, ChevronRight, Wand2, Database, KeyRound, Link as LinkIcon, Table2, Info, ChevronDown, Loader2, RefreshCw, Sparkles, Bot } from 'lucide-react';
 import { Button, Card } from '../ui/Common';
 import { WizardState, Column, Table } from '../../types';
-import { postgresApi, llmApi } from '../../services/api';
+import { postgresApi, llmApi, graphApi } from '../../services/api';
 
 interface SchemaStepProps {
   data: WizardState;
@@ -21,10 +21,12 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
   const [expandedTableId, setExpandedTableId] = useState<string | null>(null);
   const [autofilling, setAutofilling] = useState<string | null>(null);
   const [isBatchTableLoading, setIsBatchTableLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   
   // State for API data
   const [schemas, setSchemas] = useState<string[]>([]);
-  const [selectedSchema, setSelectedSchema] = useState('public');
+  // Use schema from global state if available, otherwise default to public
+  const [selectedSchema, setSelectedSchema] = useState(data.schemaName || 'public');
   const [isLoadingSchemas, setIsLoadingSchemas] = useState(false);
   const [isLoadingTables, setIsLoadingTables] = useState(false);
   const [loadingColumns, setLoadingColumns] = useState<Set<string>>(new Set());
@@ -42,11 +44,25 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
         setIsLoadingSchemas(true);
         const result = await postgresApi.getSchemas(connectionId);
         setSchemas(result.schemas);
-        if (result.schemas.includes('public')) {
-          setSelectedSchema('public');
-        } else if (result.schemas.length > 0) {
-          setSelectedSchema(result.schemas[0]);
+        
+        let nextSchema = 'public';
+        
+        // If we already have a selected schema in global state and it exists in the fetched list, keep it.
+        if (data.schemaName && result.schemas.includes(data.schemaName)) {
+            nextSchema = data.schemaName;
+        } else {
+            // Otherwise, apply default logic: use 'public' if available, else first item
+            if (!result.schemas.includes('public') && result.schemas.length > 0) {
+                nextSchema = result.schemas[0];
+            }
         }
+
+        setSelectedSchema(nextSchema);
+        // Ensure global state matches
+        if (data.schemaName !== nextSchema) {
+            updateData({ schemaName: nextSchema });
+        }
+
       } catch (err) {
         console.error('Failed to load schemas', err);
       } finally {
@@ -86,6 +102,12 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
 
     fetchTables();
   }, [connectionId, selectedSchema]);
+
+  const handleSchemaChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const newSchema = e.target.value;
+      setSelectedSchema(newSchema);
+      updateData({ schemaName: newSchema });
+  };
 
   const fetchColumnsForTable = async (tableId: string) => {
     if (!connectionId) return;
@@ -219,9 +241,9 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
         const response = await llmApi.generateSchemaDescriptions(connectionId, selectedSchema);
         
         // 1. Populate Cache
-        response.tables.forEach(t => {
+        response.tables.forEach((t) => {
             const colMap: Record<string, string> = {};
-            t.columns.forEach(c => {
+            t.columns.forEach((c) => {
                 colMap[c.name] = c.description;
             });
             aiMetadataRef.current[t.name] = {
@@ -236,8 +258,7 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
             if (!aiTable) return t;
 
             let newDesc = t.description;
-            // Only autofill if empty, or overwrite? Usually filling empty is safer, but "Smart Fill" implies using the AI data.
-            // Let's assume we fill if empty or if we want to force updates. Here we fill if empty.
+            // Only autofill if empty
             if (!newDesc && aiTable.description) {
                 newDesc = aiTable.description;
             }
@@ -297,6 +318,42 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
     }, 1500);
   };
 
+  const handleNext = async () => {
+    setIsSaving(true);
+    try {
+        const selectedTables = data.tables.filter(t => t.selected);
+        const payload = {
+            org_id: data.orgName,
+            schema_name: selectedSchema,
+            metadata: {
+                database: data.dbName,
+                description: data.description || `Metadata snapshot for ${data.projectName}`,
+                tables: selectedTables.map(t => ({
+                    name: t.name,
+                    description: t.description || '',
+                    columns: t.columns.map(col => ({
+                        name: col.name,
+                        description: col.description || '',
+                        properties: {
+                            type: col.type,
+                            ...(col.isPrimaryKey ? { is_primary_key: true } : {}),
+                            ...(col.isForeignKey ? { is_foreign_key: true } : {})
+                        }
+                    }))
+                }))
+            }
+        };
+
+        await graphApi.updateGraphSchema(payload);
+        onNext();
+    } catch (error) {
+        console.error("Failed to update graph schema", error);
+        alert('Failed to update graph schema. Please try again.');
+    } finally {
+        setIsSaving(false);
+    }
+  };
+
   const selectedCount = data.tables.filter(t => t.selected).length;
   const isTableLoading = (id: string) => loadingColumns.has(id);
 
@@ -324,7 +381,7 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
                         <select
                             className="w-full appearance-none pl-10 pr-8 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 shadow-sm cursor-pointer transition-all hover:border-brand-300 disabled:opacity-50"
                             value={selectedSchema}
-                            onChange={(e) => setSelectedSchema(e.target.value)}
+                            onChange={handleSchemaChange}
                             disabled={isLoadingSchemas}
                         >
                             {schemas.length > 0 ? (
@@ -573,8 +630,8 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
         <Button variant="ghost" onClick={onBack} leftIcon={<ArrowLeft className="w-4 h-4" />}>
           Back
         </Button>
-        <Button onClick={onNext} rightIcon={<ArrowRight className="w-4 h-4" />} size="lg" className="px-8 shadow-brand-600/30">
-          Next Step
+        <Button onClick={handleNext} isLoading={isSaving} rightIcon={<ArrowRight className="w-4 h-4" />} size="lg" className="px-8 shadow-brand-600/30">
+          {isSaving ? 'Saving...' : 'Next Step'}
         </Button>
       </div>
     </div>

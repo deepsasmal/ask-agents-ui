@@ -18,6 +18,7 @@ const INITIAL_STATE: WizardState = {
   dbUser: '',
   dbPass: '',
   dbName: '',
+  schemaName: 'public',
   tables: INITIAL_TABLES,
 };
 

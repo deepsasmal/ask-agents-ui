@@ -16,6 +16,81 @@ async function handleResponse<T>(response: Response): Promise<T> {
   return response.json();
 }
 
+// Interfaces for API Responses
+interface ConnectResponse {
+  connection_id: string;
+  message: string;
+}
+
+interface SchemasResponse {
+  schemas: string[];
+}
+
+interface TablesResponse {
+  schema: string;
+  tables: string[];
+}
+
+interface ColumnData {
+  column_name: string;
+  data_type: string;
+  is_nullable: string;
+  column_default: string | null;
+  constraints: string | null;
+}
+
+interface ColumnsResponse {
+  table: string;
+  columns: ColumnData[];
+}
+
+interface AiColumnDesc {
+  name: string;
+  description: string;
+  columns: AiColumnDesc[];
+}
+
+interface AiTableDesc {
+  name: string;
+  description: string;
+  columns: AiColumnDesc[];
+}
+
+interface AiGenerateResponse {
+  tables: AiTableDesc[];
+}
+
+// Graph API Interfaces
+interface GraphColumnProperties {
+  type: string;
+  is_primary_key?: boolean;
+  is_foreign_key?: boolean;
+}
+
+interface GraphColumn {
+  name: string;
+  description: string;
+  properties: GraphColumnProperties;
+}
+
+interface GraphTable {
+  name: string;
+  description: string;
+  columns: GraphColumn[];
+}
+
+interface GraphMetadata {
+  database: string;
+  description: string;
+  tables: GraphTable[];
+}
+
+interface GraphUpdatePayload {
+  org_id: string;
+  schema_name: string;
+  metadata: GraphMetadata;
+}
+
 export const postgresApi = {
   connect: async (details: Pick<WizardState, 'dbHost' | 'dbPort' | 'dbUser' | 'dbPass' | 'dbName'>) => {
     const response = await fetch(`${API_BASE_URL}/postgres/connect`, {
@@ -29,21 +104,21 @@ export const postgresApi = {
         db_name: details.dbName,
       }),
     });
-    return handleResponse<{ connection_id: string; message: string }>(response);
+    return handleResponse<ConnectResponse>(response);
   },
 
   getSchemas: async (connectionId: string) => {
     const response = await fetch(`${API_BASE_URL}/postgres/schemas`, {
       headers: { 'X-Connection-ID': connectionId },
     });
-    return handleResponse<{ schemas: string[] }>(response);
+    return handleResponse<SchemasResponse>(response);
   },
 
   getTables: async (connectionId: string, schema: string) => {
     const response = await fetch(`${API_BASE_URL}/postgres/schemas/${schema}/tables`, {
       headers: { 'X-Connection-ID': connectionId },
     });
-    return handleResponse<{ schema: string; tables: string[] }>(response);
+    return handleResponse<TablesResponse>(response);
   },
 
   getColumns: async (connectionId: string, table: string, schema: string) => {
@@ -53,16 +128,7 @@ export const postgresApi = {
         headers: { 'X-Connection-ID': connectionId },
       }
     );
-    const data = await handleResponse<{
-      table: string;
-      columns: Array<{
-        column_name: string;
-        data_type: string;
-        is_nullable: string;
-        column_default: string | null;
-        constraints: string | null;
-      }>;
-    }>(response);
+    const data = await handleResponse<ColumnsResponse>(response);
 
     // Map API response to our Column type
     return data.columns.map((col): Column => ({
@@ -87,15 +153,17 @@ export const llmApi = {
         schema_name: schemaName,
       }),
     });
-    return handleResponse<{
-      tables: Array<{
-        name: string;
-        description: string;
-        columns: Array<{
-          name: string;
-          description: string;
-        }>;
-      }>;
-    }>(response);
+    return handleResponse<AiGenerateResponse>(response);
+  },
+};
+
+export const graphApi = {
+  updateGraphSchema: async (payload: GraphUpdatePayload) => {
+    const response = await fetch(`${API_BASE_URL}/graph/update_graph_schema_in_db`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    return handleResponse<{ message: string; success: boolean }>(response);
   },
 };

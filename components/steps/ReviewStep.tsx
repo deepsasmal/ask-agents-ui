@@ -89,7 +89,7 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({ data, onBack, onComplete
                     <h3 className="text-xl font-bold text-slate-900 mb-1">{selectedTables.length} Tables</h3>
                     <div className="space-y-1 mt-2">
                         <p className="text-sm font-semibold text-slate-700">{totalColumns} Columns mapped</p>
-                        <p className="text-xs text-slate-400">Schema: <span className="font-mono text-slate-500">public</span></p>
+                        <p className="text-xs text-slate-400">Schema: <span className="font-mono text-slate-500">{data.schemaName || 'public'}</span></p>
                     </div>
                 </div>
             </div>
