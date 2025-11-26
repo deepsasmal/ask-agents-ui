@@ -46,6 +46,7 @@ export enum Step {
   Database = 2,
   Schema = 3,
   Review = 4,
+  Success = 5,
 }
 
 export const INITIAL_TABLES: Table[] = [];

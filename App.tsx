@@ -64,11 +64,13 @@ const App: React.FC = () => {
           />
         );
       case Step.Review:
+      case Step.Success:
         return (
           <ReviewStep 
             data={wizardData} 
             onBack={prevStep} 
-            onComplete={() => console.log('Graph Created!', wizardData)} 
+            onComplete={() => setCurrentStep(Step.Success)}
+            isSuccess={currentStep === Step.Success}
           />
         );
       default:

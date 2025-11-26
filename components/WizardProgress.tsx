@@ -18,7 +18,8 @@ export const WizardProgress: React.FC<WizardProgressProps> = ({ currentStep }) =
 
   const totalSteps = steps.length;
   // Progress is 0 to 100 based on steps (0/3, 1/3, 2/3, 3/3)
-  const progressPercentage = ((currentStep - 1) / (totalSteps - 1)) * 100;
+  // Cap at 100% for Success step (Step 5)
+  const progressPercentage = Math.min(100, ((currentStep - 1) / (totalSteps - 1)) * 100);
 
   return (
     <div className="w-full max-w-4xl mx-auto mb-16 px-4">

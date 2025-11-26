@@ -9,11 +9,11 @@ interface ReviewStepProps {
   data: WizardState;
   onBack: () => void;
   onComplete: () => void;
+  isSuccess?: boolean;
 }
 
-export const ReviewStep: React.FC<ReviewStepProps> = ({ data, onBack, onComplete }) => {
+export const ReviewStep: React.FC<ReviewStepProps> = ({ data, onBack, onComplete, isSuccess = false }) => {
   const [isCreating, setIsCreating] = useState(false);
-  const [isCompleted, setIsCompleted] = useState(false);
   const [enableTextIndexing, setEnableTextIndexing] = useState(false);
   const [enableVectorSearch, setEnableVectorSearch] = useState(false);
 
@@ -33,7 +33,6 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({ data, onBack, onComplete
         enableTextIndexing,
         enableVectorSearch
       });
-      setIsCompleted(true);
       onComplete();
     } catch (error) {
       console.error('Failed to create graph', error);
@@ -46,7 +45,7 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({ data, onBack, onComplete
   const selectedTables = data.tables.filter(t => t.selected);
   const totalColumns = selectedTables.reduce((acc, t) => acc + t.columns.length, 0);
 
-  if (isCompleted) {
+  if (isSuccess) {
       return (
           <div className="flex flex-col items-center justify-center text-center animate-fade-in py-16">
               <div className="relative mb-8">
