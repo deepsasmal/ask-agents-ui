@@ -19,7 +19,10 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({ data, onBack, onComplete
   const handleCreate = async () => {
     setIsCreating(true);
     try {
-      await graphApi.createGraphFromMetadata(data.orgName, {
+      // Use sanitized project name as ID to match SchemaStep
+      const graphId = data.projectName.trim().replace(/\s+/g, '_').toLowerCase();
+      
+      await graphApi.createGraphFromMetadata(graphId, {
         enableTextIndexing,
         enableVectorSearch
       });

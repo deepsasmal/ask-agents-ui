@@ -355,8 +355,12 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
     setIsSaving(true);
     try {
         const selectedTables = data.tables.filter(t => t.selected);
+        
+        // Use sanitized project name as the ID
+        const graphId = data.projectName.trim().replace(/\s+/g, '_').toLowerCase();
+        
         const payload = {
-            org_id: data.orgName,
+            org_id: graphId,
             schema_name: selectedSchema,
             metadata: {
                 database: data.dbName,
