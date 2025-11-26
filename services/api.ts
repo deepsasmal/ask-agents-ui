@@ -190,4 +190,15 @@ export const graphApi = {
     });
     return handleResponse<{ message: string; success: boolean }>(response);
   },
+
+  createGraphFromMetadata: async (graphId: string) => {
+    const response = await fetch(`${API_BASE_URL}/graph/create_graph_from_metadata`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        graph_id: graphId,
+      }),
+    });
+    return handleResponse<{ message: string; graph_id: string }>(response);
+  },
 };

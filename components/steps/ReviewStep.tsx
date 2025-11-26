@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ArrowLeft, Rocket, CheckCircle, Layers, Database, FileText, Check, Sparkles } from 'lucide-react';
 import { Button, Card } from '../ui/Common';
 import { WizardState } from '../../types';
+import { graphApi } from '../../services/api';
 
 interface ReviewStepProps {
   data: WizardState;
@@ -13,14 +14,19 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({ data, onBack, onComplete
   const [isCreating, setIsCreating] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     setIsCreating(true);
-    // Mock API call time
-    setTimeout(() => {
-        setIsCreating(false);
-        setIsCompleted(true);
-        onComplete(); 
-    }, 3000);
+    try {
+      await graphApi.createGraphFromMetadata(data.orgName);
+      setIsCompleted(true);
+      onComplete();
+    } catch (error) {
+      console.error('Failed to create graph', error);
+      // We could add more sophisticated error handling here
+      alert('Failed to create graph. Please try again.');
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   const selectedTables = data.tables.filter(t => t.selected);
