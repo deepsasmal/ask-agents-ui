@@ -262,9 +262,16 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
   const handleBatchTableAutofill = async () => {
     if (!connectionId || !selectedSchema) return;
 
+    // Get selected tables
+    const selectedTableNames = data.tables.filter(t => t.selected).map(t => t.name);
+    
+    if (selectedTableNames.length === 0) {
+        return;
+    }
+
     setIsBatchTableLoading(true);
     try {
-        const response = await llmApi.generateSchemaDescriptions(connectionId, selectedSchema);
+        const response = await llmApi.generateSchemaDescriptions(connectionId, selectedSchema, selectedTableNames);
         
         // 1. Populate Cache
         response.tables.forEach((t) => {
@@ -442,7 +449,7 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
                         
                         <button 
                             onClick={handleBatchTableAutofill}
-                            disabled={isBatchTableLoading}
+                            disabled={isBatchTableLoading || selectedCount === 0}
                             className="w-full py-2.5 px-4 bg-white border border-brand-200 rounded-xl flex items-center justify-center gap-2 text-sm font-bold text-brand-600 hover:bg-brand-50 hover:shadow-sm transition-all disabled:opacity-50"
                         >
                             {isBatchTableLoading ? (
@@ -450,7 +457,7 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
                             ) : (
                                 <Bot className="w-4 h-4" />
                             )}
-                            {isBatchTableLoading ? 'Generating Descriptions...' : 'Smart Fill All Descriptions'}
+                            {isBatchTableLoading ? 'Generating Descriptions...' : 'Smart Fill Selected'}
                         </button>
                     </div>
                 )}

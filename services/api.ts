@@ -165,7 +165,7 @@ export const postgresApi = {
 };
 
 export const llmApi = {
-  generateSchemaDescriptions: async (connectionId: string, schemaName: string) => {
+  generateSchemaDescriptions: async (connectionId: string, schemaName: string, tableNames: string[]) => {
     const response = await fetch(`${API_BASE_URL}/llm/generate_schema_descriptions`, {
       method: 'POST',
       headers: { 
@@ -174,6 +174,7 @@ export const llmApi = {
       },
       body: JSON.stringify({
         schema_name: schemaName,
+        table_names: tableNames,
       }),
     });
     return handleResponse<AiGenerateResponse>(response);
