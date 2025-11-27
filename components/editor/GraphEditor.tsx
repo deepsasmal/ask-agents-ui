@@ -1,6 +1,4 @@
 
-
-
 import React, { useState } from 'react';
 import { TopBar } from './TopBar';
 import { LeftPanel } from './LeftPanel';
@@ -31,7 +29,10 @@ const INITIAL_EDGES: EditorEdge[] = [
 
 export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName, initialGraphId }) => {
   const [graphId, setGraphId] = useState(initialGraphId || '');
-  const [isSaving, setIsSaving] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  
   const [state, setState] = useState<EditorState>({
       nodes: INITIAL_NODES,
       edges: INITIAL_EDGES,
@@ -54,6 +55,7 @@ export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName, initialGr
       } as EditorNode;
 
       setState(prev => ({ ...prev, nodes: [...prev.nodes, newNode] }));
+      setHasUnsavedChanges(true);
   };
 
   const handleImportNode = (nodeResult: SearchNodeResult) => {
@@ -106,6 +108,7 @@ export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName, initialGr
           nodes: [...prev.nodes, newNode],
           selectedNodeId: newNode.id
       }));
+      setHasUnsavedChanges(true);
   };
 
   const handleUpdateNode = (id: string, data: Partial<EditorNode>) => {
@@ -113,6 +116,7 @@ export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName, initialGr
           ...prev,
           nodes: prev.nodes.map(n => n.id === id ? { ...n, ...data } : n)
       }));
+      setHasUnsavedChanges(true);
   };
 
   const handleDeleteNode = (id: string) => {
@@ -123,6 +127,7 @@ export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName, initialGr
           selectedNodeId: null,
           selectedEdgeId: null
       }));
+      setHasUnsavedChanges(true);
   };
 
   const handleCreateEdge = (sourceId: string, targetId: string) => {
@@ -142,6 +147,7 @@ export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName, initialGr
           label: defaultLabel
       };
       setState(prev => ({ ...prev, edges: [...prev.edges, newEdge] }));
+      setHasUnsavedChanges(true);
   };
 
   const handleUpdateEdge = (id: string, data: Partial<EditorEdge>) => {
@@ -149,6 +155,7 @@ export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName, initialGr
           ...prev,
           edges: prev.edges.map(e => e.id === id ? { ...e, ...data } : e)
       }));
+      setHasUnsavedChanges(true);
   };
 
   const handleDeleteEdge = (id: string) => {
@@ -157,6 +164,7 @@ export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName, initialGr
           edges: prev.edges.filter(e => e.id !== id),
           selectedEdgeId: null
       }));
+      setHasUnsavedChanges(true);
   };
 
   // Selection Logic
@@ -168,92 +176,112 @@ export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName, initialGr
       setState(prev => ({ ...prev, selectedEdgeId: id || null, selectedNodeId: null }));
   };
 
-  // Save Draft Logic
+  // Helper to identify temp IDs
   const isTempId = (id: string) => {
-      // If it converts nicely to a number and isn't a "node-timestamp" string, assume it's an existing DB ID
-      // Backend existing IDs are integers (1, 23, 45)
-      // Frontend new IDs are "node-1723..."
       if (id.startsWith('node-')) return true;
-      if (isNaN(Number(id))) return true; // Catch all other strings
+      if (isNaN(Number(id))) return true; 
       return false; 
   };
 
-  const handlePublish = async () => {
+  // Payload Generation Helper
+  const generatePayload = () => {
+    const payloadNodes = state.nodes.map(node => {
+        let labels: string[] = [];
+        if (node.type === 'TECHNICAL') {
+             labels = [node.subType.charAt(0) + node.subType.slice(1).toLowerCase()];
+        } else {
+             const sub = node.subType.charAt(0) + node.subType.slice(1).toLowerCase();
+             labels = [`Business${sub}`];
+        }
+
+        const properties = {
+            name: node.label,
+            description: node.data.description || '',
+            ...(node.data.dataType ? { datatype: node.data.dataType } : {}),
+            ...(node.data.properties || {})
+        };
+
+        if (isTempId(node.id)) {
+            return {
+                temp_id: node.id,
+                labels,
+                properties
+            };
+        } else {
+            return {
+                id: Number(node.id),
+                labels,
+                properties
+            };
+        }
+    });
+
+    const payloadRelationships = state.edges.map(edge => {
+        const rel: any = { type: edge.label };
+        
+        // Handle Source
+        if (isTempId(edge.source)) {
+            rel.from_temp_id = edge.source;
+        } else {
+            rel.from_id = Number(edge.source);
+        }
+
+        // Handle Target
+        if (isTempId(edge.target)) {
+            rel.to_temp_id = edge.target;
+        } else {
+            rel.to_id = Number(edge.target);
+        }
+
+        return rel;
+    });
+
+    return {
+        nodes: payloadNodes,
+        relationships: payloadRelationships
+    };
+  };
+
+  // Save Draft Action
+  const handleSaveDraft = async () => {
     if (!graphId) return;
-    setIsSaving(true);
+    setIsSavingDraft(true);
 
     try {
-        const payloadNodes = state.nodes.map(node => {
-            // Determine Label based on Type/SubType
-            let labels: string[] = [];
-            if (node.type === 'TECHNICAL') {
-                 // TECHNICAL subTypes: TABLE, COLUMN
-                 // Maps to ["Table"], ["Column"]
-                 labels = [node.subType.charAt(0) + node.subType.slice(1).toLowerCase()];
-            } else {
-                 // BUSINESS subTypes: ENTITY, METRIC, CONCEPT, RULE
-                 // Maps to ["BusinessEntity"], ["BusinessMetric"], etc.
-                 const sub = node.subType.charAt(0) + node.subType.slice(1).toLowerCase();
-                 labels = [`Business${sub}`];
-            }
-
-            const properties = {
-                name: node.label,
-                description: node.data.description || '',
-                ...(node.data.dataType ? { datatype: node.data.dataType } : {}),
-                ...(node.data.properties || {})
-            };
-
-            if (isTempId(node.id)) {
-                return {
-                    temp_id: node.id,
-                    labels,
-                    properties
-                };
-            } else {
-                return {
-                    id: Number(node.id),
-                    labels,
-                    properties
-                };
-            }
+        const graphData = generatePayload();
+        await graphApi.saveGraphDraft({
+            graph_id: graphId,
+            graph_data: graphData
         });
+        
+        // On success, mark as saved
+        setHasUnsavedChanges(false);
+    } catch (error) {
+        console.error("Failed to save draft", error);
+        alert("Failed to save draft.");
+    } finally {
+        setIsSavingDraft(false);
+    }
+  };
 
-        const payloadRelationships = state.edges.map(edge => {
-            const rel: any = { type: edge.label };
-            
-            // Handle Source
-            if (isTempId(edge.source)) {
-                rel.from_temp_id = edge.source;
-            } else {
-                rel.from_id = Number(edge.source);
-            }
+  // Publish Action
+  const handlePublish = async () => {
+    if (!graphId) return;
+    setIsPublishing(true);
 
-            // Handle Target
-            if (isTempId(edge.target)) {
-                rel.to_temp_id = edge.target;
-            } else {
-                rel.to_id = Number(edge.target);
-            }
-
-            return rel;
-        });
-
+    try {
+        const graphData = generatePayload();
         await graphApi.publishEditedGraph({
             graph_id: graphId,
-            graph_data: {
-                nodes: payloadNodes,
-                relationships: payloadRelationships
-            }
+            graph_data: graphData
         });
         
         alert("Graph published successfully!");
-
     } catch (error) {
         console.error("Failed to publish graph", error);
-        alert("Failed to publish graph. Check console for details.");
+        alert("Failed to publish graph.");
     } finally {
-        setIsSaving(false);
+        setIsPublishing(false);
     }
   };
 
@@ -266,8 +294,11 @@ export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName, initialGr
          projectName={projectName || ''} 
          graphId={graphId}
          setGraphId={setGraphId}
-         onSave={handlePublish}
-         isSaving={isSaving}
+         onSaveDraft={handleSaveDraft}
+         onPublish={handlePublish}
+         isSavingDraft={isSavingDraft}
+         isPublishing={isPublishing}
+         hasUnsavedChanges={hasUnsavedChanges}
          onImportNode={handleImportNode}
       />
       
@@ -281,7 +312,10 @@ export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName, initialGr
             selectedNodeId={state.selectedNodeId}
             onEdgeSelect={handleEdgeSelect}
             selectedEdgeId={state.selectedEdgeId}
-            onNodesChange={(newNodes) => setState(prev => ({ ...prev, nodes: newNodes }))}
+            onNodesChange={(newNodes) => {
+                setState(prev => ({ ...prev, nodes: newNodes }));
+                setHasUnsavedChanges(true); // Dragging changes position, consider unsaved
+            }}
             onEdgeCreate={handleCreateEdge}
         />
         

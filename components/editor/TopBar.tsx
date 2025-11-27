@@ -1,7 +1,6 @@
 
-
 import React, { useState, useEffect, useRef } from 'react';
-import { Share2, Undo2, Redo2, Search, Info, Loader2, X, Check } from 'lucide-react';
+import { Save, Share2, Undo2, Redo2, Search, Info, Loader2, X, Check, FileDown } from 'lucide-react';
 import { Button } from '../ui/Common';
 import { graphApi, SearchNodeResult } from '../../services/api';
 
@@ -9,8 +8,11 @@ interface TopBarProps {
   projectName: string;
   graphId: string;
   setGraphId: (id: string) => void;
-  onSave: () => void;
-  isSaving?: boolean;
+  onSaveDraft: () => void;
+  onPublish: () => void;
+  isSavingDraft?: boolean;
+  isPublishing?: boolean;
+  hasUnsavedChanges?: boolean;
   onImportNode: (node: SearchNodeResult) => void;
 }
 
@@ -18,8 +20,11 @@ export const TopBar: React.FC<TopBarProps> = ({
   projectName, 
   graphId,
   setGraphId,
-  onSave, 
-  isSaving = false,
+  onSaveDraft,
+  onPublish,
+  isSavingDraft = false,
+  isPublishing = false,
+  hasUnsavedChanges = false,
   onImportNode 
 }) => {
   const [isConfigOpen, setIsConfigOpen] = useState(false);
@@ -77,8 +82,8 @@ export const TopBar: React.FC<TopBarProps> = ({
         <div className="flex flex-col">
            <h1 className="text-lg font-bold text-slate-800 leading-none">{projectName || 'Untitled Project'}</h1>
            <span className="text-xs text-slate-500 font-medium mt-1 flex items-center gap-1.5">
-             <span className="w-1.5 h-1.5 rounded-full bg-brand-500"></span>
-             Draft Mode
+             <span className={`w-1.5 h-1.5 rounded-full ${hasUnsavedChanges ? 'bg-amber-500' : 'bg-green-500'}`}></span>
+             {hasUnsavedChanges ? 'Unsaved Changes' : 'All Saved'}
            </span>
         </div>
       </div>
@@ -183,8 +188,8 @@ export const TopBar: React.FC<TopBarProps> = ({
       </div>
 
       {/* Right: Actions */}
-      <div className="flex items-center gap-2">
-        <div className="flex items-center border-r border-slate-200 pr-2 mr-2 gap-1">
+      <div className="flex items-center gap-3">
+        <div className="flex items-center border-r border-slate-200 pr-3 mr-1 gap-1">
           <Button variant="ghost" size="sm" className="px-2" title="Undo">
             <Undo2 className="w-4 h-4" />
           </Button>
@@ -194,14 +199,26 @@ export const TopBar: React.FC<TopBarProps> = ({
         </div>
 
         <Button 
+          variant="outline" 
+          size="sm" 
+          leftIcon={<Save className="w-4 h-4" />}
+          onClick={onSaveDraft}
+          disabled={!graphId || isSavingDraft || isPublishing}
+          isLoading={isSavingDraft}
+          className="shadow-sm"
+        >
+          Save Draft
+        </Button>
+
+        <Button 
           variant="primary" 
           size="sm" 
           leftIcon={<Share2 className="w-4 h-4" />}
-          onClick={onSave}
-          disabled={!graphId || isSaving}
-          isLoading={isSaving}
-          title={!graphId ? "Graph ID required to publish" : "Publish Graph"}
-          className="shadow-brand-600/20"
+          onClick={onPublish}
+          disabled={!graphId || hasUnsavedChanges || isPublishing || isSavingDraft}
+          isLoading={isPublishing}
+          title={hasUnsavedChanges ? "You must save changes before publishing" : "Publish to Graph"}
+          className={`shadow-brand-600/20 ${hasUnsavedChanges ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
           Publish
         </Button>
