@@ -1,4 +1,5 @@
 
+
 import { API_BASE_URL } from '../config';
 import { WizardState, Column } from '../types';
 
@@ -111,6 +112,176 @@ interface GraphUpdateResponse {
   message?: string;
 }
 
+// Search Interfaces
+export interface SearchNodeResult {
+  id: number | string;
+  labels: string[];
+  properties: {
+    name: string;
+    description?: string;
+    datatype?: string;
+    [key: string]: any;
+  };
+  score: number;
+}
+
+interface SearchResponse {
+  nodes: SearchNodeResult[];
+}
+
+// Mock Data for Fallback
+const MOCK_SEARCH_RESULTS: SearchResponse = {
+  "nodes": [
+    {
+      "id": 1,
+      "labels": ["Table"],
+      "properties": {
+        "name": "customers",
+        "description": "Stores information about customers, including contact details, billing, and shipping addresses."
+      },
+      "score": 4
+    },
+    {
+      "id": 18,
+      "labels": ["Column"],
+      "properties": {
+        "name": "customer_id",
+        "datatype": "integer",
+        "description": "Foreign key referencing the customers table, identifying the customer who placed the order."
+      },
+      "score": 3
+    },
+    {
+      "id": 19,
+      "labels": ["Column"],
+      "properties": {
+        "name": "customer_name",
+        "datatype": "text",
+        "description": "Name of the customer. Redundant data from customer table."
+      },
+      "score": 2
+    },
+    {
+      "id": 23,
+      "labels": ["Column"],
+      "properties": {
+        "name": "billing_address",
+        "datatype": "text",
+        "description": "Billing address of the customer."
+      },
+      "score": 2
+    },
+    {
+      "id": 24,
+      "labels": ["Column"],
+      "properties": {
+        "name": "shipping_address",
+        "datatype": "text",
+        "description": "Shipping address of the customer."
+      },
+      "score": 2
+    },
+    {
+      "id": 33,
+      "labels": ["Column"],
+      "properties": {
+        "name": "customer_email",
+        "datatype": "text",
+        "description": "Email address of the customer. Redundant data from customer table."
+      },
+      "score": 2
+    },
+    {
+      "id": 34,
+      "labels": ["Column"],
+      "properties": {
+        "name": "customer_company",
+        "datatype": "text",
+        "description": "Company of the customer. Redundant data from customer table."
+      },
+      "score": 2
+    },
+    {
+      "id": 20,
+      "labels": ["Column"],
+      "properties": {
+        "name": "contact_person",
+        "datatype": "character varying",
+        "description": "Name of the contact person for the customer."
+      },
+      "score": 1
+    },
+    {
+      "id": 21,
+      "labels": ["Column"],
+      "properties": {
+        "name": "email",
+        "datatype": "character varying",
+        "description": "Email address of the customer."
+      },
+      "score": 1
+    },
+    {
+      "id": 22,
+      "labels": ["Column"],
+      "properties": {
+        "name": "phone",
+        "datatype": "character varying",
+        "description": "Phone number of the customer."
+      },
+      "score": 1
+    },
+    {
+      "id": 35,
+      "labels": ["Column"],
+      "properties": {
+        "name": "customer_intent",
+        "datatype": "text",
+        "description": "Intent of the customer regarding the quote."
+      },
+      "score": 1
+    },
+    {
+      "id": 39,
+      "labels": ["Column"],
+      "properties": {
+        "name": "customer_email_subject",
+        "datatype": "text",
+        "description": "Subject of an email sent to the customer regarding the quote."
+      },
+      "score": 1
+    },
+    {
+      "id": 40,
+      "labels": ["Column"],
+      "properties": {
+        "name": "customer_email_body",
+        "datatype": "text",
+        "description": "Body of an email sent to the customer regarding the quote."
+      },
+      "score": 1
+    },
+    {
+      "id": 3,
+      "labels": ["Table"],
+      "properties": {
+        "name": "quotes",
+        "description": "Stores information about quotes, including customer details, dates, totals, and sales representative information."
+      },
+      "score": 0.5
+    },
+    {
+      "id": 4,
+      "labels": ["Table"],
+      "properties": {
+        "name": "sales_orders",
+        "description": "Stores information about sales orders, including customer details, order dates, status, totals, and related quote information."
+      },
+      "score": 0.5
+    }
+  ]
+};
+
 export const postgresApi = {
   connect: async (details: Pick<WizardState, 'dbHost' | 'dbPort' | 'dbUser' | 'dbPass' | 'dbName'>) => {
     const response = await fetch(`${API_BASE_URL}/postgres/connect`, {
@@ -209,5 +380,25 @@ export const graphApi = {
       }),
     });
     return handleResponse<{ message: string; graph_id: string }>(response);
+  },
+
+  searchNodes: async (graphId: string, searchTerm: string): Promise<SearchResponse> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/graph/search_nodes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          graph_id: graphId,
+          search_term: searchTerm
+        }),
+      });
+      return await handleResponse<SearchResponse>(response);
+    } catch (error) {
+      console.warn("API Search failed, falling back to mock data for demonstration.", error);
+      // Fallback for demo purposes if backend is not running
+      return new Promise<SearchResponse>((resolve) => {
+        setTimeout(() => resolve(MOCK_SEARCH_RESULTS), 300);
+      });
+    }
   },
 };

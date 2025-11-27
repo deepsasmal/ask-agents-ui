@@ -188,8 +188,8 @@ export const Canvas: React.FC<CanvasProps> = ({
         }}
       />
 
-      {/* Controls */}
-      <div className="absolute bottom-6 left-6 flex flex-col gap-2 z-20 node-interactive">
+      {/* Controls - Lower z-index than TopBar dropdowns */}
+      <div className="absolute bottom-6 left-6 flex flex-col gap-2 z-10 node-interactive">
          <div className="bg-white rounded-lg shadow-md border border-slate-200 flex flex-col overflow-hidden">
              <button onClick={() => setZoom(z => Math.min(z + 0.1, 2))} className="p-2 hover:bg-slate-50 text-slate-600"><Plus className="w-4 h-4" /></button>
              <button onClick={() => setZoom(z => Math.max(z - 0.1, 0.5))} className="p-2 hover:bg-slate-50 text-slate-600 border-t border-slate-100"><Minus className="w-4 h-4" /></button>
