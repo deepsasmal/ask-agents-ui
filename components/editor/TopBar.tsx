@@ -1,8 +1,8 @@
 
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Save, Share2, Undo2, Redo2, Search, Settings, Info, Loader2, X, Check } from 'lucide-react';
-import { Button, Input } from '../ui/Common';
+import { Share2, Undo2, Redo2, Search, Info, Loader2, X, Check } from 'lucide-react';
+import { Button } from '../ui/Common';
 import { graphApi, SearchNodeResult } from '../../services/api';
 
 interface TopBarProps {
@@ -11,7 +11,6 @@ interface TopBarProps {
   setGraphId: (id: string) => void;
   onSave: () => void;
   isSaving?: boolean;
-  onPublish: () => void;
   onImportNode: (node: SearchNodeResult) => void;
 }
 
@@ -21,7 +20,6 @@ export const TopBar: React.FC<TopBarProps> = ({
   setGraphId,
   onSave, 
   isSaving = false,
-  onPublish, 
   onImportNode 
 }) => {
   const [isConfigOpen, setIsConfigOpen] = useState(false);
@@ -196,21 +194,13 @@ export const TopBar: React.FC<TopBarProps> = ({
         </div>
 
         <Button 
-          variant="secondary" 
-          size="sm" 
-          leftIcon={<Save className="w-4 h-4" />}
-          onClick={onSave}
-          disabled={!graphId || isSaving}
-          isLoading={isSaving}
-          title={!graphId ? "Graph ID required to save" : "Save Draft"}
-        >
-          Save Draft
-        </Button>
-        <Button 
           variant="primary" 
           size="sm" 
           leftIcon={<Share2 className="w-4 h-4" />}
-          onClick={onPublish}
+          onClick={onSave}
+          disabled={!graphId || isSaving}
+          isLoading={isSaving}
+          title={!graphId ? "Graph ID required to publish" : "Publish Graph"}
           className="shadow-brand-600/20"
         >
           Publish

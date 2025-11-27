@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { WizardState, Step, INITIAL_TABLES } from './types';
 import { WizardProgress } from './components/WizardProgress';
@@ -137,7 +138,10 @@ const App: React.FC = () => {
           </main>
       ) : (
           <div className="flex-1 overflow-hidden animate-fade-in">
-              <GraphEditor projectName={wizardData.projectName || 'Untitled Graph'} />
+              <GraphEditor 
+                projectName={wizardData.projectName || 'Untitled Graph'} 
+                initialGraphId={wizardData.graphId}
+              />
           </div>
       )}
       

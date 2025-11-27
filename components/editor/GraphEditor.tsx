@@ -1,5 +1,6 @@
 
 
+
 import React, { useState } from 'react';
 import { TopBar } from './TopBar';
 import { LeftPanel } from './LeftPanel';
@@ -11,6 +12,7 @@ import { SearchNodeResult, graphApi } from '../../services/api';
 
 interface GraphEditorProps {
   projectName?: string;
+  initialGraphId?: string;
 }
 
 // Initial Mock Data
@@ -27,8 +29,8 @@ const INITIAL_EDGES: EditorEdge[] = [
     { id: 'e3', source: '3', target: '4', label: 'HAS_METRIC' },
 ];
 
-export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName }) => {
-  const [graphId, setGraphId] = useState('');
+export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName, initialGraphId }) => {
+  const [graphId, setGraphId] = useState(initialGraphId || '');
   const [isSaving, setIsSaving] = useState(false);
   const [state, setState] = useState<EditorState>({
       nodes: INITIAL_NODES,
@@ -176,7 +178,7 @@ export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName }) => {
       return false; 
   };
 
-  const handleSaveDraft = async () => {
+  const handlePublish = async () => {
     if (!graphId) return;
     setIsSaving(true);
 
@@ -237,7 +239,7 @@ export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName }) => {
             return rel;
         });
 
-        await graphApi.saveGraphDraft({
+        await graphApi.publishEditedGraph({
             graph_id: graphId,
             graph_data: {
                 nodes: payloadNodes,
@@ -245,11 +247,11 @@ export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName }) => {
             }
         });
         
-        alert("Draft saved successfully!");
+        alert("Graph published successfully!");
 
     } catch (error) {
-        console.error("Failed to save draft", error);
-        alert("Failed to save draft. Check console for details.");
+        console.error("Failed to publish graph", error);
+        alert("Failed to publish graph. Check console for details.");
     } finally {
         setIsSaving(false);
     }
@@ -264,9 +266,8 @@ export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName }) => {
          projectName={projectName || ''} 
          graphId={graphId}
          setGraphId={setGraphId}
-         onSave={handleSaveDraft}
+         onSave={handlePublish}
          isSaving={isSaving}
-         onPublish={() => alert('Publishing is not yet implemented.')}
          onImportNode={handleImportNode}
       />
       

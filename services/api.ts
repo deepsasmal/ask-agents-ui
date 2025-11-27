@@ -418,5 +418,14 @@ export const graphApi = {
       body: JSON.stringify(payload),
     });
     return handleResponse<{ message: string; status: string }>(response);
+  },
+
+  publishEditedGraph: async (payload: GraphEditPayload) => {
+    const response = await fetch(`${API_BASE_URL}/graph/publish_edited_graph`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    return handleResponse<{ message: string; graph_id?: string }>(response);
   }
 };
