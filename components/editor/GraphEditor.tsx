@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { TopBar } from './TopBar';
 import { LeftPanel } from './LeftPanel';
@@ -6,7 +7,7 @@ import { RightPanel } from './RightPanel';
 import { Canvas } from './Canvas';
 import { EditorState, EditorNode, EditorEdge, EditorNodeType } from '../../types';
 import { getConstraint } from './editorConfig';
-import { SearchNodeResult } from '../../services/api';
+import { SearchNodeResult, graphApi } from '../../services/api';
 
 interface GraphEditorProps {
   projectName?: string;
@@ -27,6 +28,8 @@ const INITIAL_EDGES: EditorEdge[] = [
 ];
 
 export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName }) => {
+  const [graphId, setGraphId] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
   const [state, setState] = useState<EditorState>({
       nodes: INITIAL_NODES,
       edges: INITIAL_EDGES,
@@ -121,16 +124,12 @@ export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName }) => {
   };
 
   const handleCreateEdge = (sourceId: string, targetId: string) => {
-      // 1. Prevent exact duplicate edges (same source, target, and type is usually enough, but here just source/target pair check for simplicity in demo)
-      // Actually, allowing multiple edges is supported by Canvas, so we won't block based on just ID existence unless it's exact duplicate data.
-      // But for UX, let's allow creating a new edge always.
-      
       const sourceNode = state.nodes.find(n => n.id === sourceId);
       const targetNode = state.nodes.find(n => n.id === targetId);
       
       if (!sourceNode || !targetNode) return;
 
-      // 2. Check Constraints for Default Label
+      // Check Constraints for Default Label
       const constraint = getConstraint(sourceNode, targetNode);
       const defaultLabel = constraint ? constraint.allowed[0] : 'RELATES_TO';
 
@@ -167,6 +166,95 @@ export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName }) => {
       setState(prev => ({ ...prev, selectedEdgeId: id || null, selectedNodeId: null }));
   };
 
+  // Save Draft Logic
+  const isTempId = (id: string) => {
+      // If it converts nicely to a number and isn't a "node-timestamp" string, assume it's an existing DB ID
+      // Backend existing IDs are integers (1, 23, 45)
+      // Frontend new IDs are "node-1723..."
+      if (id.startsWith('node-')) return true;
+      if (isNaN(Number(id))) return true; // Catch all other strings
+      return false; 
+  };
+
+  const handleSaveDraft = async () => {
+    if (!graphId) return;
+    setIsSaving(true);
+
+    try {
+        const payloadNodes = state.nodes.map(node => {
+            // Determine Label based on Type/SubType
+            let labels: string[] = [];
+            if (node.type === 'TECHNICAL') {
+                 // TECHNICAL subTypes: TABLE, COLUMN
+                 // Maps to ["Table"], ["Column"]
+                 labels = [node.subType.charAt(0) + node.subType.slice(1).toLowerCase()];
+            } else {
+                 // BUSINESS subTypes: ENTITY, METRIC, CONCEPT, RULE
+                 // Maps to ["BusinessEntity"], ["BusinessMetric"], etc.
+                 const sub = node.subType.charAt(0) + node.subType.slice(1).toLowerCase();
+                 labels = [`Business${sub}`];
+            }
+
+            const properties = {
+                name: node.label,
+                description: node.data.description || '',
+                ...(node.data.dataType ? { datatype: node.data.dataType } : {}),
+                ...(node.data.properties || {})
+            };
+
+            if (isTempId(node.id)) {
+                return {
+                    temp_id: node.id,
+                    labels,
+                    properties
+                };
+            } else {
+                return {
+                    id: Number(node.id),
+                    labels,
+                    properties
+                };
+            }
+        });
+
+        const payloadRelationships = state.edges.map(edge => {
+            const rel: any = { type: edge.label };
+            
+            // Handle Source
+            if (isTempId(edge.source)) {
+                rel.from_temp_id = edge.source;
+            } else {
+                rel.from_id = Number(edge.source);
+            }
+
+            // Handle Target
+            if (isTempId(edge.target)) {
+                rel.to_temp_id = edge.target;
+            } else {
+                rel.to_id = Number(edge.target);
+            }
+
+            return rel;
+        });
+
+        await graphApi.saveGraphDraft({
+            graph_id: graphId,
+            graph_data: {
+                nodes: payloadNodes,
+                relationships: payloadRelationships
+            }
+        });
+        
+        alert("Draft saved successfully!");
+
+    } catch (error) {
+        console.error("Failed to save draft", error);
+        alert("Failed to save draft. Check console for details.");
+    } finally {
+        setIsSaving(false);
+    }
+  };
+
   const selectedNode = state.nodes.find(n => n.id === state.selectedNodeId) || null;
   const selectedEdge = state.edges.find(e => e.id === state.selectedEdgeId) || null;
 
@@ -174,8 +262,11 @@ export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName }) => {
     <div className="flex flex-col h-[calc(100vh-5rem)] bg-slate-100">
       <TopBar 
          projectName={projectName || ''} 
-         onSave={() => alert('Saved Draft!')} 
-         onPublish={() => alert('Published!')}
+         graphId={graphId}
+         setGraphId={setGraphId}
+         onSave={handleSaveDraft}
+         isSaving={isSaving}
+         onPublish={() => alert('Publishing is not yet implemented.')}
          onImportNode={handleImportNode}
       />
       

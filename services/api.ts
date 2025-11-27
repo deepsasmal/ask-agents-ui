@@ -129,6 +129,15 @@ interface SearchResponse {
   nodes: SearchNodeResult[];
 }
 
+// Save Draft Interfaces
+interface GraphEditPayload {
+  graph_id: string;
+  graph_data: {
+    nodes: any[];
+    relationships: any[];
+  };
+}
+
 // Mock Data for Fallback
 const MOCK_SEARCH_RESULTS: SearchResponse = {
   "nodes": [
@@ -401,4 +410,13 @@ export const graphApi = {
       });
     }
   },
+
+  saveGraphDraft: async (payload: GraphEditPayload) => {
+    const response = await fetch(`${API_BASE_URL}/save_graph_draft`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    return handleResponse<{ message: string; status: string }>(response);
+  }
 };

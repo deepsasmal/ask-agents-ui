@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Save, Share2, Undo2, Redo2, Search, Settings, Info, Loader2, X, Check } from 'lucide-react';
 import { Button, Input } from '../ui/Common';
@@ -6,13 +7,23 @@ import { graphApi, SearchNodeResult } from '../../services/api';
 
 interface TopBarProps {
   projectName: string;
+  graphId: string;
+  setGraphId: (id: string) => void;
   onSave: () => void;
+  isSaving?: boolean;
   onPublish: () => void;
   onImportNode: (node: SearchNodeResult) => void;
 }
 
-export const TopBar: React.FC<TopBarProps> = ({ projectName, onSave, onPublish, onImportNode }) => {
-  const [graphId, setGraphId] = useState('');
+export const TopBar: React.FC<TopBarProps> = ({ 
+  projectName, 
+  graphId,
+  setGraphId,
+  onSave, 
+  isSaving = false,
+  onPublish, 
+  onImportNode 
+}) => {
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<SearchNodeResult[]>([]);
@@ -189,6 +200,9 @@ export const TopBar: React.FC<TopBarProps> = ({ projectName, onSave, onPublish, 
           size="sm" 
           leftIcon={<Save className="w-4 h-4" />}
           onClick={onSave}
+          disabled={!graphId || isSaving}
+          isLoading={isSaving}
+          title={!graphId ? "Graph ID required to save" : "Save Draft"}
         >
           Save Draft
         </Button>
