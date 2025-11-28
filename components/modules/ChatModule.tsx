@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Bot, MoreHorizontal, Loader2, Sparkles, Copy, BarChart2, Hammer, X, Terminal, Code, ChevronRight, Paperclip, ArrowUp, FileText, Check, PanelLeft, AtSign } from 'lucide-react';
+import { Plus, Bot, MoreHorizontal, Loader2, Sparkles, Copy, BarChart2, Hammer, X, Terminal, Code, ChevronRight, Paperclip, ArrowUp, FileText, Check, PanelLeft, MessageSquareText } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Button } from '../ui/Common';
@@ -351,7 +351,7 @@ export const ChatModule: React.FC = () => {
               <div className="h-6 w-px bg-slate-200 mx-1"></div>
 
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-50 to-white border border-brand-100 flex items-center justify-center shadow-sm text-brand-600">
-                 <AtSign className="w-5 h-5" />
+                 <MessageSquareText className="w-5 h-5" />
               </div>
               <span className="font-bold text-slate-900">AI Assistant</span>
            </div>
@@ -421,12 +421,9 @@ export const ChatModule: React.FC = () => {
 
                               {/* Content - Clean Markdown */}
                               {(msg.content || (!msg.isStreaming && (!msg.toolCalls || msg.toolCalls.length === 0))) && (
-                                  <div className={`text-sm leading-relaxed w-full
-                                    ${msg.error ? 'text-red-600' : 'text-slate-800'}`}
-                                  >
+                                  <div className={`text-sm leading-relaxed w-full ${msg.error ? 'text-red-600' : 'text-slate-800'} prose prose-sm max-w-none prose-p:leading-relaxed prose-pre:bg-slate-900 prose-pre:text-slate-50 prose-pre:rounded-xl prose-code:text-brand-700 prose-code:bg-brand-50 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none prose-headings:text-slate-900 prose-headings:font-bold prose-a:text-brand-600 prose-strong:text-slate-900 prose-table:w-full prose-table:border-collapse prose-th:text-left prose-th:p-2 prose-th:bg-brand-50 prose-th:text-brand-700 prose-th:border prose-th:border-brand-100 prose-td:p-2 prose-td:border prose-td:border-slate-200 prose-td:bg-white`}>
                                     <ReactMarkdown 
                                         remarkPlugins={[remarkGfm]}
-                                        className="prose prose-sm max-w-none prose-p:leading-relaxed prose-pre:bg-slate-900 prose-pre:text-slate-50 prose-pre:rounded-xl prose-code:text-brand-700 prose-code:bg-brand-50 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none prose-headings:text-slate-900 prose-headings:font-bold prose-a:text-brand-600 prose-strong:text-slate-900 prose-table:w-full prose-table:border-collapse prose-th:text-left prose-th:p-2 prose-th:bg-brand-50 prose-th:text-brand-700 prose-th:border prose-th:border-brand-100 prose-td:p-2 prose-td:border prose-td:border-slate-200 prose-td:bg-white"
                                     >
                                         {msg.content}
                                     </ReactMarkdown>

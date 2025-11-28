@@ -86,7 +86,7 @@ const App: React.FC = () => {
               onClick={() => setActiveModule('GRAPH_BUILDER')}
             />
             <SidebarItem 
-              icon={<AtSign className="w-5 h-5" />} 
+              icon={<MessageSquareText className="w-5 h-5" />} 
               label="AI Assistant" 
               isActive={activeModule === 'CHAT'} 
               collapsed={isSidebarCollapsed}
