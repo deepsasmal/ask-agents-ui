@@ -1,9 +1,7 @@
-
-
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Plus, MessageSquare, Bot, User, MoreHorizontal, History, ChevronDown, Loader2, AlertCircle } from 'lucide-react';
+import { Send, Plus, MessageSquare, Bot, User, MoreHorizontal, History, ChevronDown, Loader2, AlertCircle, Clock, Zap } from 'lucide-react';
 import { Button } from '../ui/Common';
-import { agentApi, Agent } from '../../services/api';
+import { agentApi, Agent, RunMetrics } from '../../services/api';
 
 interface Message {
   id: string;
@@ -12,6 +10,7 @@ interface Message {
   timestamp: Date;
   isStreaming?: boolean;
   error?: boolean;
+  metrics?: RunMetrics;
 }
 
 export const ChatModule: React.FC = () => {
@@ -93,26 +92,36 @@ export const ChatModule: React.FC = () => {
     setIsTyping(true);
 
     try {
-        await agentApi.runAgent(selectedAgentId, userText, (chunk) => {
-            setMessages(prev => prev.map(msg => {
-                if (msg.id === botMsgId) {
-                    return { ...msg, content: msg.content + chunk };
+        await agentApi.runAgent(selectedAgentId, userText, (event, data) => {
+            if (event === 'RunContent') {
+                if (data.content) {
+                    setMessages(prev => prev.map(msg => {
+                        if (msg.id === botMsgId) {
+                            return { ...msg, content: msg.content + data.content };
+                        }
+                        return msg;
+                    }));
                 }
-                return msg;
-            }));
+            } else if (event === 'RunCompleted') {
+                setMessages(prev => prev.map(msg => {
+                    if (msg.id === botMsgId) {
+                        return { 
+                            ...msg, 
+                            isStreaming: false,
+                            metrics: data.metrics 
+                        };
+                    }
+                    return msg;
+                }));
+            }
         });
         
-        // Mark as finished streaming
-        setMessages(prev => prev.map(msg => 
-            msg.id === botMsgId ? { ...msg, isStreaming: false } : msg
-        ));
-
     } catch (error) {
         console.error('Chat error:', error);
         setMessages(prev => prev.map(msg => 
             msg.id === botMsgId ? { 
                 ...msg, 
-                content: "I'm sorry, I encountered an error while processing your request.", 
+                content: msg.content + "\n\nI'm sorry, I encountered an error while processing your request.", 
                 isStreaming: false,
                 error: true
             } : msg
@@ -252,14 +261,29 @@ export const ChatModule: React.FC = () => {
                         <span className="inline-block w-1.5 h-4 ml-1 align-middle bg-brand-400 animate-pulse" />
                     )}
                   </div>
-                  <span className="text-[10px] text-slate-400 mt-1.5 px-1">
-                    {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </span>
+                  <div className="flex items-center gap-3 mt-1.5 px-1">
+                      <span className="text-[10px] text-slate-400">
+                        {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      {msg.role === 'assistant' && msg.metrics && (
+                          <>
+                            <span className="text-[10px] text-slate-300">•</span>
+                            <div className="flex items-center gap-1 text-[10px] text-slate-400" title="Duration">
+                                <Clock className="w-3 h-3" />
+                                {msg.metrics.duration.toFixed(2)}s
+                            </div>
+                            <div className="flex items-center gap-1 text-[10px] text-slate-400" title="Total Tokens">
+                                <Zap className="w-3 h-3" />
+                                {msg.metrics.total_tokens}
+                            </div>
+                          </>
+                      )}
+                  </div>
                </div>
             </div>
           ))}
           
-          {/* Typing Indicator (Only if sending but before stream starts or purely visual) */}
+          {/* Visual Typing Indicator (when request is sent but no stream content yet) */}
           {isTyping && messages[messages.length - 1]?.role === 'user' && (
              <div className="flex gap-4 max-w-3xl mx-auto">
                 <div className="w-8 h-8 rounded-full bg-brand-50 border border-brand-100 text-brand-600 flex items-center justify-center shrink-0">
@@ -277,8 +301,7 @@ export const ChatModule: React.FC = () => {
 
         {/* Input Area */}
         <div className="p-4 bg-white border-t border-slate-200">
-           <div className="max-w-3xl mx-auto relative group">
-              <div className="absolute -inset-0.5 bg-gradient-to-r from-brand-200 to-indigo-200 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
+           <div className="max-w-3xl mx-auto">
               <div className="relative flex items-center gap-3 bg-white rounded-xl border border-slate-200 p-2 pl-4 shadow-sm focus-within:ring-2 focus-within:ring-brand-500/20 focus-within:border-brand-500 transition-all">
                   <input
                     className="flex-1 py-2 bg-transparent text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none disabled:cursor-not-allowed"
@@ -289,19 +312,22 @@ export const ChatModule: React.FC = () => {
                     autoFocus
                     disabled={isTyping || isLoadingAgents || !selectedAgentId}
                   />
-                  <button
-                    className={`h-9 w-9 flex items-center justify-center rounded-lg transition-all duration-200 ${
-                      inputValue.trim() && !isTyping && selectedAgentId
-                        ? 'bg-brand-600 text-white shadow-md hover:bg-brand-500 transform hover:scale-105' 
-                        : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                    }`}
-                    disabled={!inputValue.trim() || isTyping || !selectedAgentId}
-                    onClick={handleSend}
-                  >
-                    {isTyping ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                  </button>
+                  <div className="absolute inset-x-0 bottom-0 top-0 pointer-events-none rounded-xl bg-gradient-to-r from-transparent via-transparent to-white/10" />
+                  <div className="flex items-center gap-2">
+                      <button
+                        className={`h-9 w-9 flex items-center justify-center rounded-lg transition-all duration-200 ${
+                          inputValue.trim() && !isTyping && selectedAgentId
+                            ? 'bg-brand-600 text-white shadow-md hover:bg-brand-500 transform hover:scale-105' 
+                            : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                        }`}
+                        disabled={!inputValue.trim() || isTyping || !selectedAgentId}
+                        onClick={handleSend}
+                      >
+                        {isTyping ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                      </button>
+                  </div>
               </div>
-              <div className="text-center mt-2">
+              <div className="text-center mt-2 flex items-center justify-center gap-1.5">
                  <span className="text-[10px] text-slate-400">AI can make mistakes. Verify important information.</span>
               </div>
            </div>

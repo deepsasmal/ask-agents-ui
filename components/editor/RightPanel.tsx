@@ -272,12 +272,20 @@ export const RightPanel: React.FC<RightPanelProps> = ({
 };
 
 // -- SUB COMPONENT --
-const PropertyRow = ({ originalKey, originalValue, onUpdateKey, onUpdateValue, onDelete }: {
+interface PropertyRowProps {
     originalKey: string;
     originalValue: string;
     onUpdateKey: (oldKey: string, newKey: string) => void;
     onUpdateValue: (key: string, value: string) => void;
     onDelete: () => void;
+}
+
+const PropertyRow: React.FC<PropertyRowProps> = ({ 
+    originalKey, 
+    originalValue, 
+    onUpdateKey, 
+    onUpdateValue, 
+    onDelete 
 }) => {
     const [key, setKey] = useState(originalKey);
     const [value, setValue] = useState(originalValue);

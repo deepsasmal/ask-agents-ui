@@ -1,5 +1,3 @@
-
-
 import { API_BASE_URL } from '../config';
 import { WizardState, Column } from '../types';
 
@@ -76,7 +74,7 @@ interface AiGenerateResponse {
 
 // Agent Interface
 export interface Agent {
-  id: string;
+  id: string; // Corresponds to agent_id
   name: string;
   description?: string;
   model?: {
@@ -84,6 +82,14 @@ export interface Agent {
     model: string;
     provider: string;
   };
+}
+
+export interface RunMetrics {
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+  time_to_first_token: number;
+  duration: number;
 }
 
 // Graph API Interfaces
@@ -386,7 +392,7 @@ export const agentApi = {
     return handleResponse<Agent[]>(response);
   },
 
-  runAgent: async (agentId: string, message: string, onChunk: (content: string) => void) => {
+  runAgent: async (agentId: string, message: string, onEvent: (event: string, data: any) => void) => {
     const formData = new FormData();
     formData.append('message', message);
     formData.append('stream', 'true');
@@ -412,24 +418,37 @@ export const agentApi = {
         if (done) break;
         
         buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
         
-        // Keep the last potentially incomplete line in the buffer
-        buffer = lines.pop() || '';
+        // Split by double newline which typically separates SSE messages
+        // NOTE: Sometimes they might come as single newlines depending on backend impl,
+        // but standard SSE is \n\n. The example shows \n between fields and \n\n between events.
+        const messages = buffer.split('\n\n');
+        
+        // Keep the last potentially incomplete chunk in the buffer
+        buffer = messages.pop() || '';
 
-        for (const line of lines) {
-            if (line.startsWith('data: ')) {
-                try {
-                    const jsonStr = line.slice(6).trim();
-                    if (jsonStr === '[DONE]') continue; 
+        for (const msg of messages) {
+            const lines = msg.split('\n');
+            let eventType = '';
+            let eventData = null;
+
+            for (const line of lines) {
+                if (line.startsWith('event: ')) {
+                    eventType = line.slice(7).trim();
+                } else if (line.startsWith('data: ')) {
+                    const dataStr = line.slice(6).trim();
+                    if (dataStr === '[DONE]') continue;
                     
-                    const data = JSON.parse(jsonStr);
-                    if (data.content) {
-                        onChunk(data.content);
+                    try {
+                        eventData = JSON.parse(dataStr);
+                    } catch (e) {
+                        console.warn('Failed to parse SSE data:', dataStr);
                     }
-                } catch (e) {
-                    console.warn('Failed to parse SSE line:', line);
                 }
+            }
+
+            if (eventType && eventData) {
+                onEvent(eventType, eventData);
             }
         }
     }
