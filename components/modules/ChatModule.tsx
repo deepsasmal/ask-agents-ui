@@ -296,10 +296,6 @@ export const ChatModule: React.FC = () => {
                          </div>
                      )}
                  </div>
-                 <div className="flex items-center gap-1.5">
-                    <span className={`w-1.5 h-1.5 rounded-full ${isLoadingAgents ? 'bg-slate-300' : 'bg-green-500 animate-pulse'}`}></span>
-                    <p className="text-xs text-slate-500">{isLoadingAgents ? 'Connecting...' : 'Online'}</p>
-                 </div>
               </div>
            </div>
            
@@ -484,31 +480,31 @@ export const ChatModule: React.FC = () => {
 
       {/* Tool Details Sidebar */}
       {selectedToolCall && (
-        <div className="absolute top-0 right-0 h-full w-[400px] bg-[#0f1117] text-slate-300 shadow-2xl z-50 animate-fade-in-left border-l border-slate-800 flex flex-col">
-            <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-[#0f1117]">
-                <h3 className="font-bold text-white text-lg tracking-tight">{selectedToolCall.name}</h3>
-                <button onClick={() => setSelectedToolCall(null)} className="text-slate-500 hover:text-white transition-colors">
+        <div className="absolute top-0 right-0 h-full w-[400px] bg-white text-slate-600 shadow-2xl z-50 animate-fade-in-left border-l border-slate-200 flex flex-col">
+            <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-white">
+                <h3 className="font-bold text-slate-900 text-lg tracking-tight">{selectedToolCall.name}</h3>
+                <button onClick={() => setSelectedToolCall(null)} className="text-slate-400 hover:text-slate-700 transition-colors">
                     <X className="w-5 h-5" />
                 </button>
             </div>
             
-            <div className="flex-1 overflow-y-auto custom-scrollbar-dark p-5 space-y-6">
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-6">
                 {/* Tool Name */}
                 <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider">
                         <Hammer className="w-3.5 h-3.5" /> Tool Name
                     </div>
-                    <div className="p-3 rounded-lg bg-[#1e293b] border border-slate-700 font-mono text-sm text-brand-400 font-bold">
+                    <div className="p-3 rounded-lg bg-brand-50 border border-brand-200 font-mono text-sm text-brand-700 font-bold">
                         {selectedToolCall.name}
                     </div>
                 </div>
 
                 {/* Tool Args */}
                 <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider">
                         <Terminal className="w-3.5 h-3.5" /> Tool Args
                     </div>
-                    <div className="p-3 rounded-lg bg-[#1e293b] border border-slate-700 font-mono text-xs text-slate-300 overflow-x-auto">
+                    <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 font-mono text-xs text-slate-700 overflow-x-auto">
                         <pre>{JSON.stringify(selectedToolCall.args, null, 2)}</pre>
                     </div>
                 </div>
@@ -516,13 +512,13 @@ export const ChatModule: React.FC = () => {
                 {/* Metrics */}
                 {selectedToolCall.duration !== undefined && (
                     <div className="space-y-2">
-                         <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                         <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider">
                             <BarChart2 className="w-3.5 h-3.5" /> Tool Metrics
                         </div>
-                        <div className="p-3 rounded-lg bg-[#1e293b] border border-slate-700">
+                        <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
                              <div className="flex items-center justify-between text-sm">
-                                <span className="text-slate-400">Duration</span>
-                                <span className="font-mono font-bold text-white">{selectedToolCall.duration.toFixed(4)} ms</span>
+                                <span className="text-slate-500">Duration</span>
+                                <span className="font-mono font-bold text-slate-900">{selectedToolCall.duration.toFixed(4)} ms</span>
                              </div>
                         </div>
                     </div>
@@ -530,10 +526,10 @@ export const ChatModule: React.FC = () => {
 
                 {/* Tool Result */}
                 <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider">
                         <Code className="w-3.5 h-3.5" /> Tool Result
                     </div>
-                    <div className="p-3 rounded-lg bg-[#1e293b] border border-slate-700 font-mono text-xs text-slate-300 overflow-x-auto min-h-[100px]">
+                    <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 font-mono text-xs text-slate-700 overflow-x-auto min-h-[100px]">
                         {selectedToolCall.result ? (
                              typeof selectedToolCall.result === 'string' ? (
                                 <pre className="whitespace-pre-wrap">{selectedToolCall.result}</pre>
@@ -541,7 +537,7 @@ export const ChatModule: React.FC = () => {
                                 <pre>{JSON.stringify(selectedToolCall.result, null, 2)}</pre>
                              )
                         ) : (
-                            <span className="text-slate-500 italic">No result available or tool running...</span>
+                            <span className="text-slate-400 italic">No result available or tool running...</span>
                         )}
                     </div>
                 </div>
