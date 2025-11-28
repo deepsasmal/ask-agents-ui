@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { TopBar } from './TopBar';
 import { LeftPanel } from './LeftPanel';
@@ -13,19 +14,10 @@ interface GraphEditorProps {
   initialGraphId?: string;
 }
 
-// Initial Mock Data
-const INITIAL_NODES: EditorNode[] = [
-    { id: '1', type: 'TECHNICAL', subType: 'TABLE', label: 'users', x: 100, y: 100, data: { description: 'Core user registry' } },
-    { id: '2', type: 'TECHNICAL', subType: 'TABLE', label: 'orders', x: 400, y: 100, data: { description: 'Transaction history' } },
-    { id: '3', type: 'BUSINESS', subType: 'ENTITY', label: 'Customer', x: 100, y: 300, data: { description: 'A person who purchases goods' } },
-    { id: '4', type: 'BUSINESS', subType: 'METRIC', label: 'LTV', x: 400, y: 300, data: { description: 'Lifetime Value' } },
-];
+// Initial Mock Data - Empty for production use
+const INITIAL_NODES: EditorNode[] = [];
 
-const INITIAL_EDGES: EditorEdge[] = [
-    { id: 'e1', source: '1', target: '2', label: 'HAS_COLUMN' },
-    { id: 'e2', source: '3', target: '1', label: 'MAPPED_TO' },
-    { id: 'e3', source: '3', target: '4', label: 'HAS_METRIC' },
-];
+const INITIAL_EDGES: EditorEdge[] = [];
 
 export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName, initialGraphId }) => {
   const [graphId, setGraphId] = useState(initialGraphId || '');

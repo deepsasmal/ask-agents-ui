@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Plus, Table, Columns, Briefcase, Calculator, Lightbulb, Gavel } from 'lucide-react';
 import { Button, Input } from '../ui/Common';
@@ -142,7 +141,14 @@ export const LeftPanel: React.FC<LeftPanelProps> = ({ onCreateNode }) => {
   );
 };
 
-const TypeButton = ({ icon, label, active, onClick }: { icon: React.ReactNode, label: string, active: boolean, onClick: () => void }) => (
+interface TypeButtonProps {
+  icon: React.ReactNode;
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}
+
+const TypeButton: React.FC<TypeButtonProps> = ({ icon, label, active, onClick }) => (
   <button
     onClick={onClick}
     className={`flex items-center gap-2 p-2.5 rounded-xl border text-sm font-medium transition-all ${

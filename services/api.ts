@@ -74,6 +74,18 @@ interface AiGenerateResponse {
   tables: AiTableDesc[];
 }
 
+// Agent Interface
+export interface Agent {
+  id: string;
+  name: string;
+  description?: string;
+  model?: {
+    name: string;
+    model: string;
+    provider: string;
+  };
+}
+
 // Graph API Interfaces
 interface GraphColumnProperties {
   type: string;
@@ -366,6 +378,62 @@ export const llmApi = {
     });
     return handleResponse<AiGenerateResponse>(response);
   },
+};
+
+export const agentApi = {
+  getAgents: async () => {
+    const response = await fetch(`${API_BASE_URL}/agents`);
+    return handleResponse<Agent[]>(response);
+  },
+
+  runAgent: async (agentId: string, message: string, onChunk: (content: string) => void) => {
+    const formData = new FormData();
+    formData.append('message', message);
+    formData.append('stream', 'true');
+
+    const response = await fetch(`${API_BASE_URL}/agents/${agentId}/runs`, {
+        method: 'POST',
+        body: formData,
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'Failed to run agent');
+    }
+    
+    if (!response.body) return;
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        
+        // Keep the last potentially incomplete line in the buffer
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+            if (line.startsWith('data: ')) {
+                try {
+                    const jsonStr = line.slice(6).trim();
+                    if (jsonStr === '[DONE]') continue; 
+                    
+                    const data = JSON.parse(jsonStr);
+                    if (data.content) {
+                        onChunk(data.content);
+                    }
+                } catch (e) {
+                    console.warn('Failed to parse SSE line:', line);
+                }
+            }
+        }
+    }
+  }
 };
 
 export const graphApi = {

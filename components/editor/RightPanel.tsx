@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Trash2, Network, Clock, Hash, Tag, Info, X, ArrowRightLeft, Plus } from 'lucide-react';
 import { Button, Input } from '../ui/Common';
@@ -106,7 +105,7 @@ export const RightPanel: React.FC<RightPanelProps> = ({
 
   // -- NODE EDITOR VIEW --
   if (selectedNode) {
-    const properties = selectedNode.data.properties || {};
+    const properties: Record<string, string> = selectedNode.data.properties || {};
 
     const handleAddProperty = () => {
         let counter = 1;
