@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Plus, Bot, User, MoreHorizontal, ChevronDown, Loader2, AlertCircle, Clock, Zap, Sparkles, StopCircle, RefreshCw, Copy, Check, BarChart2, Hammer, X, Terminal, Code, ChevronRight } from 'lucide-react';
+import { Send, Plus, Bot, User, MoreHorizontal, ChevronDown, Loader2, AlertCircle, Clock, Zap, Sparkles, StopCircle, RefreshCw, Copy, Check, BarChart2, Hammer, X, Terminal, Code, ChevronRight, Paperclip, ArrowUp, FileText } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Button } from '../ui/Common';
@@ -48,8 +48,17 @@ export const ChatModule: React.FC = () => {
   const [expandedMetricsId, setExpandedMetricsId] = useState<string | null>(null);
   const [selectedToolCall, setSelectedToolCall] = useState<ToolCall | null>(null);
   
+  // File Attachment State
+  const [files, setFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // UI States
+  const [showAgentMenu, setShowAgentMenu] = useState(false);
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const metricsRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const agentMenuRef = useRef<HTMLDivElement>(null);
 
   // Fetch agents on mount
   useEffect(() => {
@@ -83,21 +92,30 @@ export const ChatModule: React.FC = () => {
     fetchAgents();
   }, []);
 
-  // Handle click outside metrics card
+  // Handle click outside metrics card and agent menu
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (metricsRef.current && !metricsRef.current.contains(event.target as Node)) {
         setExpandedMetricsId(null);
       }
+      if (agentMenuRef.current && !agentMenuRef.current.contains(event.target as Node)) {
+        setShowAgentMenu(false);
+      }
     };
 
-    if (expandedMetricsId) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
+    document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [expandedMetricsId]);
+  }, []);
+
+  // Auto-resize textarea
+  useEffect(() => {
+    if (textareaRef.current) {
+        textareaRef.current.style.height = 'auto';
+        textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 200) + 'px';
+    }
+  }, [inputValue]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -108,10 +126,17 @@ export const ChatModule: React.FC = () => {
   }, [messages]);
 
   const handleSend = async () => {
-    if (!inputValue.trim() || !selectedAgentId) return;
+    if ((!inputValue.trim() && files.length === 0) || !selectedAgentId) return;
 
     const userText = inputValue;
+    const currentFiles = files;
+    
     setInputValue('');
+    setFiles([]);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    
+    if (textareaRef.current) textareaRef.current.style.height = 'auto'; // Reset height
+    
     setExpandedMetricsId(null); // Close any open metrics
     setSelectedToolCall(null);
     
@@ -119,7 +144,7 @@ export const ChatModule: React.FC = () => {
     const newUserMsg: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: userText,
+      content: userText + (currentFiles.length > 0 ? `\n[Attached ${currentFiles.length} file(s)]` : ''),
       timestamp: new Date()
     };
 
@@ -138,7 +163,7 @@ export const ChatModule: React.FC = () => {
     setIsTyping(true);
 
     try {
-        await agentApi.runAgent(selectedAgentId, userText, sessionId, (event, data) => {
+        await agentApi.runAgent(selectedAgentId, userText, sessionId, currentFiles, (event, data) => {
             if (event === 'RunContent') {
                 if (data.content) {
                     setMessages(prev => prev.map(msg => {
@@ -217,14 +242,13 @@ export const ChatModule: React.FC = () => {
     }
   };
 
-  const handleAgentChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-      const newAgentId = e.target.value;
-      setSelectedAgentId(newAgentId);
+  const handleAgentSelect = (agentId: string) => {
+      setSelectedAgentId(agentId);
+      setShowAgentMenu(false);
       setExpandedMetricsId(null);
-      setSessionId(generateUUID()); // Generate new session ID when switching agents
+      setSessionId(generateUUID());
       
-      const agent = agents.find(a => a.id === newAgentId);
-      // Reset chat when switching agents
+      const agent = agents.find(a => a.id === agentId);
       setMessages([
         {
             id: Date.now().toString(),
@@ -240,7 +264,10 @@ export const ChatModule: React.FC = () => {
       const agent = agents.find(a => a.id === selectedAgentId);
       setExpandedMetricsId(null);
       setSelectedToolCall(null);
-      setSessionId(generateUUID()); // Generate new session ID for new chat
+      setSessionId(generateUUID());
+      setFiles([]);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      
       setMessages([
         {
             id: Date.now().toString(),
@@ -255,11 +282,34 @@ export const ChatModule: React.FC = () => {
       setExpandedMetricsId(prev => prev === id ? null : id);
   };
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+        setFiles(prev => [...prev, ...Array.from(e.target.files!)]);
+    }
+    // Reset value so same file can be selected again if needed
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const removeFile = (index: number) => {
+    setFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const selectedAgent = agents.find(a => a.id === selectedAgentId);
+
   return (
     <div className="flex h-full bg-slate-50 overflow-hidden relative">
       
-      {/* Chat Sidebar / History */}
-      <div className="w-72 bg-white border-r border-slate-200 flex flex-col shrink-0 z-20 hidden md:flex">
+      {/* Hidden File Input */}
+      <input 
+        type="file" 
+        multiple 
+        ref={fileInputRef} 
+        className="hidden" 
+        onChange={handleFileSelect} 
+      />
+
+      {/* Chat Sidebar / History - Hidden on mobile */}
+      <div className="w-72 bg-white border-r border-slate-200 flex flex-col shrink-0 z-20 hidden lg:flex">
         <div className="p-4 border-b border-slate-100">
            <Button 
              className="w-full justify-start gap-3 shadow-brand-600/10 hover:shadow-brand-600/20" 
@@ -281,37 +331,13 @@ export const ChatModule: React.FC = () => {
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col min-w-0 relative">
-        {/* Header */}
-        <div className="h-16 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-6 sticky top-0 z-10">
+        {/* Simplified Header */}
+        <div className="h-14 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-6 sticky top-0 z-10">
            <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-50 to-white border border-brand-100 flex items-center justify-center shadow-sm text-brand-600">
                  <Bot className="w-5 h-5" />
               </div>
-              
-              <div className="flex flex-col">
-                 <div className="flex items-center gap-2">
-                     {isLoadingAgents ? (
-                         <div className="h-4 w-32 bg-slate-100 rounded animate-pulse" />
-                     ) : fetchError ? (
-                         <span className="text-sm font-bold text-red-500 flex items-center gap-1">
-                             <AlertCircle className="w-3 h-3" /> Error
-                         </span>
-                     ) : (
-                         <div className="relative group">
-                             <select 
-                                value={selectedAgentId} 
-                                onChange={handleAgentChange}
-                                className="appearance-none bg-transparent text-sm font-bold text-slate-900 pr-6 py-0.5 cursor-pointer focus:outline-none"
-                             >
-                                {agents.map(agent => (
-                                    <option key={agent.id} value={agent.id}>{agent.name}</option>
-                                ))}
-                             </select>
-                             <ChevronDown className="w-3 h-3 text-slate-400 absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none" />
-                         </div>
-                     )}
-                 </div>
-              </div>
+              <span className="font-bold text-slate-900">AI Assistant</span>
            </div>
            
            <button className="text-slate-400 hover:text-slate-600 p-2 rounded-lg hover:bg-slate-100 transition-colors">
@@ -320,33 +346,28 @@ export const ChatModule: React.FC = () => {
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-2 scroll-smooth">
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6 scroll-smooth pb-32">
           {messages.map((msg) => (
             <div 
               key={msg.id} 
-              className="w-full max-w-3xl mx-auto mb-6"
+              className="w-full max-w-3xl mx-auto"
             >
                {msg.role === 'user' ? (
                    // User Message
-                   <div className="flex gap-4 flex-row-reverse animate-fade-in">
-                       <div className="w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center shrink-0 shadow-sm">
-                           <User className="w-4 h-4 text-slate-600" />
-                       </div>
+                   <div className="flex gap-4 flex-row-reverse animate-fade-in group">
                        <div className="max-w-[80%]">
-                           <div className="px-5 py-3.5 bg-brand-600 text-white rounded-2xl rounded-tr-sm shadow-sm text-sm leading-relaxed whitespace-pre-wrap">
+                           <div className="px-5 py-3.5 bg-brand-50 text-slate-900 rounded-2xl rounded-tr-sm border border-brand-100 text-sm leading-relaxed whitespace-pre-wrap">
                                {msg.content}
-                           </div>
-                           <div className="text-[10px] text-slate-400 mt-1.5 text-right px-1">
-                               {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                            </div>
                        </div>
                    </div>
                ) : (
                    // Assistant Message
                    <div className="flex flex-col gap-2">
-                       <div className="flex gap-4 animate-fade-in items-start">
-                           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-100 to-white border border-brand-200 flex items-center justify-center shrink-0 shadow-sm mt-1 ring-1 ring-brand-50">
-                               <Bot className="w-5 h-5 text-brand-600" />
+                       <div className="flex gap-4 animate-fade-in items-start group">
+                           {/* Avatar removed as per request for cleaner look, integrated into message block implied */}
+                           <div className="w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center shrink-0 shadow-sm mt-1">
+                               <Sparkles className="w-4 h-4 text-brand-600" />
                            </div>
                            
                            <div className="flex-1 min-w-0 flex flex-col items-start space-y-2">
@@ -358,7 +379,7 @@ export const ChatModule: React.FC = () => {
                                           <button 
                                             key={idx}
                                             onClick={() => setSelectedToolCall(toolCall)}
-                                            className="flex items-center gap-2 pl-3 pr-4 py-2 bg-white text-slate-600 rounded-xl text-xs font-mono hover:border-brand-200 hover:shadow-md transition-all shadow-sm border border-slate-200 group w-fit"
+                                            className="flex items-center gap-2 pl-3 pr-4 py-2 bg-white text-slate-600 rounded-xl text-xs font-mono hover:border-brand-200 hover:shadow-md transition-all shadow-sm border border-slate-200 group/tool w-fit"
                                           >
                                               <div className="w-5 h-5 rounded bg-brand-50 flex items-center justify-center shrink-0 border border-brand-100">
                                                  <Hammer className="w-3 h-3 text-brand-600" />
@@ -366,7 +387,7 @@ export const ChatModule: React.FC = () => {
                                               <span className="font-bold text-slate-700">{toolCall.status === 'running' ? 'Running Tool' : 'Tool Called'}</span>
                                               <span className="text-slate-300">|</span>
                                               <span className="text-brand-600 font-medium">{toolCall.name}</span>
-                                              <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-brand-600 transition-colors ml-1" />
+                                              <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover/tool:text-brand-600 transition-colors ml-1" />
                                           </button>
                                       ))}
                                   </div>
@@ -375,16 +396,16 @@ export const ChatModule: React.FC = () => {
                               {/* Thinking Indicator */}
                               {msg.isStreaming && (
                                   <div className="flex items-center gap-3 animate-fade-in pl-1">
-                                      <div className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 rounded-lg shadow-sm">
+                                      <div className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 rounded-full shadow-sm">
                                           <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-600" />
                                           <span className="text-xs font-bold text-slate-700">Thinking...</span>
                                       </div>
                                   </div>
                               )}
 
-                              {/* Content - No bubble, Markdown rendered */}
+                              {/* Content - Clean Markdown */}
                               {(msg.content || (!msg.isStreaming && (!msg.toolCalls || msg.toolCalls.length === 0))) && (
-                                  <div className={`text-sm leading-relaxed w-full pt-1
+                                  <div className={`text-sm leading-relaxed w-full
                                     ${msg.error ? 'text-red-600' : 'text-slate-800'}`}
                                   >
                                     <ReactMarkdown 
@@ -402,13 +423,13 @@ export const ChatModule: React.FC = () => {
                               
                               {/* Actions Bar (Copy & Metrics) */}
                               {!msg.isStreaming && !msg.error && (
-                                  <div className="flex items-center gap-1 pt-1 opacity-60 hover:opacity-100 transition-opacity">
+                                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                       <button 
                                           onClick={() => navigator.clipboard.writeText(msg.content)}
                                           className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
                                           title="Copy to clipboard"
                                       >
-                                          <Copy className="w-4 h-4" />
+                                          <Copy className="w-3.5 h-3.5" />
                                       </button>
                                       
                                       {msg.metrics && (
@@ -417,7 +438,7 @@ export const ChatModule: React.FC = () => {
                                               className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 ${expandedMetricsId === msg.id ? 'text-brand-600 bg-brand-50 ring-1 ring-brand-200' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}
                                               title="View Run Metrics"
                                           >
-                                              <BarChart2 className="w-4 h-4" />
+                                              <BarChart2 className="w-3.5 h-3.5" />
                                           </button>
                                       )}
                                   </div>
@@ -460,38 +481,117 @@ export const ChatModule: React.FC = () => {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input Area */}
-        <div className="p-4 bg-white border-t border-slate-200">
-           <div className="max-w-3xl mx-auto">
-              <div className="relative flex items-center gap-3 bg-white rounded-xl border border-slate-200 p-2 pl-4 shadow-sm focus-within:ring-2 focus-within:ring-brand-500/20 focus-within:border-brand-500 transition-all">
-                  <input
-                    className="flex-1 py-2 bg-transparent text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none disabled:cursor-not-allowed"
-                    placeholder={isLoadingAgents ? "Loading agents..." : "Ask anything about your data..."}
-                    value={inputValue}
-                    onChange={(e) => setInputValue(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    autoFocus
-                    disabled={isTyping || isLoadingAgents || !selectedAgentId}
-                  />
-                  <div className="absolute inset-x-0 bottom-0 top-0 pointer-events-none rounded-xl bg-gradient-to-r from-transparent via-transparent to-white/10" />
-                  <div className="flex items-center gap-2">
-                      <button
-                        className={`h-9 w-9 flex items-center justify-center rounded-lg transition-all duration-200 ${
-                          inputValue.trim() && !isTyping && selectedAgentId
-                            ? 'bg-brand-600 text-white shadow-md hover:bg-brand-500 transform hover:scale-105' 
-                            : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                        }`}
-                        disabled={!inputValue.trim() || isTyping || !selectedAgentId}
-                        onClick={handleSend}
-                      >
-                        {isTyping ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                      </button>
-                  </div>
-              </div>
-              <div className="text-center mt-2 flex items-center justify-center gap-1.5">
-                 <span className="text-[10px] text-slate-400">AI can make mistakes. Verify important information.</span>
-              </div>
-           </div>
+        {/* Floating Input Area */}
+        <div className="absolute bottom-6 left-0 right-0 px-4 md:px-8 pointer-events-none">
+            <div className="max-w-3xl mx-auto pointer-events-auto">
+                <div 
+                    className={`
+                        relative bg-white rounded-2xl border border-slate-200 shadow-2xl shadow-slate-200/50 p-4 
+                        transition-all duration-300
+                        ${isTyping ? 'ring-2 ring-brand-500/10 border-brand-200' : 'focus-within:ring-2 focus-within:ring-brand-500/20 focus-within:border-brand-500'}
+                    `}
+                >
+                    {files.length > 0 && (
+                        <div className="flex gap-3 overflow-x-auto py-2 mb-2 custom-scrollbar">
+                            {files.map((file, idx) => (
+                                <div key={idx} className="relative group/file flex items-center gap-3 p-2 pr-8 bg-slate-50 border border-slate-200 rounded-xl min-w-[160px] max-w-[220px] shrink-0">
+                                    <div className="w-10 h-10 rounded-lg bg-white border border-slate-200 flex items-center justify-center shrink-0 overflow-hidden">
+                                        {file.type.startsWith('image/') ? (
+                                            <img src={URL.createObjectURL(file)} alt={file.name} className="w-full h-full object-cover" />
+                                        ) : (
+                                            <FileText className="w-5 h-5 text-brand-600" />
+                                        )}
+                                    </div>
+                                    <div className="flex flex-col min-w-0">
+                                        <span className="text-xs font-bold text-slate-700 truncate block w-full" title={file.name}>{file.name}</span>
+                                        <span className="text-[10px] text-slate-400 font-mono">{(file.size / 1024).toFixed(0)}KB</span>
+                                    </div>
+                                    <button 
+                                        onClick={() => removeFile(idx)}
+                                        className="absolute top-1 right-1 p-1 bg-white rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 border border-transparent hover:border-red-100 transition-all opacity-0 group-hover/file:opacity-100 shadow-sm"
+                                    >
+                                        <X className="w-3 h-3" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    <textarea
+                        ref={textareaRef}
+                        className="w-full bg-transparent border-none focus:ring-0 resize-none text-sm text-slate-900 placeholder:text-slate-400 min-h-[40px] max-h-[200px] overflow-y-auto custom-scrollbar py-1"
+                        placeholder={isLoadingAgents ? "Loading agents..." : "Ask anything about your data..."}
+                        value={inputValue}
+                        onChange={(e) => setInputValue(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        autoFocus
+                        disabled={isTyping || isLoadingAgents || !selectedAgentId}
+                        rows={1}
+                    />
+                    
+                    <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-50">
+                        {/* Left Actions */}
+                        <div className="flex items-center gap-2">
+                            <button 
+                                onClick={() => fileInputRef.current?.click()}
+                                className="text-slate-400 hover:text-slate-600 p-2 rounded-lg hover:bg-slate-50 transition-colors"
+                                title="Attach files"
+                            >
+                                <Paperclip className="w-4.5 h-4.5" />
+                            </button>
+                        </div>
+
+                        {/* Right Actions */}
+                        <div className="flex items-center gap-3">
+                            {/* Agent Selector */}
+                            <div className="relative" ref={agentMenuRef}>
+                                <button 
+                                    onClick={() => setShowAgentMenu(!showAgentMenu)}
+                                    className="flex items-center gap-2 px-3 py-1.5 bg-brand-50 text-brand-700 rounded-full text-[10px] font-bold uppercase tracking-wider hover:bg-brand-100 transition-colors border border-brand-100"
+                                >
+                                    {selectedAgent?.name || 'Select Agent'}
+                                    <Sparkles className="w-3 h-3" />
+                                </button>
+                                
+                                {/* Agent Dropdown */}
+                                {showAgentMenu && (
+                                    <div className="absolute bottom-full right-0 mb-2 w-56 bg-white rounded-xl shadow-xl border border-slate-200 py-1 overflow-hidden animate-fade-in-up z-50">
+                                        <div className="px-3 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50 border-b border-slate-100">
+                                            Switch Agent
+                                        </div>
+                                        {agents.map(agent => (
+                                            <button
+                                                key={agent.id}
+                                                onClick={() => handleAgentSelect(agent.id)}
+                                                className={`w-full text-left px-4 py-2.5 text-xs font-medium hover:bg-slate-50 transition-colors flex items-center justify-between ${selectedAgentId === agent.id ? 'text-brand-600 bg-brand-50/50' : 'text-slate-700'}`}
+                                            >
+                                                {agent.name}
+                                                {selectedAgentId === agent.id && <Check className="w-3 h-3" />}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Send Button */}
+                            <button
+                                className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-200 ${
+                                (inputValue.trim() || files.length > 0) && !isTyping && selectedAgentId
+                                    ? 'bg-brand-600 text-white shadow-lg shadow-brand-500/30 hover:bg-brand-500 hover:scale-105 active:scale-95' 
+                                    : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                }`}
+                                disabled={(!inputValue.trim() && files.length === 0) || isTyping || !selectedAgentId}
+                                onClick={handleSend}
+                            >
+                                {isTyping ? <Loader2 className="w-4.5 h-4.5 animate-spin" /> : <ArrowUp className="w-5 h-5" />}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div className="text-center mt-3">
+                     <span className="text-[10px] text-slate-400 font-medium">AI can make mistakes. Check important info.</span>
+                </div>
+            </div>
         </div>
       </div>
 
