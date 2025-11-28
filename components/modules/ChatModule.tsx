@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Plus, Bot, MoreHorizontal, Loader2, Sparkles, Copy, BarChart2, Hammer, X, Terminal, Code, ChevronRight, Paperclip, ArrowUp, FileText, Check, PanelLeft, MessageSquareText } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
@@ -118,12 +119,33 @@ export const ChatModule: React.FC = () => {
   }, [inputValue]);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   };
 
+  // Scroll behavior logic
   useEffect(() => {
+    if (messages.length === 0) return;
+
+    const lastMsg = messages[messages.length - 1];
+
+    // Detect if this is a new conversation turn (User asked, Bot started answering)
+    // We check if the last message is an assistant message that is currently streaming.
+    if (lastMsg.role === 'assistant' && lastMsg.isStreaming) {
+        const prevMsg = messages[messages.length - 2];
+        // If the previous message was from the user, scroll that user message to the top
+        if (prevMsg?.role === 'user') {
+            const el = document.getElementById(`message-${prevMsg.id}`);
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                return;
+            }
+        }
+    }
+
+    // Default: Scroll to bottom for other events (initial load, agent switch, etc.)
+    // We rely on messages.length changing to trigger this, so it won't fire during streaming content updates
     scrollToBottom();
-  }, [messages]);
+  }, [messages.length, selectedAgentId]);
 
   const handleSend = async () => {
     if ((!inputValue.trim() && files.length === 0) || !selectedAgentId) return;
@@ -362,10 +384,11 @@ export const ChatModule: React.FC = () => {
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6 scroll-smooth pb-32">
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6 scroll-smooth pb-64">
           {messages.map((msg) => (
             <div 
               key={msg.id} 
+              id={`message-${msg.id}`}
               className="w-full max-w-3xl mx-auto"
             >
                {msg.role === 'user' ? (
