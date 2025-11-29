@@ -49,6 +49,19 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
     <div className="flex h-screen w-full bg-white overflow-hidden font-sans">
       {/* Left Panel - Form */}
       <div className="w-full lg:w-[45%] xl:w-[40%] flex flex-col justify-center p-8 md:p-12 lg:p-16 h-full overflow-y-auto [&::-webkit-scrollbar]:hidden relative bg-white z-10">
+        
+        {/* Developer Bypass Button */}
+        <button 
+            onClick={() => {
+                localStorage.setItem('auth_token', 'dev-bypass-token');
+                onLogin();
+            }}
+            className="absolute top-4 left-4 text-[10px] font-mono text-slate-300 hover:text-red-500 border border-transparent hover:border-red-100 px-2 py-1 rounded transition-colors"
+            title="Developer Bypass: Skip Authentication"
+        >
+            [DEV: BYPASS AUTH]
+        </button>
+
         <div className="max-w-md w-full mx-auto flex flex-col h-full justify-center">
             {/* Logo */}
             <div className="flex items-center gap-3 mb-10 shrink-0">
