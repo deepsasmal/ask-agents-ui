@@ -1,15 +1,16 @@
 
 import React, { useState } from 'react';
-import { AtSign, Network, LayoutDashboard, MessageSquareText, Settings, LogOut, PanelLeftClose, PanelLeft, ChevronRight, Home } from 'lucide-react';
+import { Network, LayoutDashboard, MessageSquareText, Settings, LogOut, PanelLeftClose, PanelLeft, ChevronRight, Home } from 'lucide-react';
 import { GraphBuilderModule } from './components/modules/GraphBuilderModule';
 import { ChatModule } from './components/modules/ChatModule';
 import { LandingPageModule } from './components/modules/LandingPageModule';
 import { LoginPage } from './components/auth/LoginPage';
+import { authApi } from './services/api';
 
 type Module = 'LANDING' | 'GRAPH_BUILDER' | 'CHAT' | 'SETTINGS';
 
 const App: React.FC = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(authApi.isAuthenticated());
   const [activeModule, setActiveModule] = useState<Module>('LANDING');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isChatHistoryOpen, setIsChatHistoryOpen] = useState(true);
@@ -30,6 +31,7 @@ const App: React.FC = () => {
   };
 
   const handleLogout = () => {
+      authApi.logout();
       setIsAuthenticated(false);
       setActiveModule('LANDING');
   };

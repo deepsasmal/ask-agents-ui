@@ -1,7 +1,8 @@
 
 import React, { useState } from 'react';
-import { Network, Eye, EyeOff, Mail, Lock, Sparkles } from 'lucide-react';
+import { Network, Eye, EyeOff, Mail, Lock, Sparkles, AlertCircle } from 'lucide-react';
 import { Button } from '../ui/Common';
+import { authApi, ApiError } from '../../services/api';
 
 interface LoginPageProps {
   onLogin: () => void;
@@ -13,15 +14,35 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
+    setError(null);
+    
+    try {
+        if (activeTab === 'signin') {
+            await authApi.login(email, password);
+            onLogin();
+        } else {
+             // Mock signup for now as no endpoint was provided for signup in this context
+            setTimeout(() => {
+                setIsLoading(false);
+                // For demo purposes, we can pretend signup also logs them in, 
+                // or redirect to signin.
+                onLogin();
+            }, 1000);
+        }
+    } catch (err) {
+        if (err instanceof ApiError) {
+            setError(err.message);
+        } else {
+            setError('Failed to authenticate. Please check your credentials.');
+        }
+    } finally {
         setIsLoading(false);
-        onLogin();
-    }, 1500);
+    }
   };
 
   return (
@@ -44,13 +65,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                 {/* Tabs */}
                 <div className="flex bg-slate-100 p-1 rounded-xl mb-8">
                     <button
-                        onClick={() => setActiveTab('signin')}
+                        onClick={() => { setActiveTab('signin'); setError(null); }}
                         className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all ${activeTab === 'signin' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                     >
                         Sign In
                     </button>
                     <button
-                        onClick={() => setActiveTab('signup')}
+                        onClick={() => { setActiveTab('signup'); setError(null); }}
                         className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all ${activeTab === 'signup' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                     >
                         Sign Up
@@ -58,15 +79,22 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-5">
+                    {error && (
+                        <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 text-red-600 text-sm border border-red-100 animate-fade-in">
+                            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                            <span>{error}</span>
+                        </div>
+                    )}
+
                     <div className="space-y-1.5">
-                        <label className="text-sm font-bold text-slate-700 ml-1">Email Address</label>
+                        <label className="text-sm font-bold text-slate-700 ml-1">Email Address / Username</label>
                         <div className="relative group">
                             <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-brand-500 transition-colors" />
                             <input
-                                type="email"
+                                type="text"
                                 required
                                 placeholder="Enter your email"
-                                className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all shadow-sm hover:border-brand-300"
+                                className={`w-full pl-11 pr-4 py-3 bg-white border rounded-xl text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 transition-all shadow-sm ${error ? 'border-red-300 focus:border-red-500' : 'border-slate-200 focus:border-brand-500 hover:border-brand-300'}`}
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                             />
@@ -81,7 +109,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                                 type={showPassword ? "text" : "password"}
                                 required
                                 placeholder="Enter your password"
-                                className="w-full pl-11 pr-11 py-3 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all shadow-sm hover:border-brand-300"
+                                className={`w-full pl-11 pr-11 py-3 bg-white border rounded-xl text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 transition-all shadow-sm ${error ? 'border-red-300 focus:border-red-500' : 'border-slate-200 focus:border-brand-500 hover:border-brand-300'}`}
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                             />

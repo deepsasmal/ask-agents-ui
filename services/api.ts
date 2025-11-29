@@ -157,6 +157,18 @@ interface GraphEditPayload {
   };
 }
 
+// Auth Interfaces
+interface LoginResponse {
+  access_token: string;
+  token_type: string;
+}
+
+// Helper to get Auth Headers
+export const getAuthHeaders = () => {
+  const token = localStorage.getItem('auth_token');
+  return token ? { 'Authorization': `Bearer ${token}` } : {};
+};
+
 // Mock Data for Fallback
 const MOCK_SEARCH_RESULTS: SearchResponse = {
   "nodes": [
@@ -310,11 +322,43 @@ const MOCK_SEARCH_RESULTS: SearchResponse = {
   ]
 };
 
+export const authApi = {
+  login: async (username: string, password: string) => {
+    const params = new URLSearchParams();
+    params.append('username', username);
+    params.append('password', password);
+
+    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'accept': 'application/json'
+      },
+      body: params
+    });
+    
+    const data = await handleResponse<LoginResponse>(response);
+    if (data.access_token) {
+        localStorage.setItem('auth_token', data.access_token);
+    }
+    return data;
+  },
+  logout: () => {
+    localStorage.removeItem('auth_token');
+  },
+  isAuthenticated: () => {
+    return !!localStorage.getItem('auth_token');
+  }
+};
+
 export const postgresApi = {
   connect: async (details: Pick<WizardState, 'dbHost' | 'dbPort' | 'dbUser' | 'dbPass' | 'dbName'>) => {
     const response = await fetch(`${API_BASE_URL}/postgres/connect`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        ...getAuthHeaders()
+      },
       body: JSON.stringify({
         host: details.dbHost,
         port: parseInt(details.dbPort, 10),
@@ -328,14 +372,20 @@ export const postgresApi = {
 
   getSchemas: async (connectionId: string) => {
     const response = await fetch(`${API_BASE_URL}/postgres/schemas`, {
-      headers: { 'X-Connection-ID': connectionId },
+      headers: { 
+        'X-Connection-ID': connectionId,
+        ...getAuthHeaders()
+      },
     });
     return handleResponse<SchemasResponse>(response);
   },
 
   getTables: async (connectionId: string, schema: string) => {
     const response = await fetch(`${API_BASE_URL}/postgres/schemas/${schema}/tables`, {
-      headers: { 'X-Connection-ID': connectionId },
+      headers: { 
+        'X-Connection-ID': connectionId,
+        ...getAuthHeaders()
+      },
     });
     return handleResponse<TablesResponse>(response);
   },
@@ -344,7 +394,10 @@ export const postgresApi = {
     const response = await fetch(
       `${API_BASE_URL}/postgres/tables/${table}/columns?schema_name=${schema}`,
       {
-        headers: { 'X-Connection-ID': connectionId },
+        headers: { 
+          'X-Connection-ID': connectionId,
+          ...getAuthHeaders()
+        },
       }
     );
     const data = await handleResponse<ColumnsResponse>(response);
@@ -363,7 +416,10 @@ export const postgresApi = {
     const response = await fetch(
       `${API_BASE_URL}/postgres/tables/${table}/foreign_keys?schema_name=${schema}`,
       {
-        headers: { 'X-Connection-ID': connectionId },
+        headers: { 
+          'X-Connection-ID': connectionId,
+          ...getAuthHeaders()
+        },
       }
     );
     return handleResponse<ForeignKeysResponse>(response);
@@ -376,7 +432,8 @@ export const llmApi = {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
-        'X-Connection-ID': connectionId
+        'X-Connection-ID': connectionId,
+        ...getAuthHeaders()
       },
       body: JSON.stringify({
         schema_name: schemaName,
@@ -389,7 +446,9 @@ export const llmApi = {
 
 export const agentApi = {
   getAgents: async () => {
-    const response = await fetch(`${API_BASE_URL}/agents`);
+    const response = await fetch(`${API_BASE_URL}/agents`, {
+      headers: { ...getAuthHeaders() }
+    });
     return handleResponse<Agent[]>(response);
   },
 
@@ -405,8 +464,12 @@ export const agentApi = {
       });
     }
 
+    const token = localStorage.getItem('auth_token');
+    const headers: HeadersInit = token ? { 'Authorization': `Bearer ${token}` } : {};
+
     const response = await fetch(`${API_BASE_URL}/agents/${agentId}/runs`, {
         method: 'POST',
+        headers: headers,
         body: formData,
     });
 
@@ -428,8 +491,6 @@ export const agentApi = {
         buffer += decoder.decode(value, { stream: true });
         
         // Split by double newline which typically separates SSE messages
-        // NOTE: Sometimes they might come as single newlines depending on backend impl,
-        // but standard SSE is \n\n. The example shows \n between fields and \n\n between events.
         const messages = buffer.split('\n\n');
         
         // Keep the last potentially incomplete chunk in the buffer
@@ -467,7 +528,10 @@ export const graphApi = {
   updateGraphSchema: async (payload: GraphUpdatePayload) => {
     const response = await fetch(`${API_BASE_URL}/graph/update_graph_schema_in_db`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        ...getAuthHeaders()
+      },
       body: JSON.stringify(payload),
     });
     return handleResponse<GraphUpdateResponse>(response);
@@ -476,7 +540,10 @@ export const graphApi = {
   createGraphFromMetadata: async (graphId: string, options?: { enableTextIndexing?: boolean; enableVectorSearch?: boolean }) => {
     const response = await fetch(`${API_BASE_URL}/graph/create_graph_from_metadata`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        ...getAuthHeaders()
+      },
       body: JSON.stringify({
         graph_id: graphId,
         enable_text_indexing: options?.enableTextIndexing ?? false,
@@ -490,7 +557,10 @@ export const graphApi = {
     try {
       const response = await fetch(`${API_BASE_URL}/graph/search_nodes`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...getAuthHeaders()
+        },
         body: JSON.stringify({
           graph_id: graphId,
           search_term: searchTerm
@@ -509,7 +579,10 @@ export const graphApi = {
   saveGraphDraft: async (payload: GraphEditPayload) => {
     const response = await fetch(`${API_BASE_URL}/graph/save_graph_draft`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        ...getAuthHeaders()
+      },
       body: JSON.stringify(payload),
     });
     return handleResponse<{ message: string; status: string }>(response);
@@ -518,7 +591,10 @@ export const graphApi = {
   publishEditedGraph: async (payload: GraphEditPayload) => {
     const response = await fetch(`${API_BASE_URL}/graph/publish_edited_graph`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        ...getAuthHeaders()
+      },
       body: JSON.stringify(payload),
     });
     return handleResponse<{ message: string; graph_id?: string }>(response);
