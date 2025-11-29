@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowRight, ArrowLeft, ChevronRight, Wand2, Database, KeyRound, Link as LinkIcon, Table2, Info, ChevronDown, Loader2, RefreshCw, Sparkles, Bot, CheckSquare, Square } from 'lucide-react';
 import { Button, Card } from '../ui/Common';
@@ -384,7 +383,6 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
 
         const response = await graphApi.updateGraphSchema(payload);
         
-        // Store the returned ID from the backend to be used in the next step
         if (response.id) {
             updateData({ graphId: response.id });
         }
@@ -402,8 +400,8 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
   const isTableLoading = (id: string) => loadingColumns.has(id);
 
   return (
-    <div className="h-full flex flex-col animate-fade-in">
-      <div className="mb-8 flex items-center justify-between">
+    <div className="h-full flex flex-col animate-fade-in pb-2">
+      <div className="mb-4 flex items-center justify-between shrink-0">
         <div>
             <h2 className="text-3xl font-bold text-slate-900">Schema Selection</h2>
             <p className="text-slate-500 mt-1">Select tables and enrich metadata for the graph.</p>
@@ -414,11 +412,11 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
         </div>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-8 items-start">
+      <div className="flex flex-col lg:flex-row gap-6 items-start h-full min-h-0">
         {/* Left Sidebar: Table List */}
-        <div className="lg:w-1/3 flex-shrink-0 sticky top-6">
-          <Card className="shadow-supreme border-0" noPadding>
-            <div className="p-5 border-b border-slate-100 bg-slate-50/50 space-y-4">
+        <div className="lg:w-1/3 flex-shrink-0 h-full flex flex-col">
+          <Card className="shadow-supreme border-0 flex flex-col h-full" noPadding>
+            <div className="p-5 border-b border-slate-100 bg-slate-50/50 space-y-4 shrink-0">
                 <div>
                     <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Schema Source</label>
                     <div className="relative group">
@@ -474,7 +472,7 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
                 )}
             </div>
             
-            <div className="divide-y divide-slate-100 max-h-[600px] overflow-y-auto custom-scrollbar relative min-h-[200px]">
+            <div className="divide-y divide-slate-100 flex-1 overflow-y-auto custom-scrollbar relative">
                 {isLoadingTables && (
                     <div className="absolute inset-0 bg-white/80 flex items-center justify-center z-10 backdrop-blur-sm">
                         <Loader2 className="w-8 h-8 text-brand-600 animate-spin" />
@@ -526,8 +524,8 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
         </div>
 
         {/* Main Area: Column Details */}
-        <div className="flex-1 sticky top-6 min-w-0">
-            <Card className="h-[calc(100vh-6rem)] shadow-supreme border-0" noPadding>
+        <div className="flex-1 min-w-0 h-full flex flex-col">
+            <Card className="h-full flex flex-col shadow-supreme border-0" noPadding>
                 {expandedTableId ? (
                     (() => {
                         const table = data.tables.find(t => t.id === expandedTableId)!;
@@ -563,7 +561,6 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
                                         </div>
                                     </div>
                                     
-                                    {/* Table Description Input */}
                                     <div className="flex gap-3 group/input relative">
                                         <input
                                             className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all shadow-sm hover:bg-white hover:border-brand-300"
@@ -614,7 +611,6 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
                                     )}
                                 </div>
 
-                                {/* Scrollable Columns List */}
                                 <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
                                     {table.columns.length === 0 ? (
                                          <div className="text-center py-10 text-slate-400 italic">No columns found</div>
@@ -689,7 +685,7 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
         </div>
       </div>
 
-      <div className="flex justify-between pt-10 pb-4">
+      <div className="flex justify-between pt-4 pb-2 shrink-0">
         <Button variant="ghost" onClick={onBack} leftIcon={<ArrowLeft className="w-4 h-4" />}>
           Back
         </Button>

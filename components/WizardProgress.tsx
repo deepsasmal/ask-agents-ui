@@ -22,7 +22,7 @@ export const WizardProgress: React.FC<WizardProgressProps> = ({ currentStep }) =
   const progressPercentage = Math.min(100, ((currentStep - 1) / (totalSteps - 1)) * 100);
 
   return (
-    <div className="w-full max-w-4xl mx-auto mb-16 px-4">
+    <div className="w-full max-w-4xl mx-auto px-4">
       <div className="relative">
         {/* Track Background - Dashed Line */}
         {/* Centered vertically relative to the 48px (h-12) circles. Top 24px is center. */}

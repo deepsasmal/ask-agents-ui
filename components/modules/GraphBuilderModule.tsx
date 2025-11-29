@@ -7,7 +7,7 @@ import { DbConnectStep } from '../steps/DbConnectStep';
 import { SchemaStep } from '../steps/SchemaStep';
 import { ReviewStep } from '../steps/ReviewStep';
 import { GraphEditor } from '../editor/GraphEditor';
-import { Network, Wand2, Edit3 } from 'lucide-react';
+import { Network, Wand2, Edit3, Share2 } from 'lucide-react';
 
 const INITIAL_STATE: WizardState = {
   orgName: '',
@@ -83,7 +83,32 @@ export const GraphBuilderModule: React.FC = () => {
   };
 
   return (
-    <div className="h-full flex flex-col bg-[#f8fafc]">
+    <div className="h-full flex flex-col bg-[#f8fafc] relative overflow-hidden">
+      
+      {/* Background Visuals */}
+      <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+        {/* Grid Pattern */}
+        <div className="absolute inset-0 opacity-[0.03]" 
+             style={{ 
+                 backgroundImage: 'radial-gradient(#0f172a 1px, transparent 1px)', 
+                 backgroundSize: '24px 24px' 
+             }} 
+        />
+        
+        {/* Abstract Shapes */}
+        <div className="absolute -top-[10%] -left-[10%] w-[50vw] h-[50vw] bg-brand-200/20 rounded-full blur-[100px] animate-pulse-slow" />
+        <div className="absolute bottom-0 right-0 w-[40vw] h-[40vw] bg-blue-100/30 rounded-full blur-[80px]" />
+        
+        {/* Network Lines Decoration */}
+        <svg className="absolute inset-0 w-full h-full opacity-[0.08]" xmlns="http://www.w3.org/2000/svg">
+            <path d="M100,100 C300,300 800,100 900,400" fill="none" stroke="#10b981" strokeWidth="2" strokeDasharray="10 10" />
+            <path d="M-50,600 C200,400 600,800 1200,500" fill="none" stroke="#6366f1" strokeWidth="2" strokeDasharray="10 10" />
+            <circle cx="100" cy="100" r="6" fill="#10b981" className="animate-ping" style={{ animationDuration: '3s' }} />
+            <circle cx="900" cy="400" r="6" fill="#10b981" />
+            <circle cx="1200" cy="500" r="6" fill="#6366f1" />
+        </svg>
+      </div>
+
       {/* Module Header */}
       <div className="h-16 bg-white/80 border-b border-slate-200/60 flex items-center justify-between px-6 sticky top-0 z-40 backdrop-blur-xl shrink-0">
         <div className="flex items-center gap-4">
@@ -122,14 +147,19 @@ export const GraphBuilderModule: React.FC = () => {
       </div>
 
       {viewMode === 'WIZARD' ? (
-          <div className="flex-1 max-w-7xl mx-auto px-4 py-8 md:py-12 relative w-full overflow-y-auto">
-            <WizardProgress currentStep={currentStep} />
-            <div className="transition-all duration-500 ease-in-out pb-20">
-              {renderWizardStep()}
+          <div className="flex-1 flex flex-col relative w-full overflow-hidden z-10">
+            <div className="shrink-0 pt-8 pb-4 px-4">
+              <WizardProgress currentStep={currentStep} />
+            </div>
+            
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-4 flex justify-center">
+               <div className="w-full max-w-7xl h-full flex flex-col">
+                  {renderWizardStep()}
+               </div>
             </div>
           </div>
       ) : (
-          <div className="flex-1 overflow-hidden animate-fade-in">
+          <div className="flex-1 overflow-hidden animate-fade-in z-10 relative">
               <GraphEditor 
                 projectName={wizardData.projectName || 'Untitled Graph'} 
                 initialGraphId={wizardData.graphId}
