@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Bot, MoreHorizontal, Loader2, Sparkles, Copy, BarChart2, Hammer, X, Terminal, Code, ChevronRight, Paperclip, ArrowUp, FileText, Check, MessageSquareText, Network } from 'lucide-react';
+import { Plus, Bot, MoreHorizontal, Loader2, Sparkles, Copy, BarChart2, Hammer, X, Terminal, Code, ChevronRight, Paperclip, ArrowUp, FileText, Check, MessageSquareText, Network, User } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Button } from '../ui/Common';
@@ -65,6 +65,11 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
   // UI States
   const [showAgentMenu, setShowAgentMenu] = useState(false);
   
+  // Mention / Agent Switch States
+  const [showMentionPopup, setShowMentionPopup] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState('');
+  const [mentionSelectedIndex, setMentionSelectedIndex] = useState(0);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const metricsRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -134,14 +139,10 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
   // Scroll behavior logic
   useEffect(() => {
     if (messages.length === 0) return;
-
     const lastMsg = messages[messages.length - 1];
 
-    // Detect if this is a new conversation turn (User asked, Bot started answering)
-    // We check if the last message is an assistant message that is currently streaming.
     if (lastMsg.role === 'assistant' && lastMsg.isStreaming) {
         const prevMsg = messages[messages.length - 2];
-        // If the previous message was from the user, scroll that user message to the top
         if (prevMsg?.role === 'user') {
             const el = document.getElementById(`message-${prevMsg.id}`);
             if (el) {
@@ -150,11 +151,58 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
             }
         }
     }
-
-    // Default: Scroll to bottom for other events (initial load, agent switch, etc.)
-    // We rely on messages.length changing to trigger this, so it won't fire during streaming content updates
     scrollToBottom();
   }, [messages.length, selectedAgentId]);
+
+  // Handle Input Change for Mentions
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      const val = e.target.value;
+      setInputValue(val);
+
+      const cursor = e.target.selectionStart;
+      const textBeforeCursor = val.slice(0, cursor);
+      
+      // Regex to detect @word at the end of the string (or cursor position)
+      const match = textBeforeCursor.match(/@(\w*)$/);
+
+      if (match) {
+          setMentionQuery(match[1].toLowerCase());
+          setShowMentionPopup(true);
+          setMentionSelectedIndex(0);
+      } else {
+          setShowMentionPopup(false);
+      }
+  };
+
+  const filteredAgents = agents.filter(a => 
+      a.name.toLowerCase().includes(mentionQuery)
+  );
+
+  const handleMentionSelect = (agent: Agent) => {
+      // Switch active agent (preserve session)
+      setSelectedAgentId(agent.id);
+
+      // Remove the @query part from input
+      const cursor = textareaRef.current?.selectionStart || 0;
+      const textBefore = inputValue.slice(0, cursor);
+      const textAfter = inputValue.slice(cursor);
+      
+      const lastAt = textBefore.lastIndexOf('@');
+      if (lastAt !== -1) {
+          const newValue = textBefore.slice(0, lastAt) + textAfter; // Clean remove
+          setInputValue(newValue);
+          
+          // Reset cursor
+          setTimeout(() => {
+              if (textareaRef.current) {
+                  textareaRef.current.selectionStart = lastAt;
+                  textareaRef.current.selectionEnd = lastAt;
+                  textareaRef.current.focus();
+              }
+          }, 0);
+      }
+      setShowMentionPopup(false);
+  };
 
   const handleSend = async () => {
     if ((!inputValue.trim() && files.length === 0) || !selectedAgentId) return;
@@ -164,14 +212,14 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
     
     setInputValue('');
     setFiles([]);
+    setShowMentionPopup(false);
+    
     if (fileInputRef.current) fileInputRef.current.value = '';
+    if (textareaRef.current) textareaRef.current.style.height = 'auto';
     
-    if (textareaRef.current) textareaRef.current.style.height = 'auto'; // Reset height
-    
-    setExpandedMetricsId(null); // Close any open metrics
+    setExpandedMetricsId(null);
     setSelectedToolCall(null);
     
-    // 1. Add User Message
     const newUserMsg: Message = {
       id: Date.now().toString(),
       role: 'user',
@@ -179,7 +227,6 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
       timestamp: new Date()
     };
 
-    // 2. Add Assistant Message Placeholder
     const botMsgId = (Date.now() + 1).toString();
     const newBotMsg: Message = {
         id: botMsgId,
@@ -280,6 +327,28 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (showMentionPopup && filteredAgents.length > 0) {
+        if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setMentionSelectedIndex(prev => (prev > 0 ? prev - 1 : filteredAgents.length - 1));
+            return;
+        }
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setMentionSelectedIndex(prev => (prev < filteredAgents.length - 1 ? prev + 1 : 0));
+            return;
+        }
+        if (e.key === 'Enter' || e.key === 'Tab') {
+            e.preventDefault();
+            handleMentionSelect(filteredAgents[mentionSelectedIndex]);
+            return;
+        }
+        if (e.key === 'Escape') {
+            setShowMentionPopup(false);
+            return;
+        }
+    }
+    
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -290,7 +359,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
       setSelectedAgentId(agentId);
       setShowAgentMenu(false);
       setExpandedMetricsId(null);
-      setSessionId(generateUUID());
+      setSessionId(generateUUID()); // Resets session for Sidebar selection
       
       const agent = agents.find(a => a.id === agentId);
       setMessages([
@@ -330,7 +399,6 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
     if (e.target.files && e.target.files.length > 0) {
         setFiles(prev => [...prev, ...Array.from(e.target.files!)]);
     }
-    // Reset value so same file can be selected again if needed
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -340,11 +408,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
   
   const handleOpenGraph = (toolResult: string) => {
       try {
-          // Parse the outer JSON if needed, or if it's already an object
           const parsed = typeof toolResult === 'string' ? JSON.parse(toolResult) : toolResult;
-          // The result itself might be a JSON string inside the result field, 
-          // but based on the provided sample, tool.result is a stringified JSON.
-          
           if (parsed && parsed.nodes && parsed.relationships) {
               setGraphModalData(parsed);
               setIsGraphModalOpen(true);
@@ -383,7 +447,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
             ${isHistoryOpen ? 'w-72 border-r' : 'w-0'}
         `}
       >
-        <div className="w-72 h-full flex flex-col"> {/* Fixed width container to prevent squishing */}
+        <div className="w-72 h-full flex flex-col">
             <div className="p-4 border-b border-slate-100">
             <Button 
                 className="w-full justify-start gap-3 shadow-brand-600/10 hover:shadow-brand-600/20" 
@@ -441,7 +505,6 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
                    // Assistant Message
                    <div className="flex flex-col gap-2">
                        <div className="flex gap-4 animate-fade-in items-start group">
-                           {/* Avatar removed as per request for cleaner look, integrated into message block implied */}
                            <div className="w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center shrink-0 shadow-sm mt-1">
                                <Sparkles className="w-4 h-4 text-brand-600" />
                            </div>
@@ -453,7 +516,6 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
                                   <div className="flex flex-col gap-2 mb-1">
                                       {msg.toolCalls.map((toolCall, idx) => {
                                           const isDfsExplore = toolCall.name === 'dfs_explore' && toolCall.status === 'completed';
-                                          
                                           return (
                                               <div key={idx} className="flex flex-wrap items-center gap-2">
                                                 <button 
@@ -579,6 +641,37 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
                         ${isTyping ? 'opacity-80' : ''}
                     `}
                 >
+                    {/* Mention Popup */}
+                    {showMentionPopup && filteredAgents.length > 0 && (
+                        <div className="absolute bottom-full left-0 mb-3 w-64 bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden animate-fade-in-up z-50 ring-1 ring-black/5">
+                            <div className="px-3 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50 border-b border-slate-100 flex items-center gap-2">
+                                <Bot className="w-3 h-3" />
+                                Switch Agent
+                            </div>
+                            <div className="max-h-60 overflow-y-auto custom-scrollbar p-1">
+                                {filteredAgents.map((agent, idx) => (
+                                    <button
+                                        key={agent.id}
+                                        onClick={() => handleMentionSelect(agent)}
+                                        className={`w-full text-left px-3 py-2.5 rounded-lg text-xs flex items-center gap-3 transition-colors
+                                            ${idx === mentionSelectedIndex ? 'bg-brand-50 text-brand-700' : 'text-slate-700 hover:bg-slate-50'}
+                                        `}
+                                    >
+                                        <div className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 border
+                                            ${idx === mentionSelectedIndex ? 'bg-brand-100 border-brand-200 text-brand-600' : 'bg-white border-slate-200 text-slate-400'}
+                                        `}>
+                                            <User className="w-3.5 h-3.5" />
+                                        </div>
+                                        <div className="flex flex-col min-w-0">
+                                            <span className="font-bold truncate">{agent.name}</span>
+                                        </div>
+                                        {selectedAgentId === agent.id && <Check className="w-3.5 h-3.5 ml-auto text-brand-600" />}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     <div className="flex flex-col">
                         {/* File Previews */}
                         {files.length > 0 && (
@@ -603,9 +696,9 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
                         <textarea
                             ref={textareaRef}
                             className="w-full bg-transparent border-none focus:ring-0 focus:outline-none resize-none text-sm text-slate-900 placeholder:text-slate-400 min-h-[52px] max-h-[200px] overflow-y-auto custom-scrollbar px-4 py-4"
-                            placeholder={isLoadingAgents ? "Loading agents..." : "Ask anything about your data..."}
+                            placeholder={isLoadingAgents ? "Loading agents..." : "Ask anything... Type '@' to switch agent"}
                             value={inputValue}
-                            onChange={(e) => setInputValue(e.target.value)}
+                            onChange={handleInputChange}
                             onKeyDown={handleKeyDown}
                             autoFocus
                             disabled={isTyping || isLoadingAgents || !selectedAgentId}
