@@ -1,6 +1,6 @@
 
 import React, { useEffect, useRef, useState } from 'react';
-import { X, Network, Info, Layers, Database, Calculator, ZoomIn, ZoomOut, Move } from 'lucide-react';
+import { X, Network, Info, Layers, Database, Calculator, Move } from 'lucide-react';
 
 interface GraphNode {
   id: number | string;
@@ -40,16 +40,18 @@ const COLORS: Record<string, string> = {
 
 // Constants
 const NODE_RADIUS = 30; // Uniform radius
-const HEADER_HEIGHT = 0; // Header overlay height if needed
 
 export const ExploredGraphModal: React.FC<ExploredGraphModalProps> = ({ isOpen, onClose, data }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  
   // Use refs for mutable state to ensure smooth 60fps animation without re-renders
   const nodesRef = useRef<GraphNode[]>([]);
   const edgesRef = useRef<GraphEdge[]>([]);
   const transformRef = useRef({ x: 0, y: 0, k: 1 }); // View transform (pan/zoom)
   
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
+  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
   
   // Interaction State
   const isDraggingNode = useRef(false);
@@ -57,31 +59,52 @@ export const ExploredGraphModal: React.FC<ExploredGraphModalProps> = ({ isOpen, 
   const draggedNodeRef = useRef<GraphNode | null>(null);
   const lastMousePos = useRef({ x: 0, y: 0 });
 
-  // Initialize Simulation
+  // Handle Resize
   useEffect(() => {
-    if (!isOpen || !data) return;
+    if (!containerRef.current) return;
+    
+    const updateSize = () => {
+        if (containerRef.current) {
+            const { clientWidth, clientHeight } = containerRef.current;
+            setCanvasSize({ width: clientWidth, height: clientHeight });
+        }
+    };
 
-    // Reset transform
-    transformRef.current = { x: 0, y: 0, k: 1 };
+    updateSize();
+    const observer = new ResizeObserver(updateSize);
+    observer.observe(containerRef.current);
+    
+    return () => observer.disconnect();
+  }, [isOpen]);
 
-    const width = window.innerWidth * 0.8;
-    const height = window.innerHeight * 0.85;
+  // Initialize Simulation Data
+  useEffect(() => {
+    if (!isOpen || !data || canvasSize.width === 0) return;
 
-    // Center initial nodes
-    const processedNodes: GraphNode[] = data.nodes.map((n) => ({
-      ...n,
-      x: width / 2 + (Math.random() - 0.5) * 100,
-      y: height / 2 + (Math.random() - 0.5) * 100,
-      vx: 0,
-      vy: 0,
-      radius: NODE_RADIUS, 
-    }));
+    // Only reset if it's a fresh open or data change, not just resize
+    if (nodesRef.current.length === 0 || nodesRef.current.length !== data.nodes.length) {
+        // Reset transform
+        transformRef.current = { x: 0, y: 0, k: 1 };
 
-    nodesRef.current = processedNodes;
-    edgesRef.current = data.relationships;
-    setSelectedNode(null);
+        const width = canvasSize.width;
+        const height = canvasSize.height;
 
-  }, [isOpen, data]);
+        // Center initial nodes
+        const processedNodes: GraphNode[] = data.nodes.map((n) => ({
+        ...n,
+        x: width / 2 + (Math.random() - 0.5) * 200,
+        y: height / 2 + (Math.random() - 0.5) * 200,
+        vx: 0,
+        vy: 0,
+        radius: NODE_RADIUS, 
+        }));
+
+        nodesRef.current = processedNodes;
+        edgesRef.current = data.relationships;
+        setSelectedNode(null);
+    }
+
+  }, [isOpen, data, canvasSize.width]);
 
   // Physics & Rendering Loop
   useEffect(() => {
@@ -148,7 +171,7 @@ export const ExploredGraphModal: React.FC<ExploredGraphModalProps> = ({ isOpen, 
           const dy = target.y - source.y;
           const dist = Math.sqrt(dx * dx + dy * dy) || 1;
           
-          const targetDist = 120; // Ideal length
+          const targetDist = 150; // Ideal length (increased to fit labels)
           const force = (dist - targetDist) * k;
           
           const fx = (dx / dist) * force;
@@ -169,8 +192,7 @@ export const ExploredGraphModal: React.FC<ExploredGraphModalProps> = ({ isOpen, 
       nodes.forEach(node => {
         if (node === draggedNode) return;
 
-        // Pull to center of canvas world space (approx)
-        // We assume world center is at width/2, height/2 roughly
+        // Pull to center of canvas world space
         node.vx += (width / 2 - node.x) * centerForce;
         node.vy += (height / 2 - node.y) * centerForce;
 
@@ -192,7 +214,7 @@ export const ExploredGraphModal: React.FC<ExploredGraphModalProps> = ({ isOpen, 
       const { x: tx, y: ty, k: tk } = transformRef.current;
       ctx.setTransform(tk, 0, 0, tk, tx, ty);
 
-      // Draw Edges
+      // 1. Draw Edge Lines
       ctx.lineWidth = 1.5;
       edges.forEach(edge => {
         const source = nodes.find(n => n.id === edge.from);
@@ -203,7 +225,6 @@ export const ExploredGraphModal: React.FC<ExploredGraphModalProps> = ({ isOpen, 
         ctx.moveTo(source.x, source.y);
         ctx.lineTo(target.x, target.y);
         
-        // Gradient edge? Or simple solid
         const grad = ctx.createLinearGradient(source.x, source.y, target.x, target.y);
         grad.addColorStop(0, '#475569'); // slate-600
         grad.addColorStop(1, '#475569');
@@ -213,7 +234,56 @@ export const ExploredGraphModal: React.FC<ExploredGraphModalProps> = ({ isOpen, 
         ctx.globalAlpha = 1;
       });
 
-      // Draw Nodes
+      // 2. Draw Edge Labels (if zoomed enough)
+      if (tk > 0.4) {
+          ctx.font = 'bold 10px Inter, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          
+          edges.forEach(edge => {
+              const source = nodes.find(n => n.id === edge.from);
+              const target = nodes.find(n => n.id === edge.to);
+              if (!source || !target) return;
+
+              const midX = (source.x + target.x) / 2;
+              const midY = (source.y + target.y) / 2;
+              const label = edge.type;
+              
+              const metrics = ctx.measureText(label);
+              const paddingX = 8;
+              const paddingY = 4;
+              const boxWidth = metrics.width + paddingX * 2;
+              const boxHeight = 16; // fixed height
+
+              // Draw pill background
+              ctx.fillStyle = '#0f172a'; // slate-900
+              ctx.beginPath();
+              
+              // Rounded rect manual implementation
+              const x = midX - boxWidth/2;
+              const y = midY - boxHeight/2;
+              const r = 6;
+              ctx.moveTo(x + r, y);
+              ctx.arcTo(x + boxWidth, y, x + boxWidth, y + boxHeight, r);
+              ctx.arcTo(x + boxWidth, y + boxHeight, x, y + boxHeight, r);
+              ctx.arcTo(x, y + boxHeight, x, y, r);
+              ctx.arcTo(x, y, x + boxWidth, y, r);
+              ctx.closePath();
+              
+              ctx.fill();
+              
+              // Border
+              ctx.strokeStyle = '#334155'; // slate-700
+              ctx.lineWidth = 1;
+              ctx.stroke();
+
+              // Text
+              ctx.fillStyle = '#94a3b8'; // slate-400
+              ctx.fillText(label, midX, midY);
+          });
+      }
+
+      // 3. Draw Nodes
       nodes.forEach(node => {
         const primaryLabel = node.labels[0] || 'Default';
         const baseColor = COLORS[primaryLabel] || COLORS['Default'];
@@ -234,10 +304,11 @@ export const ExploredGraphModal: React.FC<ExploredGraphModalProps> = ({ isOpen, 
         ctx.beginPath();
         ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
         
-        // Gradient Fill
-        const grad = ctx.createRadialGradient(node.x - 10, node.y - 10, 5, node.x, node.y, node.radius);
-        grad.addColorStop(0, lightenColor(baseColor, 40));
-        grad.addColorStop(1, baseColor);
+        // Gradient Fill (Spherical effect)
+        // Offset the center of the radial gradient to top-left (-8, -8) to create 3D look
+        const grad = ctx.createRadialGradient(node.x - 8, node.y - 8, 4, node.x, node.y, node.radius);
+        grad.addColorStop(0, lightenColor(baseColor, 50)); // Highlight
+        grad.addColorStop(1, baseColor); // Base
         ctx.fillStyle = grad;
         ctx.fill();
 
@@ -273,11 +344,13 @@ export const ExploredGraphModal: React.FC<ExploredGraphModalProps> = ({ isOpen, 
 
     render();
     return () => cancelAnimationFrame(animationFrameId);
-  }, [isOpen, selectedNode]);
+  }, [isOpen, selectedNode, canvasSize]);
 
   // --- Interaction Handlers ---
 
   const getEventPos = (e: React.MouseEvent | React.WheelEvent) => {
+      // Since we map canvas 1:1 with container size, we can just use offset
+      // But getBoundingClientRect is safer for scrolling/layout shifts
       const rect = canvasRef.current?.getBoundingClientRect();
       if (!rect) return { x: 0, y: 0 };
       return { x: e.clientX - rect.left, y: e.clientY - rect.top };
@@ -299,6 +372,8 @@ export const ExploredGraphModal: React.FC<ExploredGraphModalProps> = ({ isOpen, 
     // Check node collision
     // Reverse iteration to check top-most nodes first
     const nodes = nodesRef.current;
+    let hitNode = false;
+
     for (let i = nodes.length - 1; i >= 0; i--) {
       const node = nodes[i];
       const dist = Math.sqrt((wx - node.x) ** 2 + (wy - node.y) ** 2);
@@ -307,20 +382,44 @@ export const ExploredGraphModal: React.FC<ExploredGraphModalProps> = ({ isOpen, 
         setSelectedNode(node);
         isDraggingNode.current = true;
         isPanning.current = false;
+        hitNode = true;
         return;
       }
     }
 
     // If no node clicked, start panning
-    isPanning.current = true;
-    isDraggingNode.current = false;
-    draggedNodeRef.current = null;
-    setSelectedNode(null);
+    if (!hitNode) {
+        isPanning.current = true;
+        isDraggingNode.current = false;
+        draggedNodeRef.current = null;
+        // Optional: Deselect on click empty space?
+        // setSelectedNode(null); 
+    }
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
     const { x: sx, y: sy } = getEventPos(e);
     
+    // Cursor handling
+    if (!isDraggingNode.current && !isPanning.current) {
+        const { x: wx, y: wy } = getWorldPos(sx, sy);
+        let hittingNode = false;
+        const nodes = nodesRef.current;
+        for (let i = nodes.length - 1; i >= 0; i--) {
+            const node = nodes[i];
+            const dist = Math.sqrt((wx - node.x) ** 2 + (wy - node.y) ** 2);
+            if (dist <= node.radius) {
+                hittingNode = true;
+                break;
+            }
+        }
+        if (canvasRef.current) {
+            canvasRef.current.style.cursor = hittingNode ? 'pointer' : 'grab';
+        }
+    } else if (canvasRef.current) {
+        canvasRef.current.style.cursor = 'grabbing';
+    }
+
     if (isDraggingNode.current && draggedNodeRef.current) {
         const { x: wx, y: wy } = getWorldPos(sx, sy);
         draggedNodeRef.current.x = wx;
@@ -355,9 +454,6 @@ export const ExploredGraphModal: React.FC<ExploredGraphModalProps> = ({ isOpen, 
       const newK = Math.min(Math.max(k + delta, 0.1), 5); // Limit zoom 0.1x to 5x
 
       // Zoom towards mouse pointer logic:
-      // world_mouse = (screen_mouse - old_pan) / old_k
-      // new_pan = screen_mouse - world_mouse * new_k
-      
       const wx = (sx - x) / k;
       const wy = (sy - y) / k;
 
@@ -442,7 +538,7 @@ export const ExploredGraphModal: React.FC<ExploredGraphModalProps> = ({ isOpen, 
         </div>
 
         {/* Canvas Area */}
-        <div className="flex-1 relative cursor-grab active:cursor-grabbing bg-slate-900 overflow-hidden">
+        <div className="flex-1 relative cursor-grab active:cursor-grabbing bg-slate-900 overflow-hidden" ref={containerRef}>
            {/* Grid Background */}
            <div 
                 className="absolute inset-0 pointer-events-none opacity-20"
@@ -452,69 +548,81 @@ export const ExploredGraphModal: React.FC<ExploredGraphModalProps> = ({ isOpen, 
                 }} 
            />
            
-          <canvas
-            ref={canvasRef}
-            width={window.innerWidth} 
-            height={window.innerHeight}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
-            onWheel={handleWheel}
-            className="block w-full h-full"
-          />
+           <canvas
+             ref={canvasRef}
+             width={canvasSize.width} 
+             height={canvasSize.height}
+             onMouseDown={handleMouseDown}
+             onMouseMove={handleMouseMove}
+             onMouseUp={handleMouseUp}
+             onMouseLeave={handleMouseUp}
+             onWheel={handleWheel}
+             className="block w-full h-full"
+           />
         </div>
 
         {/* Info Panel (Slide over) */}
         {selectedNode && (
-            <div className="w-80 bg-slate-900 border-l border-slate-800 p-6 overflow-y-auto animate-fade-in-right shrink-0 shadow-2xl z-20 relative">
-                <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-800">
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-lg ring-1 ring-white/10
-                        ${selectedNode.labels.includes('Table') ? 'bg-blue-600 shadow-blue-900/20' : 
-                          selectedNode.labels.includes('BusinessMetric') ? 'bg-emerald-600 shadow-emerald-900/20' : 'bg-pink-600 shadow-pink-900/20'
-                        }`}
+            <div className="w-80 bg-slate-900 border-l border-slate-800 flex flex-col animate-fade-in-right shrink-0 shadow-2xl z-20 relative">
+                <div className="flex items-center justify-between p-4 border-b border-slate-800">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Node Details</span>
+                    <button 
+                        onClick={() => setSelectedNode(null)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
                     >
-                         {selectedNode.labels.includes('Table') ? <Database className="w-6 h-6" /> : 
-                          selectedNode.labels.includes('BusinessMetric') ? <Calculator className="w-6 h-6" /> : <Layers className="w-6 h-6" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1 flex flex-wrap gap-1">
-                            {selectedNode.labels.map(l => (
-                                <span key={l} className="bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">{l}</span>
-                            ))}
-                        </div>
-                        <h3 className="text-lg font-bold text-white leading-tight truncate" title={selectedNode.properties.name}>
-                            {selectedNode.properties.name}
-                        </h3>
-                    </div>
+                        <X className="w-4 h-4" />
+                    </button>
                 </div>
 
-                <div className="space-y-6">
-                    {selectedNode.properties.description && (
-                        <div className="space-y-2">
-                             <div className="flex items-center gap-2 text-xs font-bold text-brand-400 uppercase tracking-wider">
-                                <Info className="w-3.5 h-3.5" /> Description
-                            </div>
-                            <p className="text-sm text-slate-300 leading-relaxed bg-slate-800/50 p-3 rounded-xl border border-slate-700/50">
-                                {selectedNode.properties.description}
-                            </p>
+                <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
+                    <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-800">
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-lg ring-1 ring-white/10 shrink-0
+                            ${selectedNode.labels.includes('Table') ? 'bg-blue-600 shadow-blue-900/20' : 
+                            selectedNode.labels.includes('BusinessMetric') ? 'bg-emerald-600 shadow-emerald-900/20' : 'bg-pink-600 shadow-pink-900/20'
+                            }`}
+                        >
+                            {selectedNode.labels.includes('Table') ? <Database className="w-6 h-6" /> : 
+                            selectedNode.labels.includes('BusinessMetric') ? <Calculator className="w-6 h-6" /> : <Layers className="w-6 h-6" />}
                         </div>
-                    )}
+                        <div className="flex-1 min-w-0">
+                            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1 flex flex-wrap gap-1">
+                                {selectedNode.labels.map(l => (
+                                    <span key={l} className="bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">{l}</span>
+                                ))}
+                            </div>
+                            <h3 className="text-lg font-bold text-white leading-tight break-words" title={selectedNode.properties.name}>
+                                {selectedNode.properties.name}
+                            </h3>
+                        </div>
+                    </div>
 
-                    <div className="space-y-2">
-                        <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Properties</div>
+                    <div className="space-y-6">
+                        {selectedNode.properties.description && (
+                            <div className="space-y-2">
+                                <div className="flex items-center gap-2 text-xs font-bold text-brand-400 uppercase tracking-wider">
+                                    <Info className="w-3.5 h-3.5" /> Description
+                                </div>
+                                <p className="text-sm text-slate-300 leading-relaxed bg-slate-800/50 p-3 rounded-xl border border-slate-700/50">
+                                    {selectedNode.properties.description}
+                                </p>
+                            </div>
+                        )}
+
                         <div className="space-y-2">
-                            {Object.entries(selectedNode.properties).map(([key, value]) => {
-                                if (key === 'name' || key === 'description') return null;
-                                return (
-                                    <div key={key} className="flex flex-col bg-slate-800/30 p-2.5 rounded-lg border border-slate-800 hover:border-slate-700 transition-colors">
-                                        <span className="text-[10px] text-slate-500 font-mono mb-1 uppercase tracking-tight">{key}</span>
-                                        <span className="text-sm text-slate-200 font-medium break-all font-mono">
-                                            {typeof value === 'object' ? JSON.stringify(value) : String(value)}
-                                        </span>
-                                    </div>
-                                );
-                            })}
+                            <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Properties</div>
+                            <div className="space-y-2">
+                                {Object.entries(selectedNode.properties).map(([key, value]) => {
+                                    if (key === 'name' || key === 'description') return null;
+                                    return (
+                                        <div key={key} className="flex flex-col bg-slate-800/30 p-2.5 rounded-lg border border-slate-800 hover:border-slate-700 transition-colors">
+                                            <span className="text-[10px] text-slate-500 font-mono mb-1 uppercase tracking-tight">{key}</span>
+                                            <span className="text-sm text-slate-200 font-medium break-all font-mono">
+                                                {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                                            </span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         </div>
                     </div>
                 </div>
