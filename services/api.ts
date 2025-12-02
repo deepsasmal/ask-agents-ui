@@ -403,7 +403,7 @@ export const sessionApi = {
       user_id: userId,
       limit: '20',
       page: '1',
-      sort_by: 'updated_at',
+      sort_by: 'created_at',
       sort_order: 'desc',
       db_id: dbId,
       table: table

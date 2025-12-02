@@ -84,9 +84,15 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
   const metricsRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const agentMenuRef = useRef<HTMLDivElement>(null);
+  
+  // Guard against double initialization in Strict Mode
+  const initializedRef = useRef(false);
 
   // Initialize: Fetch Agents, Config, then Sessions
   useEffect(() => {
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+
     const initialize = async () => {
         try {
             setIsLoadingAgents(true);
@@ -411,14 +417,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
       setSelectedAgentId(agentId);
       setShowAgentMenu(false);
       setExpandedMetricsId(null);
-      
-      // Only reset session if we're not already in a chat
-      // If user switches agent in middle of chat, we keep session ID usually?
-      // For now, prompt implies new chat when selecting agent from menu might be useful, 
-      // but let's keep current session logic if just switching model/agent.
-      
       const agent = agents.find(a => a.id === agentId);
-      // Don't auto-send a message, just switch context visually if needed
   };
 
   const handleNewChat = () => {
@@ -445,7 +444,6 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
       if (!userId || !dbConfig) return;
 
       try {
-          // Ideally show loading state for messages
           const sessionData = await sessionApi.getSession(sid, userId, dbConfig.dbId, dbConfig.table);
           
           if (sessionData && sessionData.messages) {
