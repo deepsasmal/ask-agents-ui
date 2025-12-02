@@ -1,10 +1,11 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Bot, MoreHorizontal, Loader2, Sparkles, Copy, BarChart2, Hammer, X, Terminal, Code, ChevronRight, Paperclip, ArrowUp, FileText, Check, MessageSquareText } from 'lucide-react';
+import { Plus, Bot, MoreHorizontal, Loader2, Sparkles, Copy, BarChart2, Hammer, X, Terminal, Code, ChevronRight, Paperclip, ArrowUp, FileText, Check, MessageSquareText, Network } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Button } from '../ui/Common';
 import { agentApi, Agent, RunMetrics } from '../../services/api';
+import { ExploredGraphModal } from '../modals/ExploredGraphModal';
 
 interface ToolCall {
   id: string;
@@ -53,6 +54,10 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
   const [expandedMetricsId, setExpandedMetricsId] = useState<string | null>(null);
   const [selectedToolCall, setSelectedToolCall] = useState<ToolCall | null>(null);
   
+  // Graph Modal State
+  const [isGraphModalOpen, setIsGraphModalOpen] = useState(false);
+  const [graphModalData, setGraphModalData] = useState<any>(null);
+
   // File Attachment State
   const [files, setFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -332,12 +337,37 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
   const removeFile = (index: number) => {
     setFiles(prev => prev.filter((_, i) => i !== index));
   };
+  
+  const handleOpenGraph = (toolResult: string) => {
+      try {
+          // Parse the outer JSON if needed, or if it's already an object
+          const parsed = typeof toolResult === 'string' ? JSON.parse(toolResult) : toolResult;
+          // The result itself might be a JSON string inside the result field, 
+          // but based on the provided sample, tool.result is a stringified JSON.
+          
+          if (parsed && parsed.nodes && parsed.relationships) {
+              setGraphModalData(parsed);
+              setIsGraphModalOpen(true);
+          } else {
+              alert("Invalid graph data format.");
+          }
+      } catch (e) {
+          console.error("Failed to parse graph data", e);
+          alert("Failed to parse graph data.");
+      }
+  };
 
   const selectedAgent = agents.find(a => a.id === selectedAgentId);
 
   return (
     <div className="flex h-full bg-slate-50 overflow-hidden relative">
       
+      <ExploredGraphModal 
+        isOpen={isGraphModalOpen} 
+        onClose={() => setIsGraphModalOpen(false)} 
+        data={graphModalData} 
+      />
+
       {/* Hidden File Input */}
       <input 
         type="file" 
@@ -421,21 +451,37 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
                               {/* Tool Call Pills */}
                               {msg.toolCalls && msg.toolCalls.length > 0 && (
                                   <div className="flex flex-col gap-2 mb-1">
-                                      {msg.toolCalls.map((toolCall, idx) => (
-                                          <button 
-                                            key={idx}
-                                            onClick={() => setSelectedToolCall(toolCall)}
-                                            className="flex items-center gap-2 pl-3 pr-4 py-2 bg-white text-slate-600 rounded-xl text-xs font-mono hover:border-brand-200 hover:shadow-md transition-all shadow-sm border border-slate-200 group/tool w-fit"
-                                          >
-                                              <div className="w-5 h-5 rounded bg-brand-50 flex items-center justify-center shrink-0 border border-brand-100">
-                                                 <Hammer className="w-3 h-3 text-brand-600" />
+                                      {msg.toolCalls.map((toolCall, idx) => {
+                                          const isDfsExplore = toolCall.name === 'dfs_explore' && toolCall.status === 'completed';
+                                          
+                                          return (
+                                              <div key={idx} className="flex flex-wrap items-center gap-2">
+                                                <button 
+                                                    onClick={() => setSelectedToolCall(toolCall)}
+                                                    className="flex items-center gap-2 pl-3 pr-4 py-2 bg-white text-slate-600 rounded-xl text-xs font-mono hover:border-brand-200 hover:shadow-md transition-all shadow-sm border border-slate-200 group/tool w-fit"
+                                                >
+                                                    <div className="w-5 h-5 rounded bg-brand-50 flex items-center justify-center shrink-0 border border-brand-100">
+                                                        <Hammer className="w-3 h-3 text-brand-600" />
+                                                    </div>
+                                                    <span className="font-bold text-slate-700">{toolCall.status === 'running' ? 'Running Tool' : 'Tool Called'}</span>
+                                                    <span className="text-slate-300">|</span>
+                                                    <span className="text-brand-600 font-medium">{toolCall.name}</span>
+                                                    <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover/tool:text-brand-600 transition-colors ml-1" />
+                                                </button>
+
+                                                {/* DFS Explore Graph Visualization Button */}
+                                                {isDfsExplore && (
+                                                    <button
+                                                        onClick={() => handleOpenGraph(toolCall.result)}
+                                                        className="flex items-center gap-2 px-3 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold shadow-sm hover:bg-slate-800 hover:scale-105 transition-all animate-fade-in"
+                                                    >
+                                                        <Network className="w-3.5 h-3.5" />
+                                                        Visualize Graph
+                                                    </button>
+                                                )}
                                               </div>
-                                              <span className="font-bold text-slate-700">{toolCall.status === 'running' ? 'Running Tool' : 'Tool Called'}</span>
-                                              <span className="text-slate-300">|</span>
-                                              <span className="text-brand-600 font-medium">{toolCall.name}</span>
-                                              <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover/tool:text-brand-600 transition-colors ml-1" />
-                                          </button>
-                                      ))}
+                                          );
+                                      })}
                                   </div>
                               )}
 
