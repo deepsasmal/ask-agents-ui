@@ -352,8 +352,10 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
                     }
                     return msg;
                 }));
-                // Refresh sessions to show the new interaction at the top
-                refreshSessions();
+                // Only refresh sessions if the current session is not in the list (new session)
+                if (!sessions.some(s => s.session_id === sessionId)) {
+                    refreshSessions();
+                }
             } else if (event === 'RunError') {
                 setMessages(prev => prev.map(msg => {
                     if (msg.id === botMsgId) {
