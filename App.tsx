@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Network, LayoutDashboard, MessageSquareText, Settings, LogOut, PanelLeftClose, PanelLeft, ChevronRight, Home } from 'lucide-react';
 import { GraphBuilderModule } from './components/modules/GraphBuilderModule';
@@ -42,13 +41,13 @@ const App: React.FC = () => {
       {/* Sidebar - Minimal Light Theme */}
       <aside 
         className={`bg-white border-r border-slate-200 flex flex-col transition-all duration-300 ease-in-out z-50 shrink-0
-          ${isSidebarCollapsed ? 'w-20' : 'w-72'}
+          ${isSidebarCollapsed ? 'w-16' : 'w-64'} 
         `}
       >
-        {/* Logo Area */}
-        <div className="h-20 flex items-center px-6 mt-2">
+        {/* Logo Area - Reduced Height */}
+        <div className="h-16 flex items-center px-4 mt-1 border-b border-transparent">
            <div 
-             className="flex items-center gap-3 cursor-pointer group w-full" 
+             className="flex items-center gap-3 cursor-pointer group w-full justify-center lg:justify-start" 
              onClick={() => {
                if (isSidebarCollapsed) {
                  toggleSidebar();
@@ -59,23 +58,21 @@ const App: React.FC = () => {
              }}
              title="Back to Home"
            >
-               <div className="relative w-10 h-10 shrink-0">
-                  <div className="absolute inset-0 rounded-xl bg-slate-900 flex items-center justify-center text-white shadow-lg shadow-slate-200 transition-transform group-hover:scale-105">
+               <div className="relative w-8 h-8 shrink-0">
+                  <div className="absolute inset-0 rounded-lg bg-slate-900 flex items-center justify-center text-white shadow-md shadow-slate-200 transition-transform group-hover:scale-105">
                     {isSidebarCollapsed ? (
                       <>
-                        {/* Default Logo */}
-                        <Network className="w-5 h-5 absolute transition-opacity duration-300 opacity-100 group-hover:opacity-0" />
-                        {/* Sidebar Toggle Icon on Hover (when collapsed) */}
-                        <PanelLeft className="w-5 h-5 absolute transition-opacity duration-300 opacity-0 group-hover:opacity-100" />
+                        <Network className="w-4 h-4 absolute transition-opacity duration-300 opacity-100 group-hover:opacity-0" />
+                        <PanelLeft className="w-4 h-4 absolute transition-opacity duration-300 opacity-0 group-hover:opacity-100" />
                       </>
                     ) : (
-                      <Network className="w-5 h-5" />
+                      <Network className="w-4 h-4" />
                     )}
                   </div>
                </div>
 
                <div className={`flex flex-col overflow-hidden transition-all duration-300 ${isSidebarCollapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'}`}>
-                 <span className="font-bold text-lg tracking-tight text-slate-900 leading-none">Ask<span className="text-brand-600">Agents</span></span>
+                 <span className="font-bold text-base tracking-tight text-slate-900 leading-none">Ask<span className="text-brand-600">Agents</span></span>
                </div>
                
                 {/* Collapse Toggle integrated in header when open */}
@@ -84,33 +81,33 @@ const App: React.FC = () => {
                         onClick={(e) => { e.stopPropagation(); toggleSidebar(); }}
                         className="ml-auto text-slate-300 hover:text-slate-600 transition-colors p-1"
                     >
-                        <PanelLeftClose className="w-5 h-5" />
+                        <PanelLeftClose className="w-4 h-4" />
                     </button>
                 )}
            </div>
         </div>
 
         {/* Nav Items */}
-        <div className="flex-1 px-4 py-6 space-y-2 overflow-y-auto custom-scrollbar">
+        <div className="flex-1 px-3 py-4 space-y-1 overflow-y-auto custom-scrollbar">
             <SidebarItem 
-              icon={<Home className="w-5 h-5" />} 
+              icon={<Home className="w-4 h-4" />} 
               label="Home" 
               isActive={activeModule === 'LANDING'} 
               collapsed={isSidebarCollapsed}
               onClick={() => setActiveModule('LANDING')}
             />
             
-            <div className={`my-4 border-t border-slate-100 mx-2 ${isSidebarCollapsed ? 'opacity-0' : 'opacity-100'}`}></div>
+            <div className={`my-3 border-t border-slate-100 mx-2 ${isSidebarCollapsed ? 'opacity-0' : 'opacity-100'}`}></div>
 
             <SidebarItem 
-              icon={<LayoutDashboard className="w-5 h-5" />} 
+              icon={<LayoutDashboard className="w-4 h-4" />} 
               label="Graph Builder" 
               isActive={activeModule === 'GRAPH_BUILDER'} 
               collapsed={isSidebarCollapsed}
               onClick={() => setActiveModule('GRAPH_BUILDER')}
             />
             <SidebarItem 
-              icon={<MessageSquareText className="w-5 h-5" />} 
+              icon={<MessageSquareText className="w-4 h-4" />} 
               label="AI Assistant" 
               isActive={activeModule === 'CHAT'} 
               collapsed={isSidebarCollapsed}
@@ -118,7 +115,7 @@ const App: React.FC = () => {
             />
             
             <SidebarItem 
-              icon={<Settings className="w-5 h-5" />} 
+              icon={<Settings className="w-4 h-4" />} 
               label="Settings" 
               isActive={activeModule === 'SETTINGS'} 
               collapsed={isSidebarCollapsed}
@@ -127,21 +124,21 @@ const App: React.FC = () => {
         </div>
 
         {/* User / Footer */}
-        <div className="p-4 border-t border-slate-100 mb-2">
+        <div className="p-3 border-t border-slate-100 mb-1">
             <div 
-                className={`flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer group ${isSidebarCollapsed ? 'justify-center' : ''}`}
+                className={`flex items-center gap-2.5 p-2 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer group ${isSidebarCollapsed ? 'justify-center' : ''}`}
                 onClick={handleLogout}
                 title="Sign Out"
             >
-                <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-brand-100 to-slate-200 flex items-center justify-center text-slate-600 font-bold text-xs ring-2 ring-white shadow-sm shrink-0">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-brand-100 to-slate-200 flex items-center justify-center text-slate-600 font-bold text-xs ring-2 ring-white shadow-sm shrink-0">
                     JD
                 </div>
                 <div className={`overflow-hidden transition-all duration-300 ${isSidebarCollapsed ? 'w-0 opacity-0 hidden' : 'w-auto opacity-100'}`}>
-                    <div className="text-sm font-bold text-slate-900 truncate group-hover:text-brand-600 transition-colors">John Doe</div>
-                    <div className="text-xs text-slate-500 truncate">Free Plan</div>
+                    <div className="text-xs font-bold text-slate-900 truncate group-hover:text-brand-600 transition-colors">John Doe</div>
+                    <div className="text-[10px] text-slate-500 truncate">Free Plan</div>
                 </div>
                 {!isSidebarCollapsed && (
-                    <LogOut className="w-4 h-4 text-slate-300 group-hover:text-red-400 ml-auto transition-colors" />
+                    <LogOut className="w-3.5 h-3.5 text-slate-300 group-hover:text-red-400 ml-auto transition-colors" />
                 )}
             </div>
         </div>
@@ -180,7 +177,7 @@ const SidebarItem = ({ icon, label, isActive, collapsed, onClick }: { icon: Reac
         <button 
             onClick={onClick}
             className={`
-                group flex items-center w-full p-3 rounded-2xl transition-all duration-200 ease-out
+                group flex items-center w-full p-2.5 rounded-xl transition-all duration-200 ease-out
                 ${isActive 
                     ? 'bg-slate-100 text-slate-900 shadow-sm' 
                     : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
@@ -197,9 +194,9 @@ const SidebarItem = ({ icon, label, isActive, collapsed, onClick }: { icon: Reac
                 <span className={`text-sm whitespace-nowrap transition-all duration-300 ${isActive ? 'font-bold' : 'font-medium'}`}>{label}</span>
             )}
             
-            {/* Active Indicator (Chevron) - Matches the screenshot style */}
+            {/* Active Indicator (Chevron) */}
             {isActive && !collapsed && (
-                <ChevronRight className="w-4 h-4 ml-auto text-slate-400" />
+                <ChevronRight className="w-3.5 h-3.5 ml-auto text-slate-400" />
             )}
         </button>
     )

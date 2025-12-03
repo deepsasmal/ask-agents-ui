@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Plus, Bot, MoreHorizontal, Loader2, Sparkles, Copy, BarChart2, Hammer, X, Terminal, Code, ChevronRight, Paperclip, ArrowUp, FileText, Check, MessageSquareText, Network, User, MessageSquare } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
@@ -537,13 +536,13 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
       {/* Chat Sidebar / History */}
       <div 
         className={`bg-white border-slate-200 flex flex-col shrink-0 z-20 transition-all duration-300 ease-in-out overflow-hidden
-            ${isHistoryOpen ? 'w-72 border-r' : 'w-0'}
+            ${isHistoryOpen ? 'w-64 border-r' : 'w-0'} 
         `}
       >
-        <div className="w-72 h-full flex flex-col">
-            <div className="p-4 border-b border-slate-100">
+        <div className="w-64 h-full flex flex-col">
+            <div className="p-3 border-b border-slate-100">
             <Button 
-                className="w-full justify-start gap-3 shadow-brand-600/10 hover:shadow-brand-600/20" 
+                className="w-full justify-start gap-2 shadow-brand-600/10 hover:shadow-brand-600/20 text-sm py-2" 
                 onClick={handleNewChat}
                 disabled={!selectedAgentId}
                 leftIcon={<Plus className="w-4 h-4" />}
@@ -552,12 +551,12 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
             </Button>
             </div>
             
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-1">
-                <div className="px-3 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider">Previous Chats</div>
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
+                <div className="px-2 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Previous Chats</div>
                 
                 {isLoadingSessions ? (
                     <div className="p-4 flex justify-center">
-                        <Loader2 className="w-5 h-5 text-brand-600 animate-spin" />
+                        <Loader2 className="w-4 h-4 text-brand-600 animate-spin" />
                     </div>
                 ) : !Array.isArray(sessions) || sessions.length === 0 ? (
                     <div className="p-4 text-center text-xs text-slate-400 italic">
@@ -568,11 +567,11 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
                         <button
                             key={session.session_id}
                             onClick={() => handleSessionClick(session.session_id)}
-                            className={`w-full text-left px-3 py-2.5 rounded-lg text-sm flex items-center gap-3 transition-colors group relative
+                            className={`w-full text-left px-3 py-2 rounded-lg text-xs flex items-center gap-2.5 transition-colors group relative
                                 ${sessionId === session.session_id ? 'bg-brand-50 text-brand-700 font-medium' : 'text-slate-700 hover:bg-slate-50'}
                             `}
                         >
-                            <MessageSquare className={`w-4 h-4 shrink-0 ${sessionId === session.session_id ? 'text-brand-600' : 'text-slate-400 group-hover:text-slate-600'}`} />
+                            <MessageSquare className={`w-3.5 h-3.5 shrink-0 ${sessionId === session.session_id ? 'text-brand-600' : 'text-slate-400 group-hover:text-slate-600'}`} />
                             <div className="flex-1 truncate">
                                 {session.session_name || 'Untitled Conversation'}
                             </div>
@@ -586,32 +585,32 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col min-w-0 bg-slate-50 relative">
         {/* Simplified Header */}
-        <div className="h-14 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-6 sticky top-0 z-30">
-           <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-50 to-white border border-brand-100 flex items-center justify-center shadow-sm text-brand-600">
-                 <MessageSquareText className="w-5 h-5" />
+        <div className="h-12 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-4 sticky top-0 z-30">
+           <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-brand-50 to-white border border-brand-100 flex items-center justify-center shadow-sm text-brand-600">
+                 <MessageSquareText className="w-4 h-4" />
               </div>
-              <span className="font-bold text-slate-900">AI Assistant</span>
+              <span className="font-bold text-slate-900 text-sm">AI Assistant</span>
            </div>
            
-           <button className="text-slate-400 hover:text-slate-600 p-2 rounded-lg hover:bg-slate-100 transition-colors">
-              <MoreHorizontal className="w-5 h-5" />
+           <button className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
+              <MoreHorizontal className="w-4 h-4" />
            </button>
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6 scroll-smooth pb-6">
+        <div className="flex-1 overflow-y-auto p-4 space-y-6 scroll-smooth pb-6">
           {messages.map((msg) => (
             <div 
               key={msg.id} 
               id={`message-${msg.id}`}
-              className="w-full max-w-3xl mx-auto scroll-mt-20"
+              className="w-full max-w-4xl mx-auto scroll-mt-20"
             >
                {msg.role === 'user' ? (
                    // User Message
                    <div className="flex gap-4 flex-row-reverse animate-fade-in group">
-                       <div className="max-w-[80%]">
-                           <div className="px-5 py-3.5 bg-brand-50 text-slate-900 rounded-2xl rounded-tr-sm border border-brand-100 text-sm leading-relaxed whitespace-pre-wrap">
+                       <div className="max-w-[85%]">
+                           <div className="px-4 py-3 bg-brand-50 text-slate-900 rounded-2xl rounded-tr-sm border border-brand-100 text-sm leading-relaxed whitespace-pre-wrap shadow-sm">
                                {msg.content}
                            </div>
                        </div>
@@ -619,9 +618,9 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
                ) : (
                    // Assistant Message
                    <div className="flex flex-col gap-2">
-                       <div className="flex gap-4 animate-fade-in items-start group">
-                           <div className="w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center shrink-0 shadow-sm mt-1">
-                               <Sparkles className="w-4 h-4 text-brand-600" />
+                       <div className="flex gap-3 animate-fade-in items-start group">
+                           <div className="w-7 h-7 rounded-full bg-white border border-slate-200 flex items-center justify-center shrink-0 shadow-sm mt-1">
+                               <Sparkles className="w-3.5 h-3.5 text-brand-600" />
                            </div>
                            
                            <div className="flex-1 min-w-0 flex flex-col items-start space-y-2">
@@ -635,24 +634,24 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
                                               <div key={idx} className="flex flex-wrap items-center gap-2">
                                                 <button 
                                                     onClick={() => setSelectedToolCall(toolCall)}
-                                                    className="flex items-center gap-2 pl-3 pr-4 py-2 bg-white text-slate-600 rounded-xl text-xs font-mono hover:border-brand-200 hover:shadow-md transition-all shadow-sm border border-slate-200 group/tool w-fit"
+                                                    className="flex items-center gap-2 pl-3 pr-4 py-1.5 bg-white text-slate-600 rounded-xl text-[11px] font-mono hover:border-brand-200 hover:shadow-md transition-all shadow-sm border border-slate-200 group/tool w-fit"
                                                 >
-                                                    <div className="w-5 h-5 rounded bg-brand-50 flex items-center justify-center shrink-0 border border-brand-100">
-                                                        <Hammer className="w-3 h-3 text-brand-600" />
+                                                    <div className="w-4 h-4 rounded bg-brand-50 flex items-center justify-center shrink-0 border border-brand-100">
+                                                        <Hammer className="w-2.5 h-2.5 text-brand-600" />
                                                     </div>
                                                     <span className="font-bold text-slate-700">{toolCall.status === 'running' ? 'Running Tool' : 'Tool Called'}</span>
                                                     <span className="text-slate-300">|</span>
                                                     <span className="text-brand-600 font-medium">{toolCall.name}</span>
-                                                    <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover/tool:text-brand-600 transition-colors ml-1" />
+                                                    <ChevronRight className="w-3 h-3 text-slate-400 group-hover/tool:text-brand-600 transition-colors ml-1" />
                                                 </button>
 
                                                 {/* DFS Explore Graph Visualization Button */}
                                                 {isDfsExplore && (
                                                     <button
                                                         onClick={() => handleOpenGraph(toolCall.result)}
-                                                        className="flex items-center gap-2 px-3 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold shadow-sm hover:bg-slate-800 hover:scale-105 transition-all animate-fade-in"
+                                                        className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 text-white rounded-xl text-[11px] font-bold shadow-sm hover:bg-slate-800 hover:scale-105 transition-all animate-fade-in"
                                                     >
-                                                        <Network className="w-3.5 h-3.5" />
+                                                        <Network className="w-3 h-3" />
                                                         Visualize Graph
                                                     </button>
                                                 )}
@@ -748,8 +747,8 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
         </div>
 
         {/* Input Area - Flex Item */}
-        <div className="w-full px-4 md:px-8 pb-6 pt-2 shrink-0 z-20">
-            <div className="max-w-3xl mx-auto">
+        <div className="w-full px-4 pb-4 pt-2 shrink-0 z-20">
+            <div className="max-w-4xl mx-auto">
                 <div 
                     className={`
                         relative bg-white rounded-2xl border border-slate-200 transition-all duration-200 shadow-lg
@@ -790,18 +789,18 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
                     <div className="flex flex-col">
                         {/* File Previews */}
                         {files.length > 0 && (
-                            <div className="flex flex-wrap gap-2 px-4 pt-4">
+                            <div className="flex flex-wrap gap-2 px-3 pt-3">
                                 {files.map((file, idx) => (
-                                    <div key={idx} className="flex items-center gap-2 pl-3 pr-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg group transition-all hover:bg-slate-100 hover:border-slate-300">
+                                    <div key={idx} className="flex items-center gap-2 pl-3 pr-2 py-1 bg-slate-50 border border-slate-200 rounded-lg group transition-all hover:bg-slate-100 hover:border-slate-300">
                                         <div className="flex flex-col max-w-[150px]">
-                                            <span className="text-xs font-semibold text-slate-700 truncate" title={file.name}>{file.name}</span>
-                                            <span className="text-[10px] text-slate-400 font-mono">{(file.size / 1024).toFixed(0)}KB</span>
+                                            <span className="text-[10px] font-semibold text-slate-700 truncate" title={file.name}>{file.name}</span>
+                                            <span className="text-[9px] text-slate-400 font-mono">{(file.size / 1024).toFixed(0)}KB</span>
                                         </div>
                                         <button 
                                             onClick={() => removeFile(idx)}
-                                            className="p-1 rounded-md text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                                            className="p-0.5 rounded-md text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
                                         >
-                                            <X className="w-3.5 h-3.5" />
+                                            <X className="w-3 h-3" />
                                         </button>
                                     </div>
                                 ))}
@@ -810,7 +809,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
 
                         <textarea
                             ref={textareaRef}
-                            className="w-full bg-transparent border-none focus:ring-0 focus:outline-none resize-none text-sm text-slate-900 placeholder:text-slate-400 min-h-[52px] max-h-[200px] overflow-y-auto custom-scrollbar px-4 py-4"
+                            className="w-full bg-transparent border-none focus:ring-0 focus:outline-none resize-none text-sm text-slate-900 placeholder:text-slate-400 min-h-[48px] max-h-[160px] overflow-y-auto custom-scrollbar px-4 py-3.5"
                             placeholder={isLoadingAgents ? "Loading agents..." : "Ask anything... Type '@' to switch agent"}
                             value={inputValue}
                             onChange={handleInputChange}
@@ -820,14 +819,14 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
                             rows={1}
                         />
                         
-                        <div className="flex items-center justify-between px-3 pb-3">
+                        <div className="flex items-center justify-between px-2.5 pb-2.5">
                             {/* Left: Attachment */}
                             <button 
                                 onClick={() => fileInputRef.current?.click()}
                                 className="text-slate-400 hover:text-brand-600 p-2 rounded-lg hover:bg-slate-50 transition-colors"
                                 title="Attach files"
                             >
-                                <Paperclip className="w-5 h-5" />
+                                <Paperclip className="w-4.5 h-4.5" />
                             </button>
 
                             <div className="flex items-center gap-2">
@@ -835,7 +834,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
                                 <div className="relative" ref={agentMenuRef}>
                                     <button 
                                         onClick={() => setShowAgentMenu(!showAgentMenu)}
-                                        className="flex items-center gap-2 px-3 py-1.5 bg-brand-50 text-brand-700 rounded-full text-[11px] font-bold uppercase tracking-wider hover:bg-brand-100 transition-colors border border-brand-100"
+                                        className="flex items-center gap-2 px-3 py-1.5 bg-brand-50 text-brand-700 rounded-full text-[10px] font-bold uppercase tracking-wider hover:bg-brand-100 transition-colors border border-brand-100"
                                     >
                                         {selectedAgent?.name || 'Agent'}
                                         <Sparkles className="w-3 h-3" />
@@ -851,7 +850,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
                                                 <button
                                                     key={agent.id}
                                                     onClick={() => handleAgentSelect(agent.id)}
-                                                    className={`w-full text-left px-4 py-2.5 text-xs font-medium hover:bg-slate-50 transition-colors flex items-center justify-between ${selectedAgentId === agent.id ? 'text-brand-600 bg-brand-50/50' : 'text-slate-700'}`}
+                                                    className={`w-full text-left px-4 py-2 text-xs font-medium hover:bg-slate-50 transition-colors flex items-center justify-between ${selectedAgentId === agent.id ? 'text-brand-600 bg-brand-50/50' : 'text-slate-700'}`}
                                                 >
                                                     {agent.name}
                                                     {selectedAgentId === agent.id && <Check className="w-3 h-3" />}
@@ -863,7 +862,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
 
                                 {/* Send Button */}
                                 <button
-                                    className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-200 ${
+                                    className={`w-8 h-8 flex items-center justify-center rounded-xl transition-all duration-200 ${
                                     (inputValue.trim() || files.length > 0) && !isTyping && selectedAgentId
                                         ? 'bg-slate-100 text-slate-900 hover:bg-brand-600 hover:text-white shadow-sm' 
                                         : 'bg-slate-50 text-slate-300 cursor-not-allowed'
@@ -871,14 +870,11 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
                                     disabled={(!inputValue.trim() && files.length === 0) || isTyping || !selectedAgentId}
                                     onClick={handleSend}
                                 >
-                                    {isTyping ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowUp className="w-5 h-5" />}
+                                    {isTyping ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ArrowUp className="w-4 h-4" />}
                                 </button>
                             </div>
                         </div>
                     </div>
-                </div>
-                <div className="text-center mt-3">
-                     <span className="text-[10px] text-slate-400 font-medium">AI can make mistakes. Check important info.</span>
                 </div>
             </div>
         </div>
@@ -886,43 +882,43 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
 
       {/* Tool Details Sidebar */}
       {selectedToolCall && (
-        <div className="absolute top-0 right-0 h-full w-[400px] bg-white text-slate-600 shadow-2xl z-50 animate-fade-in-left border-l border-slate-200 flex flex-col">
-            <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-white">
-                <h3 className="font-bold text-slate-900 text-lg tracking-tight">{selectedToolCall.name}</h3>
+        <div className="absolute top-0 right-0 h-full w-80 lg:w-96 bg-white text-slate-600 shadow-2xl z-50 animate-fade-in-left border-l border-slate-200 flex flex-col">
+            <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-white">
+                <h3 className="font-bold text-slate-900 text-base tracking-tight truncate pr-2">{selectedToolCall.name}</h3>
                 <button onClick={() => setSelectedToolCall(null)} className="text-slate-400 hover:text-slate-700 transition-colors">
-                    <X className="w-5 h-5" />
+                    <X className="w-4 h-4" />
                 </button>
             </div>
             
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-6">
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-5">
                 {/* Tool Name */}
-                <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider">
-                        <Hammer className="w-3.5 h-3.5" /> Tool Name
+                <div className="space-y-1.5">
+                    <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                        <Hammer className="w-3 h-3" /> Tool Name
                     </div>
-                    <div className="p-3 rounded-lg bg-brand-50 border border-brand-200 font-mono text-sm text-brand-700 font-bold">
+                    <div className="p-2.5 rounded-lg bg-brand-50 border border-brand-200 font-mono text-xs text-brand-700 font-bold break-all">
                         {selectedToolCall.name}
                     </div>
                 </div>
 
                 {/* Tool Args */}
-                <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider">
-                        <Terminal className="w-3.5 h-3.5" /> Tool Args
+                <div className="space-y-1.5">
+                    <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                        <Terminal className="w-3 h-3" /> Tool Args
                     </div>
-                    <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 font-mono text-xs text-slate-700 overflow-x-auto">
+                    <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 font-mono text-[10px] text-slate-700 overflow-x-auto">
                         <pre>{JSON.stringify(selectedToolCall.args, null, 2)}</pre>
                     </div>
                 </div>
 
                 {/* Metrics */}
                 {selectedToolCall.duration !== undefined && (
-                    <div className="space-y-2">
-                         <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider">
-                            <BarChart2 className="w-3.5 h-3.5" /> Tool Metrics
+                    <div className="space-y-1.5">
+                         <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                            <BarChart2 className="w-3 h-3" /> Tool Metrics
                         </div>
-                        <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
-                             <div className="flex items-center justify-between text-sm">
+                        <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200">
+                             <div className="flex items-center justify-between text-xs">
                                 <span className="text-slate-500">Duration</span>
                                 <span className="font-mono font-bold text-slate-900">{selectedToolCall.duration.toFixed(4)} ms</span>
                              </div>
@@ -931,11 +927,11 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
                 )}
 
                 {/* Tool Result */}
-                <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider">
-                        <Code className="w-3.5 h-3.5" /> Tool Result
+                <div className="space-y-1.5">
+                    <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                        <Code className="w-3 h-3" /> Tool Result
                     </div>
-                    <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 font-mono text-xs text-slate-700 overflow-x-auto min-h-[100px]">
+                    <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 font-mono text-[10px] text-slate-700 overflow-x-auto min-h-[100px]">
                         {selectedToolCall.result ? (
                              typeof selectedToolCall.result === 'string' ? (
                                 <pre className="whitespace-pre-wrap">{selectedToolCall.result}</pre>

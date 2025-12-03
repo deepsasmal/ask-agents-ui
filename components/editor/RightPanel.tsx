@@ -39,14 +39,14 @@ export const RightPanel: React.FC<RightPanelProps> = ({
       }
 
       return (
-        <div className="w-80 flex flex-col border-l border-slate-200 bg-white h-[calc(100vh-8rem)] z-10 animate-fade-in-right shrink-0">
-             <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+        <div className="w-72 flex flex-col border-l border-slate-200 bg-white h-[calc(100vh-8rem)] z-10 animate-fade-in-right shrink-0">
+             <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
                 <div className="flex items-center gap-2">
-                    <span className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600">
-                        <Network className="w-4 h-4" />
+                    <span className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600">
+                        <Network className="w-3.5 h-3.5" />
                     </span>
                     <div>
-                        <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">Connection</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Connection</span>
                         <span className="text-sm font-bold text-slate-900">Relationship</span>
                     </div>
                 </div>
@@ -55,12 +55,12 @@ export const RightPanel: React.FC<RightPanelProps> = ({
                 </button>
             </div>
 
-            <div className="flex-1 p-5 space-y-6">
+            <div className="flex-1 p-4 space-y-6">
                 <div className="space-y-2">
-                    <label className="text-sm font-semibold text-slate-700 ml-1">Relationship Type</label>
+                    <label className="text-xs font-bold text-slate-700 ml-1 uppercase tracking-wide">Relationship Type</label>
                     <div className="relative">
                         <select 
-                            className="w-full appearance-none px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all shadow-sm cursor-pointer hover:border-brand-300"
+                            className="w-full appearance-none px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all shadow-sm cursor-pointer hover:border-brand-300"
                             value={selectedEdge.label}
                             onChange={(e) => onUpdateEdge(selectedEdge.id, { label: e.target.value })}
                         >
@@ -68,16 +68,16 @@ export const RightPanel: React.FC<RightPanelProps> = ({
                                 <option key={rel} value={rel}>{rel}</option>
                             ))}
                         </select>
-                        <ArrowRightLeft className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                        <ArrowRightLeft className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                     </div>
                     {constraint && (
-                         <p className="text-[10px] text-amber-600 font-medium px-2">
+                         <p className="text-[10px] text-amber-600 font-medium px-1">
                            * Limited to specific types by schema rules
                          </p>
                     )}
                 </div>
                 
-                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-3">
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-2">
                     <div className="flex justify-between items-center">
                          <span className="text-slate-500">Source:</span>
                          <span className="font-bold text-slate-700 bg-white px-2 py-0.5 rounded border border-slate-200">{sourceNode?.label}</span>
@@ -89,12 +89,13 @@ export const RightPanel: React.FC<RightPanelProps> = ({
                 </div>
             </div>
 
-            <div className="p-5 border-t border-slate-200 bg-slate-50">
+            <div className="p-4 border-t border-slate-200 bg-slate-50">
                 <Button 
                     variant="ghost" 
                     className="w-full text-red-600 hover:text-red-700 hover:bg-red-50"
                     leftIcon={<Trash2 className="w-4 h-4" />}
                     onClick={() => onDeleteEdge(selectedEdge.id)}
+                    size="md"
                 >
                     Delete Connection
                 </Button>
@@ -121,7 +122,6 @@ export const RightPanel: React.FC<RightPanelProps> = ({
         if (!newKey || oldKey === newKey) return;
         // Simple check to prevent overwriting existing keys
         if (properties[newKey] !== undefined) {
-             // In a real app we might show an error, but here we just ignore to prevent data loss
              return;
         }
 
@@ -145,10 +145,10 @@ export const RightPanel: React.FC<RightPanelProps> = ({
     };
 
     return (
-        <div className="w-80 flex flex-col border-l border-slate-200 bg-white h-[calc(100vh-8rem)] z-10 animate-fade-in-right shrink-0">
+        <div className="w-72 flex flex-col border-l border-slate-200 bg-white h-[calc(100vh-8rem)] z-10 animate-fade-in-right shrink-0">
         
         {/* Header */}
-        <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+        <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
             <div className="flex items-center gap-2">
                 <span className={`w-2 h-2 rounded-full ${selectedNode.type === 'TECHNICAL' ? 'bg-blue-500' : 'bg-green-500'}`} />
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-500">{selectedNode.subType}</span>
@@ -158,7 +158,7 @@ export const RightPanel: React.FC<RightPanelProps> = ({
             </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-6">
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-5">
             
             {/* Main Info */}
             <div className="space-y-4">
@@ -171,9 +171,9 @@ export const RightPanel: React.FC<RightPanelProps> = ({
                 {/* Specific field for Columns */}
                 {selectedNode.type === 'TECHNICAL' && selectedNode.subType === 'COLUMN' && (
                     <div className="flex flex-col gap-1.5">
-                        <label className="text-sm font-semibold text-slate-700 ml-1">Data Type</label>
+                        <label className="text-xs font-bold text-slate-700 ml-1 uppercase tracking-wide">Data Type</label>
                         <input
-                            className="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all shadow-sm hover:border-brand-300"
+                            className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all shadow-sm hover:border-brand-300"
                             value={selectedNode.data.dataType || ''}
                             onChange={(e) => onUpdateNode(selectedNode.id, { data: { ...selectedNode.data, dataType: e.target.value } })}
                             placeholder="e.g. varchar, integer"
@@ -182,9 +182,9 @@ export const RightPanel: React.FC<RightPanelProps> = ({
                 )}
 
                 <div className="space-y-1.5">
-                    <label className="text-sm font-semibold text-slate-700 ml-1">Description</label>
+                    <label className="text-xs font-bold text-slate-700 ml-1 uppercase tracking-wide">Description</label>
                     <textarea 
-                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all shadow-sm resize-none h-24"
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all shadow-sm resize-none h-20"
                         value={selectedNode.data.description || ''}
                         onChange={(e) => onUpdateNode(selectedNode.id, { data: { ...selectedNode.data, description: e.target.value } })}
                         placeholder="Describe this node..."
@@ -195,7 +195,7 @@ export const RightPanel: React.FC<RightPanelProps> = ({
             {/* Properties Grid */}
             <div>
                 <div className="flex items-center justify-between mb-2 px-1">
-                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
                         <Hash className="w-3 h-3" /> Properties
                     </span>
                     <button 
@@ -208,7 +208,7 @@ export const RightPanel: React.FC<RightPanelProps> = ({
                 
                 <div className="bg-slate-50 rounded-xl border border-slate-200 overflow-hidden">
                     {Object.keys(properties).length === 0 ? (
-                        <div className="p-4 text-center text-xs text-slate-400 italic">
+                        <div className="p-3 text-center text-[10px] text-slate-400 italic">
                             No custom properties
                         </div>
                     ) : (
@@ -229,27 +229,28 @@ export const RightPanel: React.FC<RightPanelProps> = ({
             </div>
 
             {/* Audit Info */}
-            <div className="pt-4 border-t border-slate-100">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 block">Audit Information</span>
-                <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-xs text-slate-500">
-                        <Clock className="w-3.5 h-3.5" />
+            <div className="pt-3 border-t border-slate-100">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 block">Audit Information</span>
+                <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-[10px] text-slate-500">
+                        <Clock className="w-3 h-3" />
                         <span>Created: Oct 24, 2024</span>
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-slate-500">
-                        <Info className="w-3.5 h-3.5" />
+                    <div className="flex items-center gap-2 text-[10px] text-slate-500">
+                        <Info className="w-3 h-3" />
                         <span>ID: {selectedNode.id.substring(0, 8)}...</span>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div className="p-5 border-t border-slate-200 bg-slate-50">
+        <div className="p-4 border-t border-slate-200 bg-slate-50">
             <Button 
                 variant="ghost" 
                 className="w-full text-red-600 hover:text-red-700 hover:bg-red-50"
                 leftIcon={<Trash2 className="w-4 h-4" />}
                 onClick={() => onDeleteNode(selectedNode.id)}
+                size="md"
             >
                 Delete Node
             </Button>
@@ -260,12 +261,12 @@ export const RightPanel: React.FC<RightPanelProps> = ({
 
   // -- EMPTY STATE --
   return (
-    <div className="w-80 border-l border-slate-200 bg-white h-[calc(100vh-8rem)] flex items-center justify-center p-8 text-center shrink-0">
+    <div className="w-72 border-l border-slate-200 bg-white h-[calc(100vh-8rem)] flex items-center justify-center p-6 text-center shrink-0">
         <div className="space-y-3 opacity-50">
-           <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto">
-             <Tag className="w-8 h-8 text-slate-400" />
+           <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto">
+             <Tag className="w-6 h-6 text-slate-400" />
            </div>
-           <p className="text-sm font-medium text-slate-500">Select a node or connection to edit properties</p>
+           <p className="text-xs font-medium text-slate-500">Select a node or connection to edit properties</p>
         </div>
     </div>
   );
@@ -313,7 +314,7 @@ const PropertyRow: React.FC<PropertyRowProps> = ({
 
     return (
         <div className="flex items-start gap-2 p-2 group hover:bg-white transition-colors">
-            <div className="flex-1 space-y-1">
+            <div className="flex-1 space-y-0.5">
                 <input 
                     className="w-full text-xs font-bold text-slate-700 bg-transparent border-none p-0 focus:ring-0 placeholder:text-slate-400 focus:outline-none"
                     value={key}
@@ -327,7 +328,7 @@ const PropertyRow: React.FC<PropertyRowProps> = ({
                     placeholder="Key"
                 />
                 <input 
-                    className="w-full text-xs text-slate-600 bg-slate-200/50 rounded px-1.5 py-1 border-none focus:ring-1 focus:ring-brand-500 focus:bg-white transition-all placeholder:text-slate-400"
+                    className="w-full text-[11px] text-slate-600 bg-slate-200/50 rounded px-1.5 py-0.5 border-none focus:ring-1 focus:ring-brand-500 focus:bg-white transition-all placeholder:text-slate-400"
                     value={value}
                     onChange={(e) => setValue(e.target.value)}
                     onBlur={submitValue}

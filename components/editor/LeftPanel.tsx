@@ -50,14 +50,14 @@ export const LeftPanel: React.FC<LeftPanelProps> = ({ onCreateNode }) => {
   };
 
   return (
-    <div className="w-80 flex flex-col border-r border-slate-200 bg-white h-[calc(100vh-8rem)] z-10 shrink-0 select-none">
+    <div className="w-72 flex flex-col border-r border-slate-200 bg-white h-[calc(100vh-8rem)] z-10 shrink-0 select-none">
       
       {/* Tabs */}
       <div className="flex border-b border-slate-200">
         {(Object.keys(EDITOR_CONFIG.nodeTypes) as EditorNodeType[]).map((type) => (
            <button
             key={type}
-            className={`flex-1 py-4 text-sm font-bold text-center border-b-2 transition-colors ${activeTab === type ? 'border-brand-600 text-brand-600 bg-brand-50/30' : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`}
+            className={`flex-1 py-3 text-xs font-bold text-center border-b-2 transition-colors ${activeTab === type ? 'border-brand-600 text-brand-600 bg-brand-50/30' : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`}
             onClick={() => setActiveTab(type)}
           >
             {EDITOR_CONFIG.nodeTypes[type].label}
@@ -65,17 +65,17 @@ export const LeftPanel: React.FC<LeftPanelProps> = ({ onCreateNode }) => {
         ))}
       </div>
 
-      <div className="p-5 overflow-y-auto flex-1 custom-scrollbar">
-        <div className="space-y-6">
+      <div className="p-4 overflow-y-auto flex-1 custom-scrollbar">
+        <div className="space-y-5">
           
           {/* Node Type Selector */}
           <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Node Type</label>
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Node Type</label>
             <div className="grid grid-cols-2 gap-2">
                {EDITOR_CONFIG.nodeTypes[activeTab].subTypes.map((sub) => (
                  <TypeButton 
                     key={sub.id}
-                    icon={ICON_MAP[sub.icon] || <Table className="w-4 h-4" />} 
+                    icon={ICON_MAP[sub.icon] || <Table className="w-3.5 h-3.5" />} 
                     label={sub.label} 
                     active={selectedSubType === sub.id} 
                     onClick={() => setSelectedSubType(sub.id)} 
@@ -94,21 +94,20 @@ export const LeftPanel: React.FC<LeftPanelProps> = ({ onCreateNode }) => {
              />
              
              <div className="space-y-1.5">
-               <label className="text-sm font-semibold text-slate-700 ml-1">Description</label>
+               <label className="text-xs font-bold text-slate-700 ml-1 uppercase tracking-wide">Description</label>
                <textarea 
-                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all shadow-sm resize-none h-24"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all shadow-sm resize-none h-20"
                   placeholder="Describe the purpose..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                />
              </div>
 
-             {/* Dynamic Fields specific to Column Type - Hardcoded for specific logic logic, 
-                 could be externalized to 'fields' array in config if needed later */}
+             {/* Dynamic Fields specific to Column Type */}
              {activeTab === 'TECHNICAL' && selectedSubType === 'COLUMN' && (
                 <div className="space-y-1.5">
-                  <label className="text-sm font-semibold text-slate-700 ml-1">Key Type</label>
-                  <select className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 shadow-sm cursor-pointer">
+                  <label className="text-xs font-bold text-slate-700 ml-1 uppercase tracking-wide">Key Type</label>
+                  <select className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 shadow-sm cursor-pointer">
                     <option value="NONE">None</option>
                     <option value="PK">Primary Key</option>
                     <option value="FK">Foreign Key</option>
@@ -118,21 +117,22 @@ export const LeftPanel: React.FC<LeftPanelProps> = ({ onCreateNode }) => {
           </div>
 
           {/* Relationships Preview Hint */}
-          <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
-             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">Editor Hint</span>
-             <p className="text-xs text-slate-500 leading-relaxed">
+          <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Editor Hint</span>
+             <p className="text-[10px] text-slate-500 leading-relaxed">
                Drag from the output handle (right) of this node to another node to create a relationship. Allowed connections depend on node types.
              </p>
           </div>
         </div>
       </div>
 
-      <div className="p-5 border-t border-slate-200 bg-slate-50">
+      <div className="p-4 border-t border-slate-200 bg-slate-50">
         <Button 
           className="w-full shadow-brand-600/20" 
           onClick={handleCreate}
           disabled={!nodeName}
           leftIcon={<Plus className="w-4 h-4" />}
+          size="md"
         >
           Create Node
         </Button>
@@ -151,7 +151,7 @@ interface TypeButtonProps {
 const TypeButton: React.FC<TypeButtonProps> = ({ icon, label, active, onClick }) => (
   <button
     onClick={onClick}
-    className={`flex items-center gap-2 p-2.5 rounded-xl border text-sm font-medium transition-all ${
+    className={`flex items-center gap-1.5 p-2 rounded-lg border text-xs font-medium transition-all ${
       active 
         ? 'bg-brand-50 border-brand-200 text-brand-700 shadow-sm ring-1 ring-brand-200' 
         : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
