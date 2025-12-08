@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Network, LayoutDashboard, MessageSquareText, Settings, LogOut, PanelLeftClose, PanelLeft, ChevronRight, Home, ChevronDown, PenLine, Loader2, MessageSquare } from 'lucide-react';
+import { Network, LayoutDashboard, MessageSquareText, Settings, LogOut, PanelLeftClose, PanelLeft, ChevronRight, Home, ChevronDown, PenLine, Loader2, MessageSquare, Trash2 } from 'lucide-react';
 import { GraphBuilderModule } from './components/modules/GraphBuilderModule';
 import { ChatModule } from './components/modules/ChatModule';
 import { LandingPageModule } from './components/modules/LandingPageModule';
@@ -37,6 +37,7 @@ const App: React.FC = () => {
   const [isLoadingSessions, setIsLoadingSessions] = useState(false);
   const [isChatsCollapsed, setIsChatsCollapsed] = useState(false);
   const [currentSessionId, setCurrentSessionId] = useState<string>(() => generateUUID());
+  const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null);
   const initializedRef = useRef(false);
 
   const toggleSidebar = () => setIsSidebarCollapsed(!isSidebarCollapsed);
@@ -103,6 +104,31 @@ const App: React.FC = () => {
   const handleSessionClick = (sessionId: string) => {
       setCurrentSessionId(sessionId);
       setActiveModule('CHAT');
+  };
+
+  const handleDeleteSession = async (sessionId: string, e: React.MouseEvent) => {
+      e.stopPropagation(); // Prevent triggering the session click
+      
+      if (!dbConfig || deletingSessionId) return;
+
+      setDeletingSessionId(sessionId);
+
+      try {
+          await sessionApi.deleteSession(sessionId, dbConfig.dbId);
+          
+          // Remove the session from the list immediately
+          setSessions(prevSessions => prevSessions.filter(s => s.session_id !== sessionId));
+          
+          // If the deleted session is the current one, create a new session
+          if (currentSessionId === sessionId) {
+              setCurrentSessionId(generateUUID());
+          }
+      } catch (err) {
+          console.error('Failed to delete session:', err);
+          alert('Failed to delete session. Please try again.');
+      } finally {
+          setDeletingSessionId(null);
+      }
   };
 
   const handleLogout = () => {
@@ -264,6 +290,19 @@ const App: React.FC = () => {
                                             <div className="flex-1 truncate">
                                                 {session.session_name || 'Untitled Conversation'}
                                             </div>
+                                            {deletingSessionId === session.session_id ? (
+                                                <div className="p-1">
+                                                    <Loader2 className="w-3.5 h-3.5 text-red-500 animate-spin" />
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    onClick={(e) => handleDeleteSession(session.session_id, e)}
+                                                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-100 rounded"
+                                                    title="Delete session"
+                                                >
+                                                    <Trash2 className="w-3.5 h-3.5 text-slate-400 hover:text-red-600" />
+                                                </button>
+                                            )}
                                         </button>
                                     ))}
                                 </div>

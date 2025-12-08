@@ -3,8 +3,10 @@ import { Bot, MoreHorizontal, Loader2, Sparkles, Copy, BarChart2, Hammer, X, Ter
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ToolVisualization, ToolCall } from '../chat/ToolVisualization';
+import { ChartRenderer } from '../chat/ChartRenderer';
 import { agentApi, configApi, sessionApi, authApi, Agent, RunMetrics } from '../../services/api';
 import { ExploredGraphModal } from '../modals/ExploredGraphModal';
+import { ChartModal } from '../modals/ChartModal';
 import chatbotLogo from '../../assets/chatbot_logo.png';
 import { toast } from 'react-toastify';
 
@@ -57,6 +59,10 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
     // Graph Modal State
     const [isGraphModalOpen, setIsGraphModalOpen] = useState(false);
     const [graphModalData, setGraphModalData] = useState<any>(null);
+
+    // Chart Modal State
+    const [isChartModalOpen, setIsChartModalOpen] = useState(false);
+    const [chartModalData, setChartModalData] = useState<any>(null);
 
     // File Attachment State
     const [files, setFiles] = useState<File[]>([]);
@@ -151,21 +157,41 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
                     const history = sessionData.chat_history || sessionData.messages || [];
                     const mappedMessages: Message[] = history
                         .filter((m: any) => m.role !== 'system')
-                        .map((m: any, idx: number) => ({
-                            id: `hist-${idx}-${m.created_at || Date.now()}`,
-                            role: m.role,
-                            content: m.content || '',
-                            timestamp: new Date(m.created_at ? m.created_at * 1000 : Date.now()),
-                            metrics: m.metrics,
-                            toolCalls: m.tool_calls?.map((tc: any) => ({
-                                id: tc.tool_call_id || 'unknown',
-                                name: tc.tool_name,
-                                args: tc.tool_args,
-                                status: 'completed',
-                                result: tc.result,
-                                duration: tc.metrics?.duration
-                            }))
-                        }));
+                        .map((m: any, idx: number) => {
+                            // Parse tool calls from the new API format
+                            let toolCalls: ToolCall[] | undefined;
+                            if (m.tool_calls && Array.isArray(m.tool_calls)) {
+                                toolCalls = m.tool_calls.map((tc: any) => {
+                                    // Parse arguments if they're a JSON string
+                                    let args = tc.function?.arguments;
+                                    if (typeof args === 'string') {
+                                        try {
+                                            args = JSON.parse(args);
+                                        } catch (e) {
+                                            console.warn('Failed to parse tool arguments:', args);
+                                        }
+                                    }
+
+                                    return {
+                                        id: tc.id || tc.tool_call_id || 'unknown',
+                                        name: tc.function?.name || tc.tool_name || 'unknown',
+                                        args: args || tc.tool_args || {},
+                                        status: 'completed',
+                                        result: tc.result,
+                                        duration: tc.metrics?.duration
+                                    };
+                                });
+                            }
+
+                            return {
+                                id: m.id || `hist-${idx}-${m.created_at || Date.now()}`,
+                                role: m.role,
+                                content: m.content || '',
+                                timestamp: new Date(m.created_at ? m.created_at * 1000 : Date.now()),
+                                metrics: m.metrics,
+                                toolCalls: toolCalls
+                            };
+                        });
 
                     setMessages(mappedMessages);
                 } else {
@@ -499,6 +525,11 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
         }
     };
 
+    const handleOpenChart = (chartOptions: any) => {
+        setChartModalData(chartOptions);
+        setIsChartModalOpen(true);
+    };
+
     // Memoized selected agent
     const selectedAgent = useMemo(() =>
         agents.find(a => a.id === selectedAgentId),
@@ -512,6 +543,13 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
                 isOpen={isGraphModalOpen}
                 onClose={() => setIsGraphModalOpen(false)}
                 data={graphModalData}
+            />
+
+            <ChartModal
+                isOpen={isChartModalOpen}
+                onClose={() => setIsChartModalOpen(false)}
+                chartOptions={chartModalData}
+                title="Bar Chart - Expanded View"
             />
 
             {/* Hidden File Input */}
@@ -575,6 +613,62 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
                                                         />
                                                     ))}
                                                 </div>
+                                            )}
+
+                                            {/* Bar Chart Rendering - Rendered in Chat UI */}
+                                            {msg.toolCalls && msg.toolCalls.some(tc => tc.name === 'create_bar_chart' && tc.status === 'completed' && tc.result) && (
+                                                (() => {
+                                                    const chartToolCall = msg.toolCalls.find(tc => tc.name === 'create_bar_chart' && tc.status === 'completed' && tc.result);
+                                                    return chartToolCall ? (
+                                                        <ChartRenderer
+                                                            toolResult={chartToolCall.result}
+                                                            chartType="bar"
+                                                            onExpand={handleOpenChart}
+                                                        />
+                                                    ) : null;
+                                                })()
+                                            )}
+
+                                            {/* Line Chart Rendering - Rendered in Chat UI */}
+                                            {msg.toolCalls && msg.toolCalls.some(tc => tc.name === 'create_basic_line_chart' && tc.status === 'completed' && tc.result) && (
+                                                (() => {
+                                                    const chartToolCall = msg.toolCalls.find(tc => tc.name === 'create_basic_line_chart' && tc.status === 'completed' && tc.result);
+                                                    return chartToolCall ? (
+                                                        <ChartRenderer
+                                                            toolResult={chartToolCall.result}
+                                                            chartType="line"
+                                                            onExpand={handleOpenChart}
+                                                        />
+                                                    ) : null;
+                                                })()
+                                            )}
+
+                                            {/* Grouped Bar Chart Rendering - Rendered in Chat UI */}
+                                            {msg.toolCalls && msg.toolCalls.some(tc => tc.name === 'create_grouped_bar_chart' && tc.status === 'completed' && tc.result) && (
+                                                (() => {
+                                                    const chartToolCall = msg.toolCalls.find(tc => tc.name === 'create_grouped_bar_chart' && tc.status === 'completed' && tc.result);
+                                                    return chartToolCall ? (
+                                                        <ChartRenderer
+                                                            toolResult={chartToolCall.result}
+                                                            chartType="bar"
+                                                            onExpand={handleOpenChart}
+                                                        />
+                                                    ) : null;
+                                                })()
+                                            )}
+
+                                            {/* Pie Chart Rendering - Rendered in Chat UI */}
+                                            {msg.toolCalls && msg.toolCalls.some(tc => tc.name === 'create_pie_chart' && tc.status === 'completed' && tc.result) && (
+                                                (() => {
+                                                    const chartToolCall = msg.toolCalls.find(tc => tc.name === 'create_pie_chart' && tc.status === 'completed' && tc.result);
+                                                    return chartToolCall ? (
+                                                        <ChartRenderer
+                                                            toolResult={chartToolCall.result}
+                                                            chartType="pie"
+                                                            onExpand={handleOpenChart}
+                                                        />
+                                                    ) : null;
+                                                })()
                                             )}
 
                                             {/* Streaming Indicator */}

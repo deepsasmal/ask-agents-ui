@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Network, Hammer, Loader2, ChevronDown, Check, AlertCircle } from 'lucide-react';
-import { Chart } from '../ui/Chart';
 
 export interface ToolCall {
   id: string;
@@ -26,17 +25,6 @@ export const ToolVisualization: React.FC<ToolVisualizationProps> = ({
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const isDfsExplore = toolCall.name === 'dfs_explore' && toolCall.status === 'completed';
-  const isChart = toolCall.name === 'create_bar_chart' && toolCall.status === 'completed' && toolCall.result;
-
-  let chartOptions = null;
-  if (isChart) {
-    try {
-      const parsed = typeof toolCall.result === 'string' ? JSON.parse(toolCall.result) : toolCall.result;
-      if (parsed && parsed.option) {
-        chartOptions = parsed.option;
-      }
-    } catch (e) { console.error("Failed to parse chart options", e); }
-  }
 
   // Status icon and color
   const getStatusIndicator = () => {
@@ -121,13 +109,6 @@ export const ToolVisualization: React.FC<ToolVisualizationProps> = ({
           </button>
         )}
       </div>
-
-      {/* Chart Rendering */}
-      {chartOptions && (
-        <div className="w-full max-w-2xl bg-white rounded-xl border border-slate-200 shadow-sm p-4">
-          <Chart options={chartOptions} className="w-full" />
-        </div>
-      )}
     </div>
   );
 };

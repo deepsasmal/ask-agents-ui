@@ -113,11 +113,23 @@ export interface Session {
   updated_at: string | number;
 }
 
+export interface ToolCallFunction {
+  name: string;
+  arguments: string | Record<string, any>;
+}
+
+export interface ToolCallItem {
+  id: string;
+  type: string;
+  function: ToolCallFunction;
+}
+
 export interface SessionMessage {
+  id?: string;
   role: string;
-  content: string;
+  content?: string;
   created_at?: number;
-  tool_calls?: any[];
+  tool_calls?: ToolCallItem[];
   metrics?: any;
   from_history?: boolean;
   stop_after_tool_call?: boolean;
@@ -491,6 +503,30 @@ export const sessionApi = {
       headers: { ...getAuthHeaders() }
     });
     return handleResponse<SessionData>(response);
+  },
+  deleteSession: async (sessionId: string, dbId: string) => {
+    const params = new URLSearchParams({
+      db_id: dbId,
+      table: 'agno_sessions'
+    });
+
+    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}?${params.toString()}`, {
+      method: 'DELETE',
+      headers: { ...getAuthHeaders() }
+    });
+
+    // Handle 204 No Content response
+    if (response.status === 204) {
+      return { message: 'Session deleted successfully' };
+    }
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage = errorData.detail || errorData.message || 'Failed to delete session';
+      throw new ApiError(errorMessage, response.status);
+    }
+
+    return response.json();
   }
 };
 
