@@ -385,6 +385,10 @@ const MOCK_SEARCH_RESULTS: SearchResponse = {
   ]
 };
 
+// Cache for API responses
+let cachedConfig: ConfigResponse | null = null;
+let cachedAgents: Agent[] | null = null;
+
 export const authApi = {
   login: async (username: string, password: string) => {
     const params = new URLSearchParams();
@@ -399,18 +403,21 @@ export const authApi = {
       },
       body: params
     });
-    
+
     const data = await handleResponse<LoginResponse>(response);
     if (data.access_token) {
-        localStorage.setItem('auth_token', data.access_token);
-        // Store user ID (email) for session tracking
-        localStorage.setItem('user_id', username);
+      localStorage.setItem('auth_token', data.access_token);
+      // Store user ID (email) for session tracking
+      localStorage.setItem('user_id', username);
     }
     return data;
   },
   logout: () => {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('user_id');
+    // Clear API caches on logout
+    cachedConfig = null;
+    cachedAgents = null;
   },
   isAuthenticated: () => {
     return !!localStorage.getItem('auth_token');
@@ -420,12 +427,22 @@ export const authApi = {
   }
 };
 
+
 export const configApi = {
   getConfig: async () => {
+    // Return cached config if available
+    if (cachedConfig) {
+      return cachedConfig;
+    }
     const response = await fetch(`${API_BASE_URL}/config`, {
       headers: { ...getAuthHeaders() }
     });
-    return handleResponse<ConfigResponse>(response);
+    const data = await handleResponse<ConfigResponse>(response);
+    cachedConfig = data;
+    return data;
+  },
+  clearCache: () => {
+    cachedConfig = null;
   }
 };
 
@@ -442,9 +459,9 @@ export const sessionApi = {
       table: table
     });
     const response = await fetch(`${API_BASE_URL}/sessions?${params.toString()}`, {
-        headers: { ...getAuthHeaders() }
+      headers: { ...getAuthHeaders() }
     });
-    
+
     // The API returns a wrapped object { data: [], meta: {} }
     const result = await handleResponse<SessionsApiResponse>(response);
     return result.data;
@@ -457,7 +474,7 @@ export const sessionApi = {
       table: table
     });
     const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}?${params.toString()}`, {
-        headers: { ...getAuthHeaders() }
+      headers: { ...getAuthHeaders() }
     });
     return handleResponse<SessionData>(response);
   }
@@ -467,7 +484,7 @@ export const postgresApi = {
   connect: async (details: Pick<WizardState, 'dbHost' | 'dbPort' | 'dbUser' | 'dbPass' | 'dbName'>) => {
     const response = await fetch(`${API_BASE_URL}/postgres/connect`, {
       method: 'POST',
-      headers: { 
+      headers: {
         'Content-Type': 'application/json',
         ...getAuthHeaders()
       },
@@ -484,7 +501,7 @@ export const postgresApi = {
 
   getSchemas: async (connectionId: string) => {
     const response = await fetch(`${API_BASE_URL}/postgres/schemas`, {
-      headers: { 
+      headers: {
         'X-Connection-ID': connectionId,
         ...getAuthHeaders()
       },
@@ -494,7 +511,7 @@ export const postgresApi = {
 
   getTables: async (connectionId: string, schema: string) => {
     const response = await fetch(`${API_BASE_URL}/postgres/schemas/${schema}/tables`, {
-      headers: { 
+      headers: {
         'X-Connection-ID': connectionId,
         ...getAuthHeaders()
       },
@@ -506,7 +523,7 @@ export const postgresApi = {
     const response = await fetch(
       `${API_BASE_URL}/postgres/tables/${table}/columns?schema_name=${schema}`,
       {
-        headers: { 
+        headers: {
           'X-Connection-ID': connectionId,
           ...getAuthHeaders()
         },
@@ -528,7 +545,7 @@ export const postgresApi = {
     const response = await fetch(
       `${API_BASE_URL}/postgres/tables/${table}/foreign_keys?schema_name=${schema}`,
       {
-        headers: { 
+        headers: {
           'X-Connection-ID': connectionId,
           ...getAuthHeaders()
         },
@@ -542,7 +559,7 @@ export const llmApi = {
   generateSchemaDescriptions: async (connectionId: string, schemaName: string, tableNames: string[]) => {
     const response = await fetch(`${API_BASE_URL}/llm/generate_schema_descriptions`, {
       method: 'POST',
-      headers: { 
+      headers: {
         'Content-Type': 'application/json',
         'X-Connection-ID': connectionId,
         ...getAuthHeaders()
@@ -558,10 +575,19 @@ export const llmApi = {
 
 export const agentApi = {
   getAgents: async () => {
+    // Return cached agents if available
+    if (cachedAgents) {
+      return cachedAgents;
+    }
     const response = await fetch(`${API_BASE_URL}/agents`, {
       headers: { ...getAuthHeaders() }
     });
-    return handleResponse<Agent[]>(response);
+    const data = await handleResponse<Agent[]>(response);
+    cachedAgents = data;
+    return data;
+  },
+  clearCache: () => {
+    cachedAgents = null;
   },
 
   runAgent: async (agentId: string, message: string, sessionId: string, userId: string, files: File[] | null | undefined, onEvent: (event: string, data: any) => void) => {
@@ -581,16 +607,16 @@ export const agentApi = {
     const headers: HeadersInit = token ? { 'Authorization': `Bearer ${token}` } : {};
 
     const response = await fetch(`${API_BASE_URL}/agents/${agentId}/runs`, {
-        method: 'POST',
-        headers: headers,
-        body: formData,
+      method: 'POST',
+      headers: headers,
+      body: formData,
     });
 
     if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || 'Failed to run agent');
+      const errorText = await response.text();
+      throw new Error(errorText || 'Failed to run agent');
     }
-    
+
     if (!response.body) return;
 
     const reader = response.body.getReader();
@@ -598,41 +624,41 @@ export const agentApi = {
     let buffer = '';
 
     while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        
-        buffer += decoder.decode(value, { stream: true });
-        
-        // Split by double newline which typically separates SSE messages
-        const messages = buffer.split('\n\n');
-        
-        // Keep the last potentially incomplete chunk in the buffer
-        buffer = messages.pop() || '';
+      const { done, value } = await reader.read();
+      if (done) break;
 
-        for (const msg of messages) {
-            const lines = msg.split('\n');
-            let eventType = '';
-            let eventData = null;
+      buffer += decoder.decode(value, { stream: true });
 
-            for (const line of lines) {
-                if (line.startsWith('event: ')) {
-                    eventType = line.slice(7).trim();
-                } else if (line.startsWith('data: ')) {
-                    const dataStr = line.slice(6).trim();
-                    if (dataStr === '[DONE]') continue;
-                    
-                    try {
-                        eventData = JSON.parse(dataStr);
-                    } catch (e) {
-                        console.warn('Failed to parse SSE data:', dataStr);
-                    }
-                }
+      // Split by double newline which typically separates SSE messages
+      const messages = buffer.split('\n\n');
+
+      // Keep the last potentially incomplete chunk in the buffer
+      buffer = messages.pop() || '';
+
+      for (const msg of messages) {
+        const lines = msg.split('\n');
+        let eventType = '';
+        let eventData = null;
+
+        for (const line of lines) {
+          if (line.startsWith('event: ')) {
+            eventType = line.slice(7).trim();
+          } else if (line.startsWith('data: ')) {
+            const dataStr = line.slice(6).trim();
+            if (dataStr === '[DONE]') continue;
+
+            try {
+              eventData = JSON.parse(dataStr);
+            } catch (e) {
+              console.warn('Failed to parse SSE data:', dataStr);
             }
-
-            if (eventType && eventData) {
-                onEvent(eventType, eventData);
-            }
+          }
         }
+
+        if (eventType && eventData) {
+          onEvent(eventType, eventData);
+        }
+      }
     }
   }
 };
@@ -641,7 +667,7 @@ export const graphApi = {
   updateGraphSchema: async (payload: GraphUpdatePayload) => {
     const response = await fetch(`${API_BASE_URL}/graph/update_graph_schema_in_db`, {
       method: 'POST',
-      headers: { 
+      headers: {
         'Content-Type': 'application/json',
         ...getAuthHeaders()
       },
@@ -653,7 +679,7 @@ export const graphApi = {
   createGraphFromMetadata: async (graphId: string, options?: { enableTextIndexing?: boolean; enableVectorSearch?: boolean }) => {
     const response = await fetch(`${API_BASE_URL}/graph/create_graph_from_metadata`, {
       method: 'POST',
-      headers: { 
+      headers: {
         'Content-Type': 'application/json',
         ...getAuthHeaders()
       },
@@ -670,7 +696,7 @@ export const graphApi = {
     try {
       const response = await fetch(`${API_BASE_URL}/graph/search_nodes`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           ...getAuthHeaders()
         },
@@ -692,7 +718,7 @@ export const graphApi = {
   saveGraphDraft: async (payload: GraphEditPayload) => {
     const response = await fetch(`${API_BASE_URL}/graph/save_graph_draft`, {
       method: 'POST',
-      headers: { 
+      headers: {
         'Content-Type': 'application/json',
         ...getAuthHeaders()
       },
@@ -704,7 +730,7 @@ export const graphApi = {
   publishEditedGraph: async (payload: GraphEditPayload) => {
     const response = await fetch(`${API_BASE_URL}/graph/publish_edited_graph`, {
       method: 'POST',
-      headers: { 
+      headers: {
         'Content-Type': 'application/json',
         ...getAuthHeaders()
       },

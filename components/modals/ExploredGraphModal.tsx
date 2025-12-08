@@ -30,50 +30,56 @@ interface ExploredGraphModalProps {
   data: GraphData;
 }
 
-// Colors based on labels
-const COLORS: Record<string, string> = {
-  Table: '#3b82f6', // blue-500
-  Column: '#ec4899', // pink-500
-  BusinessMetric: '#10b981', // emerald-500
-  Default: '#64748b' // slate-500
+// Enhanced color palette with maximum distinction
+const COLORS: Record<string, { fill: string; glow: string; border: string }> = {
+  Table: { fill: '#06b6d4', glow: 'rgba(6, 182, 212, 0.4)', border: '#22d3ee' }, // Cyan
+  Column: { fill: '#f59e0b', glow: 'rgba(245, 158, 11, 0.4)', border: '#fbbf24' }, // Amber
+  BusinessMetric: { fill: '#ec4899', glow: 'rgba(236, 72, 153, 0.4)', border: '#f472b6' }, // Pink
+  Default: { fill: '#64748b', glow: 'rgba(100, 116, 139, 0.4)', border: '#94a3b8' } // Slate
 };
 
-// Constants
-const NODE_RADIUS = 30; // Uniform radius
+// Enhanced node size for better visibility
+const NODE_RADIUS = 28;
 
 export const ExploredGraphModal: React.FC<ExploredGraphModalProps> = ({ isOpen, onClose, data }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  
-  // Use refs for mutable state to ensure smooth 60fps animation without re-renders
+  const modalRef = useRef<HTMLDivElement>(null);
+
   const nodesRef = useRef<GraphNode[]>([]);
   const edgesRef = useRef<GraphEdge[]>([]);
-  const transformRef = useRef({ x: 0, y: 0, k: 1 }); // View transform (pan/zoom)
-  
+  const transformRef = useRef({ x: 0, y: 0, k: 1 });
+
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
-  
-  // Interaction State
+
   const isDraggingNode = useRef(false);
   const isPanning = useRef(false);
   const draggedNodeRef = useRef<GraphNode | null>(null);
   const lastMousePos = useRef({ x: 0, y: 0 });
 
+  // Handle backdrop click to close
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
+      onClose();
+    }
+  };
+
   // Handle Resize
   useEffect(() => {
     if (!containerRef.current) return;
-    
+
     const updateSize = () => {
-        if (containerRef.current) {
-            const { clientWidth, clientHeight } = containerRef.current;
-            setCanvasSize({ width: clientWidth, height: clientHeight });
-        }
+      if (containerRef.current) {
+        const { clientWidth, clientHeight } = containerRef.current;
+        setCanvasSize({ width: clientWidth, height: clientHeight });
+      }
     };
 
     updateSize();
     const observer = new ResizeObserver(updateSize);
     observer.observe(containerRef.current);
-    
+
     return () => observer.disconnect();
   }, [isOpen]);
 
@@ -81,27 +87,28 @@ export const ExploredGraphModal: React.FC<ExploredGraphModalProps> = ({ isOpen, 
   useEffect(() => {
     if (!isOpen || !data || canvasSize.width === 0) return;
 
-    // Only reset if it's a fresh open or data change, not just resize
     if (nodesRef.current.length === 0 || nodesRef.current.length !== data.nodes.length) {
-        // Reset transform
-        transformRef.current = { x: 0, y: 0, k: 1 };
+      transformRef.current = { x: 0, y: 0, k: 1 };
 
-        const width = canvasSize.width;
-        const height = canvasSize.height;
+      const width = canvasSize.width;
+      const height = canvasSize.height;
 
-        // Center initial nodes
-        const processedNodes: GraphNode[] = data.nodes.map((n) => ({
+      // Better initial distribution in a circle pattern
+      const angleStep = (2 * Math.PI) / data.nodes.length;
+      const radius = Math.min(width, height) * 0.25;
+
+      const processedNodes: GraphNode[] = data.nodes.map((n, i) => ({
         ...n,
-        x: width / 2 + (Math.random() - 0.5) * 200,
-        y: height / 2 + (Math.random() - 0.5) * 200,
+        x: width / 2 + Math.cos(angleStep * i) * radius + (Math.random() - 0.5) * 50,
+        y: height / 2 + Math.sin(angleStep * i) * radius + (Math.random() - 0.5) * 50,
         vx: 0,
         vy: 0,
-        radius: NODE_RADIUS, 
-        }));
+        radius: NODE_RADIUS,
+      }));
 
-        nodesRef.current = processedNodes;
-        edgesRef.current = data.relationships;
-        setSelectedNode(null);
+      nodesRef.current = processedNodes;
+      edgesRef.current = data.relationships;
+      setSelectedNode(null);
     }
 
   }, [isOpen, data, canvasSize.width]);
@@ -119,20 +126,20 @@ export const ExploredGraphModal: React.FC<ExploredGraphModalProps> = ({ isOpen, 
 
     const render = () => {
       if (!canvas) return;
-      
+
       const width = canvas.width;
       const height = canvas.height;
-      
+
       const nodes = nodesRef.current;
       const edges = edgesRef.current;
       const draggedNode = draggedNodeRef.current;
 
-      // --- Physics Update ---
-      // Tuned for "bouncy" but stable feel
-      const k = 0.08; // Stiffer spring
-      const repulsion = 8000; // Stronger repulsion for spacing
-      const damping = 0.8; // Standard damping
-      const centerForce = 0.005; // Gentle pull to center
+      // --- Enhanced Physics ---
+      const springStrength = 0.06;
+      const repulsion = 12000;
+      const damping = 0.85;
+      const centerForce = 0.008;
+      const minVelocity = 0.01;
 
       // 1. Apply Repulsion (Node vs Node)
       for (let i = 0; i < nodes.length; i++) {
@@ -143,10 +150,9 @@ export const ExploredGraphModal: React.FC<ExploredGraphModalProps> = ({ isOpen, 
           const dy = nodeA.y - nodeB.y;
           const distSq = dx * dx + dy * dy || 1;
           const dist = Math.sqrt(distSq);
-          
-          // Min distance to prevent extreme forces
-          if (dist < 500) {
-            const force = repulsion / (distSq);
+
+          if (dist < 400) {
+            const force = repulsion / distSq;
             const fx = (dx / dist) * force;
             const fy = (dy / dist) * force;
 
@@ -170,10 +176,10 @@ export const ExploredGraphModal: React.FC<ExploredGraphModalProps> = ({ isOpen, 
           const dx = target.x - source.x;
           const dy = target.y - source.y;
           const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-          
-          const targetDist = 150; // Ideal length (increased to fit labels)
-          const force = (dist - targetDist) * k;
-          
+
+          const targetDist = 140;
+          const force = (dist - targetDist) * springStrength;
+
           const fx = (dx / dist) * force;
           const fy = (dy / dist) * force;
 
@@ -192,29 +198,28 @@ export const ExploredGraphModal: React.FC<ExploredGraphModalProps> = ({ isOpen, 
       nodes.forEach(node => {
         if (node === draggedNode) return;
 
-        // Pull to center of canvas world space
         node.vx += (width / 2 - node.x) * centerForce;
         node.vy += (height / 2 - node.y) * centerForce;
 
-        // Apply Damping
         node.vx *= damping;
         node.vy *= damping;
 
-        // Update
+        // Stop very small movements
+        if (Math.abs(node.vx) < minVelocity) node.vx = 0;
+        if (Math.abs(node.vy) < minVelocity) node.vy = 0;
+
         node.x += node.vx;
         node.y += node.vy;
       });
 
       // --- Drawing ---
-      // Reset transform to clear screen
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, width, height);
-      
-      // Apply Pan/Zoom Transform
+
       const { x: tx, y: ty, k: tk } = transformRef.current;
       ctx.setTransform(tk, 0, 0, tk, tx, ty);
 
-      // 1. Draw Edge Lines
+      // 1. Draw Edges with subtle gradient
       ctx.lineWidth = 1.5;
       edges.forEach(edge => {
         const source = nodes.find(n => n.id === edge.from);
@@ -224,118 +229,105 @@ export const ExploredGraphModal: React.FC<ExploredGraphModalProps> = ({ isOpen, 
         ctx.beginPath();
         ctx.moveTo(source.x, source.y);
         ctx.lineTo(target.x, target.y);
-        
-        const grad = ctx.createLinearGradient(source.x, source.y, target.x, target.y);
-        grad.addColorStop(0, '#475569'); // slate-600
-        grad.addColorStop(1, '#475569');
-        ctx.strokeStyle = grad;
-        ctx.globalAlpha = 0.5;
+
+        ctx.strokeStyle = 'rgba(100, 116, 139, 0.35)';
         ctx.stroke();
-        ctx.globalAlpha = 1;
       });
 
-      // 2. Draw Edge Labels (if zoomed enough)
-      if (tk > 0.4) {
-          ctx.font = 'bold 10px Inter, sans-serif';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          
-          edges.forEach(edge => {
-              const source = nodes.find(n => n.id === edge.from);
-              const target = nodes.find(n => n.id === edge.to);
-              if (!source || !target) return;
+      // 2. Draw Edge Labels
+      if (tk > 0.5) {
+        ctx.font = '500 9px Inter, system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
 
-              const midX = (source.x + target.x) / 2;
-              const midY = (source.y + target.y) / 2;
-              const label = edge.type;
-              
-              const metrics = ctx.measureText(label);
-              const paddingX = 8;
-              const paddingY = 4;
-              const boxWidth = metrics.width + paddingX * 2;
-              const boxHeight = 16; // fixed height
+        edges.forEach(edge => {
+          const source = nodes.find(n => n.id === edge.from);
+          const target = nodes.find(n => n.id === edge.to);
+          if (!source || !target) return;
 
-              // Draw pill background
-              ctx.fillStyle = '#0f172a'; // slate-900
-              ctx.beginPath();
-              
-              // Rounded rect manual implementation
-              const x = midX - boxWidth/2;
-              const y = midY - boxHeight/2;
-              const r = 6;
-              ctx.moveTo(x + r, y);
-              ctx.arcTo(x + boxWidth, y, x + boxWidth, y + boxHeight, r);
-              ctx.arcTo(x + boxWidth, y + boxHeight, x, y + boxHeight, r);
-              ctx.arcTo(x, y + boxHeight, x, y, r);
-              ctx.arcTo(x, y, x + boxWidth, y, r);
-              ctx.closePath();
-              
-              ctx.fill();
-              
-              // Border
-              ctx.strokeStyle = '#334155'; // slate-700
-              ctx.lineWidth = 1;
-              ctx.stroke();
+          const midX = (source.x + target.x) / 2;
+          const midY = (source.y + target.y) / 2;
+          const label = edge.type;
 
-              // Text
-              ctx.fillStyle = '#94a3b8'; // slate-400
-              ctx.fillText(label, midX, midY);
-          });
+          const metrics = ctx.measureText(label);
+          const paddingX = 6;
+          const boxWidth = metrics.width + paddingX * 2;
+          const boxHeight = 14;
+
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+          ctx.beginPath();
+
+          const x = midX - boxWidth / 2;
+          const y = midY - boxHeight / 2;
+          const r = 4;
+          ctx.moveTo(x + r, y);
+          ctx.arcTo(x + boxWidth, y, x + boxWidth, y + boxHeight, r);
+          ctx.arcTo(x + boxWidth, y + boxHeight, x, y + boxHeight, r);
+          ctx.arcTo(x, y + boxHeight, x, y, r);
+          ctx.arcTo(x, y, x + boxWidth, y, r);
+          ctx.closePath();
+          ctx.fill();
+
+          ctx.fillStyle = '#94a3b8';
+          ctx.fillText(label, midX, midY);
+        });
       }
 
-      // 3. Draw Nodes
+      // 3. Draw Nodes with enhanced visuals
       nodes.forEach(node => {
         const primaryLabel = node.labels[0] || 'Default';
-        const baseColor = COLORS[primaryLabel] || COLORS['Default'];
+        const colorSet = COLORS[primaryLabel] || COLORS['Default'];
         const isSelected = selectedNode?.id === node.id;
 
-        // Node Shadow/Glow
-        if (isSelected) {
-            ctx.shadowColor = baseColor;
-            ctx.shadowBlur = 20;
-        } else {
-            ctx.shadowColor = 'rgba(0,0,0,0.5)';
-            ctx.shadowBlur = 6;
-        }
+        // Glow effect
+        ctx.shadowColor = isSelected ? colorSet.fill : colorSet.glow;
+        ctx.shadowBlur = isSelected ? 24 : 12;
         ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 4;
+        ctx.shadowOffsetY = 0;
 
-        // Circle Body
+        // Circle body
         ctx.beginPath();
         ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
-        
-        // Gradient Fill (Spherical effect)
-        // Offset the center of the radial gradient to top-left (-8, -8) to create 3D look
-        const grad = ctx.createRadialGradient(node.x - 8, node.y - 8, 4, node.x, node.y, node.radius);
-        grad.addColorStop(0, lightenColor(baseColor, 50)); // Highlight
-        grad.addColorStop(1, baseColor); // Base
+
+        // Gradient fill
+        const grad = ctx.createRadialGradient(
+          node.x - node.radius * 0.3,
+          node.y - node.radius * 0.3,
+          node.radius * 0.1,
+          node.x,
+          node.y,
+          node.radius
+        );
+        grad.addColorStop(0, lightenColor(colorSet.fill, 30));
+        grad.addColorStop(0.7, colorSet.fill);
+        grad.addColorStop(1, darkenColor(colorSet.fill, 15));
         ctx.fillStyle = grad;
         ctx.fill();
 
         // Border
-        ctx.lineWidth = isSelected ? 3 : 1.5;
-        ctx.strokeStyle = '#fff'; // White border
+        ctx.lineWidth = isSelected ? 2.5 : 1.5;
+        ctx.strokeStyle = isSelected ? '#fff' : colorSet.border;
         ctx.stroke();
 
-        // Reset Shadow for text
+        // Reset Shadow
         ctx.shadowColor = 'transparent';
         ctx.shadowBlur = 0;
 
-        // Text
+        // Label text
         ctx.fillStyle = '#fff';
-        ctx.font = 'bold 11px Inter, sans-serif';
+        ctx.font = 'bold 10px Inter, system-ui, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        
+
         const labelName = node.properties.name || node.id.toString();
-        // Simple fitting: if too long, split or truncate
         if (labelName.length > 8 && labelName.includes('_')) {
-             const parts = labelName.split('_');
-             ctx.fillText(parts[0], node.x, node.y - 6);
-             ctx.fillText(parts.slice(1).join('_'), node.x, node.y + 6);
+          const parts = labelName.split('_');
+          ctx.fillText(parts[0], node.x, node.y - 5);
+          ctx.font = '500 9px Inter, system-ui, sans-serif';
+          ctx.fillText(parts.slice(1).join('_').substring(0, 8), node.x, node.y + 6);
         } else {
-             const displayText = labelName.length > 10 ? labelName.substring(0, 9) + '..' : labelName;
-             ctx.fillText(displayText, node.x, node.y);
+          const displayText = labelName.length > 9 ? labelName.substring(0, 8) + '..' : labelName;
+          ctx.fillText(displayText, node.x, node.y);
         }
       });
 
@@ -349,19 +341,17 @@ export const ExploredGraphModal: React.FC<ExploredGraphModalProps> = ({ isOpen, 
   // --- Interaction Handlers ---
 
   const getEventPos = (e: React.MouseEvent | React.WheelEvent) => {
-      // Since we map canvas 1:1 with container size, we can just use offset
-      // But getBoundingClientRect is safer for scrolling/layout shifts
-      const rect = canvasRef.current?.getBoundingClientRect();
-      if (!rect) return { x: 0, y: 0 };
-      return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return { x: 0, y: 0 };
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   };
 
   const getWorldPos = (screenX: number, screenY: number) => {
-      const { x, y, k } = transformRef.current;
-      return {
-          x: (screenX - x) / k,
-          y: (screenY - y) / k
-      };
+    const { x, y, k } = transformRef.current;
+    return {
+      x: (screenX - x) / k,
+      y: (screenY - y) / k
+    };
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -369,8 +359,6 @@ export const ExploredGraphModal: React.FC<ExploredGraphModalProps> = ({ isOpen, 
     const { x: wx, y: wy } = getWorldPos(sx, sy);
     lastMousePos.current = { x: sx, y: sy };
 
-    // Check node collision
-    // Reverse iteration to check top-most nodes first
     const nodes = nodesRef.current;
     let hitNode = false;
 
@@ -387,50 +375,46 @@ export const ExploredGraphModal: React.FC<ExploredGraphModalProps> = ({ isOpen, 
       }
     }
 
-    // If no node clicked, start panning
     if (!hitNode) {
-        isPanning.current = true;
-        isDraggingNode.current = false;
-        draggedNodeRef.current = null;
-        // Optional: Deselect on click empty space?
-        // setSelectedNode(null); 
+      isPanning.current = true;
+      isDraggingNode.current = false;
+      draggedNodeRef.current = null;
     }
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
     const { x: sx, y: sy } = getEventPos(e);
-    
-    // Cursor handling
+
     if (!isDraggingNode.current && !isPanning.current) {
-        const { x: wx, y: wy } = getWorldPos(sx, sy);
-        let hittingNode = false;
-        const nodes = nodesRef.current;
-        for (let i = nodes.length - 1; i >= 0; i--) {
-            const node = nodes[i];
-            const dist = Math.sqrt((wx - node.x) ** 2 + (wy - node.y) ** 2);
-            if (dist <= node.radius) {
-                hittingNode = true;
-                break;
-            }
+      const { x: wx, y: wy } = getWorldPos(sx, sy);
+      let hittingNode = false;
+      const nodes = nodesRef.current;
+      for (let i = nodes.length - 1; i >= 0; i--) {
+        const node = nodes[i];
+        const dist = Math.sqrt((wx - node.x) ** 2 + (wy - node.y) ** 2);
+        if (dist <= node.radius) {
+          hittingNode = true;
+          break;
         }
-        if (canvasRef.current) {
-            canvasRef.current.style.cursor = hittingNode ? 'pointer' : 'grab';
-        }
+      }
+      if (canvasRef.current) {
+        canvasRef.current.style.cursor = hittingNode ? 'pointer' : 'grab';
+      }
     } else if (canvasRef.current) {
-        canvasRef.current.style.cursor = 'grabbing';
+      canvasRef.current.style.cursor = 'grabbing';
     }
 
     if (isDraggingNode.current && draggedNodeRef.current) {
-        const { x: wx, y: wy } = getWorldPos(sx, sy);
-        draggedNodeRef.current.x = wx;
-        draggedNodeRef.current.y = wy;
-        draggedNodeRef.current.vx = 0;
-        draggedNodeRef.current.vy = 0;
+      const { x: wx, y: wy } = getWorldPos(sx, sy);
+      draggedNodeRef.current.x = wx;
+      draggedNodeRef.current.y = wy;
+      draggedNodeRef.current.vx = 0;
+      draggedNodeRef.current.vy = 0;
     } else if (isPanning.current) {
-        const dx = sx - lastMousePos.current.x;
-        const dy = sy - lastMousePos.current.y;
-        transformRef.current.x += dx;
-        transformRef.current.y += dy;
+      const dx = sx - lastMousePos.current.x;
+      const dy = sy - lastMousePos.current.y;
+      transformRef.current.x += dx;
+      transformRef.current.y += dy;
     }
 
     lastMousePos.current = { x: sx, y: sy };
@@ -443,190 +427,202 @@ export const ExploredGraphModal: React.FC<ExploredGraphModalProps> = ({ isOpen, 
   };
 
   const handleWheel = (e: React.WheelEvent) => {
-      e.stopPropagation();
-      e.preventDefault();
+    e.stopPropagation();
+    e.preventDefault();
 
-      const { x: sx, y: sy } = getEventPos(e);
-      const { x, y, k } = transformRef.current;
-      
-      const zoomSensitivity = 0.001;
-      const delta = -e.deltaY * zoomSensitivity;
-      const newK = Math.min(Math.max(k + delta, 0.1), 5); // Limit zoom 0.1x to 5x
+    const { x: sx, y: sy } = getEventPos(e);
+    const { x, y, k } = transformRef.current;
 
-      // Zoom towards mouse pointer logic:
-      const wx = (sx - x) / k;
-      const wy = (sy - y) / k;
+    const zoomSensitivity = 0.001;
+    const delta = -e.deltaY * zoomSensitivity;
+    const newK = Math.min(Math.max(k + delta, 0.2), 4);
 
-      transformRef.current = {
-          x: sx - wx * newK,
-          y: sy - wy * newK,
-          k: newK
-      };
+    const wx = (sx - x) / k;
+    const wy = (sy - y) / k;
+
+    transformRef.current = {
+      x: sx - wx * newK,
+      y: sy - wy * newK,
+      k: newK
+    };
   };
 
-  // Helper to adjust color brightness
   const lightenColor = (color: string, percent: number) => {
-    // Simple hex to rgb adjustment
-    let num = parseInt(color.replace("#",""),16),
-    amt = Math.round(2.55 * percent),
-    R = (num >> 16) + amt,
-    B = (num >> 8 & 0x00FF) + amt,
-    G = (num & 0x0000FF) + amt;
-    return "#" + (0x1000000 + (R<255?R<1?0:R:255)*0x10000 + (B<255?B<1?0:B:255)*0x100 + (G<255?G<1?0:G:255)).toString(16).slice(1);
+    let num = parseInt(color.replace("#", ""), 16),
+      amt = Math.round(2.55 * percent),
+      R = (num >> 16) + amt,
+      B = (num >> 8 & 0x00FF) + amt,
+      G = (num & 0x0000FF) + amt;
+    return "#" + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 + (B < 255 ? B < 1 ? 0 : B : 255) * 0x100 + (G < 255 ? G < 1 ? 0 : G : 255)).toString(16).slice(1);
+  };
+
+  const darkenColor = (color: string, percent: number) => {
+    let num = parseInt(color.replace("#", ""), 16),
+      amt = Math.round(2.55 * percent),
+      R = (num >> 16) - amt,
+      B = (num >> 8 & 0x00FF) - amt,
+      G = (num & 0x0000FF) - amt;
+    return "#" + (0x1000000 + (R > 0 ? R : 0) * 0x10000 + (B > 0 ? B : 0) * 0x100 + (G > 0 ? G : 0)).toString(16).slice(1);
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-fade-in">
-      <div className="relative w-full max-w-7xl h-[90vh] bg-[#0f172a] rounded-2xl shadow-2xl flex border border-slate-700 overflow-hidden ring-1 ring-slate-700">
-        
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-fade-in"
+      onClick={handleBackdropClick}
+    >
+      <div
+        ref={modalRef}
+        className="relative w-full max-w-7xl h-[90vh] bg-[#0f172a] rounded-2xl shadow-2xl flex border border-slate-700 overflow-hidden ring-1 ring-slate-700"
+      >
+
         {/* Top Controls Overlay */}
         <div className="absolute top-4 left-4 right-4 z-10 flex items-center justify-between pointer-events-none">
-             {/* Title */}
-            <div className="bg-slate-800/90 backdrop-blur-md rounded-xl p-2 border border-slate-700 shadow-xl pointer-events-auto flex items-center gap-3">
-                <div className="p-2 bg-brand-500/20 rounded-lg">
-                     <Network className="w-5 h-5 text-brand-400" />
-                </div>
-                <div className="pr-4">
-                     <h2 className="text-sm font-bold text-slate-200 leading-none">Explored Graph</h2>
-                     <span className="text-[10px] text-slate-400 font-mono">
-                        {nodesRef.current.length} Nodes • {edgesRef.current.length} Edges
-                     </span>
-                </div>
+          {/* Title */}
+          <div className="bg-slate-800/90 backdrop-blur-md rounded-xl p-2 border border-slate-700 shadow-xl pointer-events-auto flex items-center gap-3">
+            <div className="p-2 bg-brand-500/20 rounded-lg">
+              <Network className="w-5 h-5 text-brand-400" />
             </div>
+            <div className="pr-4">
+              <h2 className="text-sm font-bold text-slate-200 leading-none">Explored Graph</h2>
+              <span className="text-[10px] text-slate-400 font-mono">
+                {nodesRef.current.length} Nodes • {edgesRef.current.length} Edges
+              </span>
+            </div>
+          </div>
 
-            {/* Actions */}
-            <div className="flex items-center gap-2 pointer-events-auto">
-                 <button 
-                    onClick={() => {
-                        transformRef.current = { x: 0, y: 0, k: 1 };
-                    }}
-                    className="p-2.5 rounded-xl bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 border border-slate-700 transition-colors shadow-lg"
-                    title="Reset View"
-                 >
-                    <Move className="w-4 h-4" />
-                </button>
-                <button 
-                  onClick={onClose}
-                  className="p-2.5 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-colors border border-red-500/20 shadow-lg"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-            </div>
+          {/* Actions */}
+          <div className="flex items-center gap-2 pointer-events-auto">
+            <button
+              onClick={() => {
+                transformRef.current = { x: 0, y: 0, k: 1 };
+              }}
+              className="p-2.5 rounded-xl bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 border border-slate-700 transition-colors shadow-lg"
+              title="Reset View"
+            >
+              <Move className="w-4 h-4" />
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2.5 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-colors border border-red-500/20 shadow-lg"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Legend Overlay */}
         <div className="absolute bottom-6 left-6 z-10 pointer-events-none">
-             <div className="bg-slate-800/90 backdrop-blur-md rounded-xl p-4 border border-slate-700 shadow-xl space-y-3 pointer-events-auto">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Node Types</span>
-                <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2">
-                        <span className="w-3 h-3 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]"></span>
-                        <span className="text-xs text-slate-300 font-medium">Table</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <span className="w-3 h-3 rounded-full bg-pink-500 shadow-[0_0_8px_rgba(236,72,153,0.5)]"></span>
-                        <span className="text-xs text-slate-300 font-medium">Column</span>
-                    </div>
-                     <div className="flex items-center gap-2">
-                        <span className="w-3 h-3 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
-                        <span className="text-xs text-slate-300 font-medium">Metric</span>
-                    </div>
-                </div>
-             </div>
+          <div className="bg-slate-800/90 backdrop-blur-md rounded-xl p-4 border border-slate-700 shadow-xl space-y-3 pointer-events-auto">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Node Types</span>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.5)]"></span>
+                <span className="text-xs text-slate-300 font-medium">Table</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]"></span>
+                <span className="text-xs text-slate-300 font-medium">Column</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full bg-pink-500 shadow-[0_0_8px_rgba(236,72,153,0.5)]"></span>
+                <span className="text-xs text-slate-300 font-medium">Metric</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Canvas Area */}
         <div className="flex-1 relative cursor-grab active:cursor-grabbing bg-slate-900 overflow-hidden" ref={containerRef}>
-           {/* Grid Background */}
-           <div 
-                className="absolute inset-0 pointer-events-none opacity-20"
-                style={{ 
-                    backgroundImage: 'radial-gradient(#94a3b8 1px, transparent 1px)', 
-                    backgroundSize: '24px 24px' 
-                }} 
-           />
-           
-           <canvas
-             ref={canvasRef}
-             width={canvasSize.width} 
-             height={canvasSize.height}
-             onMouseDown={handleMouseDown}
-             onMouseMove={handleMouseMove}
-             onMouseUp={handleMouseUp}
-             onMouseLeave={handleMouseUp}
-             onWheel={handleWheel}
-             className="block w-full h-full"
-           />
+          {/* Grid Background */}
+          <div
+            className="absolute inset-0 pointer-events-none opacity-20"
+            style={{
+              backgroundImage: 'radial-gradient(#94a3b8 1px, transparent 1px)',
+              backgroundSize: '24px 24px'
+            }}
+          />
+
+          <canvas
+            ref={canvasRef}
+            width={canvasSize.width}
+            height={canvasSize.height}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            onWheel={handleWheel}
+            className="block w-full h-full"
+          />
         </div>
 
         {/* Info Panel (Slide over) */}
         {selectedNode && (
-            <div className="w-80 bg-slate-900 border-l border-slate-800 flex flex-col animate-fade-in-right shrink-0 shadow-2xl z-20 relative">
-                <div className="flex items-center justify-between p-4 border-b border-slate-800">
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Node Details</span>
-                    <button 
-                        onClick={() => setSelectedNode(null)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-                    >
-                        <X className="w-4 h-4" />
-                    </button>
-                </div>
-
-                <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
-                    <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-800">
-                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-lg ring-1 ring-white/10 shrink-0
-                            ${selectedNode.labels.includes('Table') ? 'bg-blue-600 shadow-blue-900/20' : 
-                            selectedNode.labels.includes('BusinessMetric') ? 'bg-emerald-600 shadow-emerald-900/20' : 'bg-pink-600 shadow-pink-900/20'
-                            }`}
-                        >
-                            {selectedNode.labels.includes('Table') ? <Database className="w-6 h-6" /> : 
-                            selectedNode.labels.includes('BusinessMetric') ? <Calculator className="w-6 h-6" /> : <Layers className="w-6 h-6" />}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1 flex flex-wrap gap-1">
-                                {selectedNode.labels.map(l => (
-                                    <span key={l} className="bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">{l}</span>
-                                ))}
-                            </div>
-                            <h3 className="text-lg font-bold text-white leading-tight break-words" title={selectedNode.properties.name}>
-                                {selectedNode.properties.name}
-                            </h3>
-                        </div>
-                    </div>
-
-                    <div className="space-y-6">
-                        {selectedNode.properties.description && (
-                            <div className="space-y-2">
-                                <div className="flex items-center gap-2 text-xs font-bold text-brand-400 uppercase tracking-wider">
-                                    <Info className="w-3.5 h-3.5" /> Description
-                                </div>
-                                <p className="text-sm text-slate-300 leading-relaxed bg-slate-800/50 p-3 rounded-xl border border-slate-700/50">
-                                    {selectedNode.properties.description}
-                                </p>
-                            </div>
-                        )}
-
-                        <div className="space-y-2">
-                            <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Properties</div>
-                            <div className="space-y-2">
-                                {Object.entries(selectedNode.properties).map(([key, value]) => {
-                                    if (key === 'name' || key === 'description') return null;
-                                    return (
-                                        <div key={key} className="flex flex-col bg-slate-800/30 p-2.5 rounded-lg border border-slate-800 hover:border-slate-700 transition-colors">
-                                            <span className="text-[10px] text-slate-500 font-mono mb-1 uppercase tracking-tight">{key}</span>
-                                            <span className="text-sm text-slate-200 font-medium break-all font-mono">
-                                                {typeof value === 'object' ? JSON.stringify(value) : String(value)}
-                                            </span>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    </div>
-                </div>
+          <div className="w-80 bg-slate-900 border-l border-slate-800 flex flex-col animate-fade-in-right shrink-0 shadow-2xl z-20 relative">
+            <div className="flex items-center justify-between p-4 border-b border-slate-800">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Node Details</span>
+              <button
+                onClick={() => setSelectedNode(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
+
+            <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
+              <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-800">
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-lg ring-1 ring-white/10 shrink-0
+                            ${selectedNode.labels.includes('Table') ? 'bg-cyan-600 shadow-cyan-900/20' :
+                    selectedNode.labels.includes('BusinessMetric') ? 'bg-pink-600 shadow-pink-900/20' : 'bg-amber-600 shadow-amber-900/20'
+                  }`}
+                >
+                  {selectedNode.labels.includes('Table') ? <Database className="w-6 h-6" /> :
+                    selectedNode.labels.includes('BusinessMetric') ? <Calculator className="w-6 h-6" /> : <Layers className="w-6 h-6" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1 flex flex-wrap gap-1">
+                    {selectedNode.labels.map(l => (
+                      <span key={l} className="bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">{l}</span>
+                    ))}
+                  </div>
+                  <h3 className="text-lg font-bold text-white leading-tight break-words" title={selectedNode.properties.name}>
+                    {selectedNode.properties.name}
+                  </h3>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                {selectedNode.properties.description && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-xs font-bold text-brand-400 uppercase tracking-wider">
+                      <Info className="w-3.5 h-3.5" /> Description
+                    </div>
+                    <p className="text-sm text-slate-300 leading-relaxed bg-slate-800/50 p-3 rounded-xl border border-slate-700/50">
+                      {selectedNode.properties.description}
+                    </p>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Properties</div>
+                  <div className="space-y-2">
+                    {Object.entries(selectedNode.properties).map(([key, value]) => {
+                      if (key === 'name' || key === 'description') return null;
+                      return (
+                        <div key={key} className="flex flex-col bg-slate-800/30 p-2.5 rounded-lg border border-slate-800 hover:border-slate-700 transition-colors">
+                          <span className="text-[10px] text-slate-500 font-mono mb-1 uppercase tracking-tight">{key}</span>
+                          <span className="text-sm text-slate-200 font-medium break-all font-mono">
+                            {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>
