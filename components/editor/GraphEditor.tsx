@@ -8,6 +8,7 @@ import { Canvas } from './Canvas';
 import { EditorState, EditorNode, EditorEdge, EditorNodeType } from '../../types';
 import { getConstraint } from './editorConfig';
 import { SearchNodeResult, graphApi } from '../../services/api';
+import { toast } from 'react-toastify';
 
 interface GraphEditorProps {
   projectName?: string;
@@ -248,9 +249,10 @@ export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName, initialGr
         
         // On success, mark as saved
         setHasUnsavedChanges(false);
+        toast.success("Draft saved successfully!");
     } catch (error) {
         console.error("Failed to save draft", error);
-        alert("Failed to save draft.");
+        toast.error("Failed to save draft.");
     } finally {
         setIsSavingDraft(false);
     }
@@ -268,10 +270,11 @@ export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName, initialGr
             graph_data: graphData
         });
         
-        alert("Graph published successfully!");
+        toast.success("Graph published successfully!");
+        setHasUnsavedChanges(false);
     } catch (error) {
         console.error("Failed to publish graph", error);
-        alert("Failed to publish graph.");
+        toast.error("Failed to publish graph.");
     } finally {
         setIsPublishing(false);
     }

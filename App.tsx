@@ -1,32 +1,108 @@
-import React, { useState } from 'react';
-import { Network, LayoutDashboard, MessageSquareText, Settings, LogOut, PanelLeftClose, PanelLeft, ChevronRight, Home } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Network, LayoutDashboard, MessageSquareText, Settings, LogOut, PanelLeftClose, PanelLeft, ChevronRight, Home, ChevronDown, PenLine, Loader2, MessageSquare } from 'lucide-react';
 import { GraphBuilderModule } from './components/modules/GraphBuilderModule';
 import { ChatModule } from './components/modules/ChatModule';
 import { LandingPageModule } from './components/modules/LandingPageModule';
 import { LoginPage } from './components/auth/LoginPage';
-import { authApi } from './services/api';
+import { authApi, sessionApi, configApi, Session } from './services/api';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 type Module = 'LANDING' | 'GRAPH_BUILDER' | 'CHAT' | 'SETTINGS';
+
+const generateUUID = () => {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        return crypto.randomUUID();
+    }
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+};
+
+interface DbConfig {
+    dbId: string;
+    table: string;
+    componentId?: string; // agent_id/team_id/workflow_id
+}
 
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(authApi.isAuthenticated());
   const [activeModule, setActiveModule] = useState<Module>('LANDING');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [isChatHistoryOpen, setIsChatHistoryOpen] = useState(true);
-
-  if (!isAuthenticated) {
-      return <LoginPage onLogin={() => setIsAuthenticated(true)} />;
-  }
+  
+  // Chat sessions state
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [dbConfig, setDbConfig] = useState<DbConfig | null>(null);
+  const [isLoadingSessions, setIsLoadingSessions] = useState(false);
+  const [isChatsCollapsed, setIsChatsCollapsed] = useState(false);
+  const [currentSessionId, setCurrentSessionId] = useState<string>(() => generateUUID());
+  const initializedRef = useRef(false);
 
   const toggleSidebar = () => setIsSidebarCollapsed(!isSidebarCollapsed);
 
-  const handleChatSidebarClick = () => {
-    if (activeModule === 'CHAT') {
-      setIsChatHistoryOpen(!isChatHistoryOpen);
-    } else {
+  // Initialize: Fetch Config and Sessions (only when authenticated)
+  useEffect(() => {
+      if (!isAuthenticated) return;
+      if (initializedRef.current) return;
+      initializedRef.current = true;
+
+      const initialize = async () => {
+          try {
+              const configData = await configApi.getConfig();
+              if (configData.session?.dbs?.length > 0 && configData.session.dbs[0].tables.length > 0) {
+                  // Extract component_id from config (prioritize db-level, fallback to session-level)
+                  const componentId = configData.session.dbs[0].component_id || configData.session.component_id;
+                  
+                  const config = {
+                      dbId: configData.session.dbs[0].db_id,
+                      table: configData.session.dbs[0].tables[0],
+                      componentId: componentId
+                  };
+                  setDbConfig(config);
+
+                  const userId = authApi.getCurrentUser();
+                  if (userId) {
+                      setIsLoadingSessions(true);
+                      try {
+                          const sessionsList = await sessionApi.getSessions(userId, config.dbId, config.table, config.componentId);
+                          setSessions(Array.isArray(sessionsList) ? sessionsList : []);
+                      } catch (err) {
+                          console.error("Failed to fetch sessions", err);
+                          setSessions([]);
+                      } finally {
+                          setIsLoadingSessions(false);
+                      }
+                  }
+              }
+          } catch (err) {
+              console.error('Failed to initialize:', err);
+          }
+      };
+
+      initialize();
+  }, [isAuthenticated]);
+
+  const refreshSessions = async () => {
+      const userId = authApi.getCurrentUser();
+      if (userId && dbConfig) {
+          try {
+              const sessionsList = await sessionApi.getSessions(userId, dbConfig.dbId, dbConfig.table, dbConfig.componentId);
+              setSessions(Array.isArray(sessionsList) ? sessionsList : []);
+          } catch (err) {
+              console.error("Failed to refresh sessions", err);
+          }
+      }
+  };
+
+  const handleNewChat = () => {
+      setCurrentSessionId(generateUUID());
       setActiveModule('CHAT');
-      setIsChatHistoryOpen(true);
-    }
+  };
+
+  const handleSessionClick = (sessionId: string) => {
+      setCurrentSessionId(sessionId);
+      setActiveModule('CHAT');
   };
 
   const handleLogout = () => {
@@ -35,7 +111,26 @@ const App: React.FC = () => {
       setActiveModule('LANDING');
   };
 
+  // Render login page if not authenticated
+  if (!isAuthenticated) {
+      return <LoginPage onLogin={() => setIsAuthenticated(true)} />;
+  }
+
   return (
+    <>
+    <ToastContainer
+      position="top-right"
+      autoClose={3000}
+      hideProgressBar={false}
+      newestOnTop={true}
+      closeOnClick
+      rtl={false}
+      pauseOnFocusLoss
+      draggable
+      pauseOnHover
+      theme="light"
+      style={{ zIndex: 9999 }}
+    />
     <div className="flex h-screen bg-[#f8fafc] text-slate-900 font-sans selection:bg-brand-200 selection:text-brand-900 overflow-hidden">
       
       {/* Sidebar - Minimal Light Theme */}
@@ -71,8 +166,8 @@ const App: React.FC = () => {
                   </div>
                </div>
 
-               <div className={`flex flex-col overflow-hidden transition-all duration-300 ${isSidebarCollapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'}`}>
-                 <span className="font-bold text-base tracking-tight text-slate-900 leading-none">Ask<span className="text-brand-600">Agents</span></span>
+               <div className={`flex flex-col transition-all duration-300 ${isSidebarCollapsed ? 'w-0 opacity-0 overflow-hidden' : 'w-auto opacity-100'}`}>
+                 <span className="font-bold text-xl tracking-tight text-slate-900 leading-snug whitespace-nowrap">Ask<span className="text-brand-600">Agents</span></span>
                </div>
                
                 {/* Collapse Toggle integrated in header when open */}
@@ -108,10 +203,10 @@ const App: React.FC = () => {
             />
             <SidebarItem 
               icon={<MessageSquareText className="w-4 h-4" />} 
-              label="AI Assistant" 
+              label="Chat" 
               isActive={activeModule === 'CHAT'} 
               collapsed={isSidebarCollapsed}
-              onClick={handleChatSidebarClick}
+              onClick={() => setActiveModule('CHAT')}
             />
             
             <SidebarItem 
@@ -121,6 +216,62 @@ const App: React.FC = () => {
               collapsed={isSidebarCollapsed}
               onClick={() => setActiveModule('SETTINGS')}
             />
+
+            <div className={`my-3 border-t border-slate-100 mx-2 ${isSidebarCollapsed ? 'opacity-0' : 'opacity-100'}`}></div>
+
+            {/* Your Chats Section - Collapsible */}
+            {!isSidebarCollapsed && (
+                <div className="mb-4">
+                    <button
+                        onClick={() => setIsChatsCollapsed(!isChatsCollapsed)}
+                        className="flex items-center justify-between w-full px-2 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors group"
+                    >
+                        <span className="uppercase tracking-wider">Your chats</span>
+                        <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isChatsCollapsed ? '-rotate-90' : ''}`} />
+                    </button>
+                    
+                    {!isChatsCollapsed && (
+                        <div className="mt-2 space-y-1">
+                            {/* New Chat Button */}
+                            <button
+                                onClick={handleNewChat}
+                                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-colors group"
+                            >
+                                <PenLine className="w-3.5 h-3.5 shrink-0" />
+                                <span className="font-medium">New Chat</span>
+                            </button>
+
+                            {/* Chat List */}
+                            {isLoadingSessions ? (
+                                <div className="p-4 flex justify-center">
+                                    <Loader2 className="w-4 h-4 text-brand-600 animate-spin" />
+                                </div>
+                            ) : !Array.isArray(sessions) || sessions.length === 0 ? (
+                                <div className="px-3 py-2 text-xs text-slate-400 italic">
+                                    No previous chats
+                                </div>
+                            ) : (
+                                <div className="space-y-0.5">
+                                    {sessions.map((session) => (
+                                        <button
+                                            key={session.session_id}
+                                            onClick={() => handleSessionClick(session.session_id)}
+                                            className={`w-full text-left px-3 py-2 rounded-lg text-xs flex items-center gap-2 transition-colors group relative overflow-hidden
+                                                ${currentSessionId === session.session_id ? 'bg-brand-50 text-brand-700 font-medium' : 'text-slate-700 hover:bg-slate-50'}
+                                            `}
+                                        >
+                                            <MessageSquare className={`w-3.5 h-3.5 shrink-0 ${currentSessionId === session.session_id ? 'text-brand-600' : 'text-slate-400 group-hover:text-slate-600'}`} />
+                                            <div className="flex-1 truncate">
+                                                {session.session_name || 'Untitled Conversation'}
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
 
         {/* User / Footer */}
@@ -151,10 +302,10 @@ const App: React.FC = () => {
          )}
          {activeModule === 'GRAPH_BUILDER' && <GraphBuilderModule />}
          {activeModule === 'CHAT' && (
-            <ChatModule 
-              isHistoryOpen={isChatHistoryOpen} 
-              onToggleHistory={() => setIsChatHistoryOpen(!isChatHistoryOpen)} 
-            />
+           <ChatModule 
+             sessionId={currentSessionId}
+             onSessionUpdate={refreshSessions}
+           />
          )}
          {activeModule === 'SETTINGS' && (
              <div className="flex items-center justify-center h-full text-slate-400 flex-col gap-4 animate-fade-in">
@@ -168,6 +319,7 @@ const App: React.FC = () => {
       </main>
       
     </div>
+    </>
   );
 };
 

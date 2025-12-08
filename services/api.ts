@@ -99,7 +99,9 @@ export interface ConfigResponse {
     dbs: Array<{
       db_id: string;
       tables: string[];
+      component_id?: string; // agent_id/team_id/workflow_id
     }>;
+    component_id?: string; // fallback if not in dbs array
   };
 }
 
@@ -447,7 +449,7 @@ export const configApi = {
 };
 
 export const sessionApi = {
-  getSessions: async (userId: string, dbId: string, table: string) => {
+  getSessions: async (userId: string, dbId: string, table: string, componentId?: string) => {
     const params = new URLSearchParams({
       type: 'agent',
       user_id: userId,
@@ -458,6 +460,12 @@ export const sessionApi = {
       db_id: dbId,
       table: table
     });
+
+    // Add component_id if provided
+    if (componentId) {
+      params.append('component_id', componentId);
+    }
+
     const response = await fetch(`${API_BASE_URL}/sessions?${params.toString()}`, {
       headers: { ...getAuthHeaders() }
     });
@@ -466,13 +474,19 @@ export const sessionApi = {
     const result = await handleResponse<SessionsApiResponse>(response);
     return result.data;
   },
-  getSession: async (sessionId: string, userId: string, dbId: string, table: string) => {
+  getSession: async (sessionId: string, userId: string, dbId: string, table: string, componentId?: string) => {
     const params = new URLSearchParams({
       type: 'agent',
       user_id: userId,
       db_id: dbId,
       table: table
     });
+
+    // Add component_id if provided
+    if (componentId) {
+      params.append('component_id', componentId);
+    }
+
     const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}?${params.toString()}`, {
       headers: { ...getAuthHeaders() }
     });

@@ -1,12 +1,12 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { Plus, Bot, MoreHorizontal, Loader2, Sparkles, Copy, BarChart2, Hammer, X, Terminal, Code, Paperclip, ArrowUp, Check, MessageSquareText, User, MessageSquare } from 'lucide-react';
+import { Bot, MoreHorizontal, Loader2, Sparkles, Copy, BarChart2, Hammer, X, Terminal, Code, Paperclip, ArrowUp, Check, User } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Button } from '../ui/Common';
 import { ToolVisualization, ToolCall } from '../chat/ToolVisualization';
-import { agentApi, configApi, sessionApi, authApi, Agent, RunMetrics, Session } from '../../services/api';
+import { agentApi, configApi, sessionApi, authApi, Agent, RunMetrics } from '../../services/api';
 import { ExploredGraphModal } from '../modals/ExploredGraphModal';
 import chatbotLogo from '../../assets/chatbot_logo.png';
+import { toast } from 'react-toastify';
 
 interface Message {
     id: string;
@@ -30,31 +30,29 @@ const generateUUID = () => {
 };
 
 interface ChatModuleProps {
-    isHistoryOpen: boolean;
-    onToggleHistory: () => void;
+    sessionId: string;
+    onSessionUpdate: () => void;
 }
 
 interface DbConfig {
     dbId: string;
     table: string;
+    componentId?: string; // agent_id/team_id/workflow_id
 }
 
-export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleHistory }) => {
+export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpdate }) => {
     const [messages, setMessages] = useState<Message[]>([]);
     const [inputValue, setInputValue] = useState('');
     const [isTyping, setIsTyping] = useState(false);
     const [agents, setAgents] = useState<Agent[]>([]);
     const [selectedAgentId, setSelectedAgentId] = useState<string>('');
-    const [sessionId, setSessionId] = useState<string>(() => generateUUID());
     const [isLoadingAgents, setIsLoadingAgents] = useState(true);
     const [fetchError, setFetchError] = useState<string | null>(null);
     const [expandedMetricsId, setExpandedMetricsId] = useState<string | null>(null);
     const [selectedToolCall, setSelectedToolCall] = useState<ToolCall | null>(null);
 
-    // Chat History State
-    const [sessions, setSessions] = useState<Session[]>([]);
+    // DB Config for loading session history
     const [dbConfig, setDbConfig] = useState<DbConfig | null>(null);
-    const [isLoadingSessions, setIsLoadingSessions] = useState(false);
 
     // Graph Modal State
     const [isGraphModalOpen, setIsGraphModalOpen] = useState(false);
@@ -81,7 +79,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
     // Guard against double initialization in Strict Mode
     const initializedRef = useRef(false);
 
-    // Initialize: Fetch Agents, Config, then Sessions
+    // Initialize: Fetch Agents and Config
     useEffect(() => {
         if (initializedRef.current) return;
         initializedRef.current = true;
@@ -111,27 +109,15 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
                 // 2. Fetch Config
                 const configData = await configApi.getConfig();
                 if (configData.session?.dbs?.length > 0 && configData.session.dbs[0].tables.length > 0) {
+                    // Extract component_id from config (prioritize db-level, fallback to session-level)
+                    const componentId = configData.session.dbs[0].component_id || configData.session.component_id;
+                    
                     const config = {
                         dbId: configData.session.dbs[0].db_id,
-                        table: configData.session.dbs[0].tables[0]
+                        table: configData.session.dbs[0].tables[0],
+                        componentId: componentId
                     };
                     setDbConfig(config);
-
-                    // 3. Fetch Sessions
-                    const userId = authApi.getCurrentUser();
-                    if (userId) {
-                        setIsLoadingSessions(true);
-                        try {
-                            const sessionsList = await sessionApi.getSessions(userId, config.dbId, config.table);
-                            // Safely handle if API returns something that isn't an array
-                            setSessions(Array.isArray(sessionsList) ? sessionsList : []);
-                        } catch (err) {
-                            console.error("Failed to fetch sessions", err);
-                            setSessions([]);
-                        } finally {
-                            setIsLoadingSessions(false);
-                        }
-                    }
                 }
 
             } catch (err) {
@@ -145,17 +131,74 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
         initialize();
     }, []);
 
-    const refreshSessions = async () => {
-        const userId = authApi.getCurrentUser();
-        if (userId && dbConfig) {
+    // Load session when sessionId changes
+    useEffect(() => {
+        const loadSession = async () => {
+            const userId = authApi.getCurrentUser();
+            if (!userId || !dbConfig) return;
+
             try {
-                const sessionsList = await sessionApi.getSessions(userId, dbConfig.dbId, dbConfig.table);
-                setSessions(Array.isArray(sessionsList) ? sessionsList : []);
+                const sessionData = await sessionApi.getSession(sessionId, userId, dbConfig.dbId, dbConfig.table, dbConfig.componentId);
+
+                if (sessionData && sessionData.chat_history && sessionData.chat_history.length > 0) {
+                    // Set the active session ID for future requests
+                    // If agent_id is present, switch to that agent
+                    if (sessionData.agent_id) {
+                        setSelectedAgentId(sessionData.agent_id);
+                    }
+
+                    // Map history
+                    const history = sessionData.chat_history || sessionData.messages || [];
+                    const mappedMessages: Message[] = history
+                        .filter((m: any) => m.role !== 'system')
+                        .map((m: any, idx: number) => ({
+                            id: `hist-${idx}-${m.created_at || Date.now()}`,
+                            role: m.role,
+                            content: m.content || '',
+                            timestamp: new Date(m.created_at ? m.created_at * 1000 : Date.now()),
+                            metrics: m.metrics,
+                            toolCalls: m.tool_calls?.map((tc: any) => ({
+                                id: tc.tool_call_id || 'unknown',
+                                name: tc.tool_name,
+                                args: tc.tool_args,
+                                status: 'completed',
+                                result: tc.result,
+                                duration: tc.metrics?.duration
+                            }))
+                        }));
+
+                    setMessages(mappedMessages);
+                } else {
+                    // New session - show welcome message
+                    const agent = agents.find(a => a.id === selectedAgentId);
+                    setMessages([
+                        {
+                            id: Date.now().toString(),
+                            role: 'assistant',
+                            content: `Hello! I am ${agent?.name || 'your assistant'}. How can I assist you today?`,
+                            timestamp: new Date()
+                        }
+                    ]);
+                }
             } catch (err) {
-                console.error("Failed to refresh sessions", err);
+                console.error("Failed to load session", err);
+                // New session - show welcome message
+                const agent = agents.find(a => a.id === selectedAgentId);
+                setMessages([
+                    {
+                        id: Date.now().toString(),
+                        role: 'assistant',
+                        content: `Hello! I am ${agent?.name || 'your assistant'}. How can I assist you today?`,
+                        timestamp: new Date()
+                    }
+                ]);
             }
+        };
+
+        if (dbConfig && agents.length > 0) {
+            loadSession();
         }
-    };
+    }, [sessionId, dbConfig, agents.length]);
 
     // Handle click outside metrics card and agent menu
     useEffect(() => {
@@ -356,10 +399,8 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
                         }
                         return msg;
                     }));
-                    // Only refresh sessions if the current session is not in the list (new session)
-                    if (!sessions.some(s => s.session_id === sessionId)) {
-                        refreshSessions();
-                    }
+                    // Notify parent to refresh sessions
+                    onSessionUpdate();
                 } else if (event === 'RunError') {
                     setMessages(prev => prev.map(msg => {
                         if (msg.id === botMsgId) {
@@ -427,67 +468,6 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
         const agent = agents.find(a => a.id === agentId);
     };
 
-    const handleNewChat = () => {
-        if (!selectedAgentId) return;
-        const agent = agents.find(a => a.id === selectedAgentId);
-        setExpandedMetricsId(null);
-        setSelectedToolCall(null);
-        setSessionId(generateUUID());
-        setFiles([]);
-        if (fileInputRef.current) fileInputRef.current.value = '';
-
-        setMessages([
-            {
-                id: Date.now().toString(),
-                role: 'assistant',
-                content: `Hello! I am ${agent?.name || 'your assistant'}. Starting a new conversation.`,
-                timestamp: new Date()
-            }
-        ]);
-    };
-
-    const handleSessionClick = async (sid: string) => {
-        const userId = authApi.getCurrentUser();
-        if (!userId || !dbConfig) return;
-
-        try {
-            const sessionData = await sessionApi.getSession(sid, userId, dbConfig.dbId, dbConfig.table);
-
-            if (sessionData) {
-                // Set the active session ID for future requests
-                setSessionId(sessionData.session_id);
-
-                // If agent_id is present, switch to that agent
-                if (sessionData.agent_id) {
-                    setSelectedAgentId(sessionData.agent_id);
-                }
-
-                // Map history (use chat_history preferred, fallback to messages)
-                const history = sessionData.chat_history || sessionData.messages || [];
-                const mappedMessages: Message[] = history
-                    .filter((m: any) => m.role !== 'system') // Hide system prompts
-                    .map((m: any, idx: number) => ({
-                        id: `hist-${idx}-${m.created_at || Date.now()}`,
-                        role: m.role,
-                        content: m.content || '',
-                        timestamp: new Date(m.created_at ? m.created_at * 1000 : Date.now()),
-                        metrics: m.metrics,
-                        toolCalls: m.tool_calls?.map((tc: any) => ({
-                            id: tc.tool_call_id || 'unknown',
-                            name: tc.tool_name,
-                            args: tc.tool_args,
-                            status: 'completed',
-                            result: tc.result,
-                            duration: tc.metrics?.duration
-                        }))
-                    }));
-
-                setMessages(mappedMessages);
-            }
-        } catch (err) {
-            console.error("Failed to load session", err);
-        }
-    };
 
     const toggleMetrics = (id: string) => {
         setExpandedMetricsId(prev => prev === id ? null : id);
@@ -511,11 +491,11 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
                 setGraphModalData(parsed);
                 setIsGraphModalOpen(true);
             } else {
-                alert("Invalid graph data format.");
+                toast.error("Invalid graph data format.");
             }
         } catch (e) {
             console.error("Failed to parse graph data", e);
-            alert("Failed to parse graph data.");
+            toast.error("Failed to parse graph data.");
         }
     };
 
@@ -543,62 +523,13 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
                 onChange={handleFileSelect}
             />
 
-            {/* Chat Sidebar / History */}
-            <div
-                className={`bg-white border-slate-200 flex flex-col shrink-0 z-20 transition-all duration-300 ease-in-out overflow-hidden
-            ${isHistoryOpen ? 'w-64 border-r' : 'w-0'} 
-        `}
-            >
-                <div className="w-64 h-full flex flex-col">
-                    <div className="p-3 border-b border-slate-100">
-                        <Button
-                            className="w-full justify-start gap-2 shadow-brand-600/10 hover:shadow-brand-600/20 text-sm py-2"
-                            onClick={handleNewChat}
-                            disabled={!selectedAgentId}
-                            leftIcon={<Plus className="w-4 h-4" />}
-                        >
-                            New Chat
-                        </Button>
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
-                        <div className="px-2 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Previous Chats</div>
-
-                        {isLoadingSessions ? (
-                            <div className="p-4 flex justify-center">
-                                <Loader2 className="w-4 h-4 text-brand-600 animate-spin" />
-                            </div>
-                        ) : !Array.isArray(sessions) || sessions.length === 0 ? (
-                            <div className="p-4 text-center text-xs text-slate-400 italic">
-                                No previous chats found.
-                            </div>
-                        ) : (
-                            sessions.map((session) => (
-                                <button
-                                    key={session.session_id}
-                                    onClick={() => handleSessionClick(session.session_id)}
-                                    className={`w-full text-left px-3 py-2 rounded-lg text-xs flex items-center gap-2.5 transition-colors group relative
-                                ${sessionId === session.session_id ? 'bg-brand-50 text-brand-700 font-medium' : 'text-slate-700 hover:bg-slate-50'}
-                            `}
-                                >
-                                    <MessageSquare className={`w-3.5 h-3.5 shrink-0 ${sessionId === session.session_id ? 'text-brand-600' : 'text-slate-400 group-hover:text-slate-600'}`} />
-                                    <div className="flex-1 truncate">
-                                        {session.session_name || 'Untitled Conversation'}
-                                    </div>
-                                </button>
-                            ))
-                        )}
-                    </div>
-                </div>
-            </div>
-
             {/* Main Chat Area */}
-            <div className="flex-1 flex flex-col min-w-0 bg-slate-50 relative">
+            <div className="flex-1 flex flex-col min-w-0 bg-slate-50 relative w-full">
                 {/* Simplified Header */}
                 <div className="h-12 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-center px-4 sticky top-0 z-30 relative">
                     <div className="flex items-center gap-2.5">
-                        <img src={chatbotLogo} alt="AI Assistant" className="w-7 h-7 rounded-lg object-cover shadow-sm" />
-                        <span className="font-bold text-slate-900 text-sm">AI Assistant</span>
+                        <img src={chatbotLogo} alt="Chat" className="w-7 h-7 rounded-lg object-cover shadow-sm" />
+                        <span className="font-bold text-slate-900 text-sm">Chat</span>
                     </div>
 
                     <button className="absolute right-4 text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
@@ -627,19 +558,20 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ isHistoryOpen, onToggleH
                                 // Assistant Message
                                 <div className="flex flex-col gap-2">
                                     <div className="flex gap-3 animate-fade-in items-start group">
-                                        <img src={chatbotLogo} alt="AI Assistant" className="w-7 h-7 rounded-full object-cover shrink-0 shadow-sm" />
+                                        <img src={chatbotLogo} alt="Chat" className="w-7 h-7 rounded-full object-cover shrink-0 shadow-sm" />
 
                                         <div className="flex-1 min-w-0 flex flex-col items-start space-y-2">
 
                                             {/* Tool Call Pills and Visualizations */}
                                             {msg.toolCalls && msg.toolCalls.length > 0 && (
-                                                <div className="flex flex-col gap-2 mb-1 w-full">
+                                                <div className="flex flex-wrap items-center gap-2 mb-1 w-full">
                                                     {msg.toolCalls.map((toolCall, idx) => (
                                                         <ToolVisualization
                                                             key={idx}
                                                             toolCall={toolCall}
                                                             onOpenGraph={handleOpenGraph}
                                                             onSelectToolCall={setSelectedToolCall}
+                                                            isCollapsed={!msg.isStreaming && msg.toolCalls?.every(tc => tc.status !== 'running')}
                                                         />
                                                     ))}
                                                 </div>

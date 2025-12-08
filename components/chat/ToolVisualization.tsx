@@ -1,5 +1,5 @@
-import React from 'react';
-import { Network, ChevronRight, Hammer } from 'lucide-react';
+import React, { useState } from 'react';
+import { Network, Hammer, Loader2, ChevronDown, Check, AlertCircle } from 'lucide-react';
 import { Chart } from '../ui/Chart';
 
 export interface ToolCall {
@@ -15,13 +15,16 @@ interface ToolVisualizationProps {
   toolCall: ToolCall;
   onOpenGraph: (data: any) => void;
   onSelectToolCall: (toolCall: ToolCall) => void;
+  isCollapsed: boolean;
 }
 
 export const ToolVisualization: React.FC<ToolVisualizationProps> = ({
   toolCall,
   onOpenGraph,
-  onSelectToolCall
+  onSelectToolCall,
+  isCollapsed
 }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
   const isDfsExplore = toolCall.name === 'dfs_explore' && toolCall.status === 'completed';
   const isChart = toolCall.name === 'create_bar_chart' && toolCall.status === 'completed' && toolCall.result;
 
@@ -35,37 +38,93 @@ export const ToolVisualization: React.FC<ToolVisualizationProps> = ({
     } catch (e) { console.error("Failed to parse chart options", e); }
   }
 
+  // Status icon and color
+  const getStatusIndicator = () => {
+    switch (toolCall.status) {
+      case 'running':
+        return <Loader2 className="w-3 h-3 text-blue-500 animate-spin" />;
+      case 'completed':
+        return <Check className="w-3 h-3 text-green-500" />;
+      case 'error':
+        return <AlertCircle className="w-3 h-3 text-red-500" />;
+      default:
+        return null;
+    }
+  };
+
+  const getStatusColor = () => {
+    switch (toolCall.status) {
+      case 'running':
+        return 'border-blue-200 bg-blue-50/50 hover:border-blue-300';
+      case 'completed':
+        return 'border-green-200 bg-green-50/50 hover:border-green-300';
+      case 'error':
+        return 'border-red-200 bg-red-50/50 hover:border-red-300';
+      default:
+        return 'border-slate-200 bg-slate-50 hover:border-slate-300';
+    }
+  };
+
+  // Collapsed capsule view
+  if (isCollapsed && !isExpanded) {
+    return (
+      <button
+        onClick={() => setIsExpanded(true)}
+        className={`flex items-center gap-1.5 pl-2 pr-2.5 py-1 rounded-full text-[10px] font-medium border transition-all shadow-sm hover:shadow-md ${getStatusColor()}`}
+        title={`${toolCall.name} - Click to expand`}
+      >
+        {getStatusIndicator()}
+        <span className="text-slate-700 font-semibold max-w-[120px] truncate">{toolCall.name}</span>
+      </button>
+    );
+  }
+
+  // Expanded view
   return (
-    <div className="flex flex-col gap-2 w-full">
+    <div className="flex flex-col gap-2 w-full animate-fade-in">
       <div className="flex flex-wrap items-center gap-2">
         <button
-          onClick={() => onSelectToolCall(toolCall)}
-          className="flex items-center gap-2 pl-3 pr-4 py-1.5 bg-white text-slate-600 rounded-xl text-[11px] font-mono hover:border-brand-200 hover:shadow-md transition-all shadow-sm border border-slate-200 group/tool w-fit"
+          onClick={() => {
+            if (isCollapsed) {
+              setIsExpanded(false);
+            } else {
+              onSelectToolCall(toolCall);
+            }
+          }}
+          className={`flex items-center gap-2 pl-2.5 pr-3 py-1.5 text-slate-600 rounded-xl text-[10px] font-mono hover:shadow-md transition-all shadow-sm border ${getStatusColor()}`}
         >
-          <div className="w-4 h-4 rounded bg-brand-50 flex items-center justify-center shrink-0 border border-brand-100">
-            <Hammer className="w-2.5 h-2.5 text-brand-600" />
-          </div>
-          <span className="font-bold text-slate-700">{toolCall.status === 'running' ? 'Running Tool' : 'Tool Called'}</span>
-          <span className="text-slate-300">|</span>
-          <span className="text-brand-600 font-medium">{toolCall.name}</span>
-          <ChevronRight className="w-3 h-3 text-slate-400 group-hover/tool:text-brand-600 transition-colors ml-1" />
+          {getStatusIndicator()}
+          <span className="text-slate-700 font-bold">{toolCall.name}</span>
+          {isCollapsed && (
+            <ChevronDown className="w-3 h-3 text-slate-400 rotate-180" />
+          )}
         </button>
 
         {/* DFS Explore Graph Visualization Button */}
         {isDfsExplore && (
           <button
             onClick={() => onOpenGraph(toolCall.result)}
-            className="flex items-center gap-2 px-3 py-1.5 bg-brand-600 text-white rounded-xl text-[11px] font-bold shadow-md hover:bg-brand-700 hover:shadow-lg hover:scale-105 transition-all animate-fade-in"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-brand-600 text-white rounded-xl text-[10px] font-bold shadow-md hover:bg-brand-700 hover:shadow-lg hover:scale-105 transition-all"
           >
             <Network className="w-3 h-3" />
-            Visualize Graph
+            Visualize
+          </button>
+        )}
+
+        {/* View Details Button (when collapsed) */}
+        {isCollapsed && (
+          <button
+            onClick={() => onSelectToolCall(toolCall)}
+            className="flex items-center gap-1 px-2.5 py-1.5 bg-white text-slate-600 rounded-xl text-[10px] font-medium hover:bg-slate-50 transition-all shadow-sm border border-slate-200"
+          >
+            View Details
           </button>
         )}
       </div>
 
       {/* Chart Rendering */}
       {chartOptions && (
-        <div className="w-full max-w-2xl bg-white rounded-xl border border-slate-200 shadow-sm p-4 animate-fade-in">
+        <div className="w-full max-w-2xl bg-white rounded-xl border border-slate-200 shadow-sm p-4">
           <Chart options={chartOptions} className="w-full" />
         </div>
       )}

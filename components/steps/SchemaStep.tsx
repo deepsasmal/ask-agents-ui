@@ -3,6 +3,7 @@ import { ArrowRight, ArrowLeft, ChevronRight, Wand2, Database, KeyRound, Link as
 import { Button, Card } from '../ui/Common';
 import { WizardState, Column, Table } from '../../types';
 import { postgresApi, llmApi, graphApi } from '../../services/api';
+import { toast } from 'react-toastify';
 
 interface SchemaStepProps {
     data: WizardState;
@@ -390,7 +391,7 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
             onNext();
         } catch (error) {
             console.error("Failed to update graph schema", error);
-            alert('Failed to update graph schema. Please try again.');
+            toast.error('Failed to update graph schema. Please try again.');
         } finally {
             setIsSaving(false);
         }

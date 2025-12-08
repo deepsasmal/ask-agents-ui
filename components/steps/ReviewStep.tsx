@@ -4,6 +4,7 @@ import { ArrowLeft, Rocket, CheckCircle, Layers, Database, FileText, Check, Spar
 import { Button, Card } from '../ui/Common';
 import { WizardState } from '../../types';
 import { graphApi } from '../../services/api';
+import { toast } from 'react-toastify';
 
 interface ReviewStepProps {
   data: WizardState;
@@ -24,7 +25,7 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({ data, onBack, onComplete
       const graphId = data.graphId;
       
       if (!graphId) {
-        alert('Error: Graph ID not found. Please go back and resave the schema.');
+        toast.error('Error: Graph ID not found. Please go back and resave the schema.');
         setIsCreating(false);
         return;
       }
@@ -33,10 +34,11 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({ data, onBack, onComplete
         enableTextIndexing,
         enableVectorSearch
       });
+      toast.success('Graph created successfully!');
       onComplete();
     } catch (error) {
       console.error('Failed to create graph', error);
-      alert('Failed to create graph. Please try again.');
+      toast.error('Failed to create graph. Please try again.');
     } finally {
       setIsCreating(false);
     }
