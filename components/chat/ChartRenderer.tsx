@@ -10,13 +10,25 @@ interface ChartRendererProps {
 
 export const ChartRenderer: React.FC<ChartRendererProps> = React.memo(({ toolResult, chartType, onExpand }) => {
   const chartRef = useRef<ChartRef>(null);
+  
+  console.log('🎨 ChartRenderer mounted/updated', { chartType, toolResult });
 
   const chartOptions = useMemo(() => {
     try {
-      const parsed = typeof toolResult === 'string' ? JSON.parse(toolResult) : toolResult;
-      let options = parsed?.option || null;
+      console.log('🔍 Raw toolResult:', toolResult);
+      console.log('🔍 toolResult type:', typeof toolResult);
       
-      if (!options) return null;
+      const parsed = typeof toolResult === 'string' ? JSON.parse(toolResult) : toolResult;
+      console.log('🔍 Parsed result:', parsed);
+      console.log('🔍 parsed.option:', parsed?.option);
+      
+      let options = parsed?.option || null;
+      console.log('🔍 Extracted options:', options);
+      
+      if (!options) {
+        console.warn('❌ No options found in tool result!');
+        return null;
+      }
 
       // Fix malformed pie chart data structure
       if (chartType === 'pie' && options.series && options.series.length > 0) {
@@ -147,7 +159,12 @@ export const ChartRenderer: React.FC<ChartRendererProps> = React.memo(({ toolRes
     chartRef.current?.downloadChart(filename);
   };
 
-  if (!chartOptions) return null;
+  if (!chartOptions) {
+    console.warn('⚠️ ChartRenderer returning null - no chart options');
+    return null;
+  }
+  
+  console.log('✅ ChartRenderer rendering chart with options:', chartOptions);
 
   return (
     <div className="w-full max-w-2xl bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden animate-fade-in group/chart">

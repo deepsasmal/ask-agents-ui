@@ -235,9 +235,21 @@ interface GraphEditPayload {
 }
 
 // Auth Interfaces
+interface LoginUser {
+  id: number;
+  email: string;
+  username: string;
+  first_name: string;
+  last_name: string;
+  role: string;
+  metadata?: Record<string, any>;
+}
+
 interface LoginResponse {
   access_token: string;
   token_type: string;
+  message?: string;
+  user: LoginUser;
 }
 
 // Helper to get Auth Headers
@@ -421,14 +433,24 @@ export const authApi = {
     const data = await handleResponse<LoginResponse>(response);
     if (data.access_token) {
       localStorage.setItem('auth_token', data.access_token);
-      // Store user ID (email) for session tracking
+      // Store user data for session tracking and profile display
       localStorage.setItem('user_id', username);
+      if (data.user) {
+        localStorage.setItem('user_first_name', data.user.first_name || '');
+        localStorage.setItem('user_last_name', data.user.last_name || '');
+        localStorage.setItem('user_email', data.user.email || '');
+        localStorage.setItem('user_username', data.user.username || username);
+      }
     }
     return data;
   },
   logout: () => {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('user_id');
+    localStorage.removeItem('user_first_name');
+    localStorage.removeItem('user_last_name');
+    localStorage.removeItem('user_email');
+    localStorage.removeItem('user_username');
     // Clear API caches on logout
     cachedConfig = null;
     cachedAgents = null;
@@ -438,6 +460,31 @@ export const authApi = {
   },
   getCurrentUser: () => {
     return localStorage.getItem('user_id');
+  },
+  getUserDisplayName: () => {
+    const firstName = localStorage.getItem('user_first_name');
+    const lastName = localStorage.getItem('user_last_name');
+    if (firstName || lastName) {
+      return `${firstName || ''} ${lastName || ''}`.trim();
+    }
+    return localStorage.getItem('user_username') || localStorage.getItem('user_id') || 'User';
+  },
+  getUserInitials: () => {
+    const firstName = localStorage.getItem('user_first_name');
+    const lastName = localStorage.getItem('user_last_name');
+    if (firstName || lastName) {
+      const firstInitial = firstName ? firstName.charAt(0).toUpperCase() : '';
+      const lastInitial = lastName ? lastName.charAt(0).toUpperCase() : '';
+      return `${firstInitial}${lastInitial}` || 'U';
+    }
+    const username = localStorage.getItem('user_username') || localStorage.getItem('user_id');
+    if (username) {
+      return username.substring(0, 2).toUpperCase();
+    }
+    return 'U';
+  },
+  getUserEmail: () => {
+    return localStorage.getItem('user_email') || localStorage.getItem('user_id') || '';
   }
 };
 

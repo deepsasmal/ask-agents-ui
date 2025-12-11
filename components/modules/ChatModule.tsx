@@ -658,9 +658,15 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
                                             )}
 
                                             {/* Pie Chart Rendering - Rendered in Chat UI */}
-                                            {msg.toolCalls && msg.toolCalls.some(tc => tc.name === 'create_pie_chart' && tc.status === 'completed' && tc.result) && (
-                                                (() => {
+                                            {(() => {
+                                                console.log('🥧 Checking for pie chart in message:', msg.id);
+                                                console.log('🥧 msg.toolCalls:', msg.toolCalls);
+                                                const hasPieChart = msg.toolCalls && msg.toolCalls.some(tc => tc.name === 'create_pie_chart' && tc.status === 'completed' && tc.result);
+                                                console.log('🥧 Has pie chart?', hasPieChart);
+                                                
+                                                if (hasPieChart) {
                                                     const chartToolCall = msg.toolCalls.find(tc => tc.name === 'create_pie_chart' && tc.status === 'completed' && tc.result);
+                                                    console.log('🥧 Chart tool call:', chartToolCall);
                                                     return chartToolCall ? (
                                                         <ChartRenderer
                                                             toolResult={chartToolCall.result}
@@ -668,8 +674,9 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
                                                             onExpand={handleOpenChart}
                                                         />
                                                     ) : null;
-                                                })()
-                                            )}
+                                                }
+                                                return null;
+                                            })()}
 
                                             {/* Streaming Indicator */}
                                             {msg.isStreaming && !msg.content && (
