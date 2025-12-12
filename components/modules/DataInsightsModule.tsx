@@ -16,7 +16,7 @@ export const DataInsightsModule: React.FC = () => {
             </div>
 
             <p className="text-slate-500 max-w-md text-center leading-relaxed dark:text-slate-400">
-                We're building powerful analytics tools to help you visualize and understand your data better. Stay tuned for advanced charting and AI-driven insights.
+                Experience AI-driven auto insights. Automatically visualize trends and uncover hidden patterns. Get ready for advanced charting and predictive analytics.
             </p>
         </div>
     );

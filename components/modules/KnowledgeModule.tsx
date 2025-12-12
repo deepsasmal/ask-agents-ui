@@ -16,7 +16,7 @@ export const KnowledgeModule: React.FC = () => {
             </div>
 
             <p className="text-slate-500 max-w-md text-center leading-relaxed dark:text-slate-400">
-                A centralized hub for your organization's documentation and knowledge. Connect deeper data sources and manage your ontology here.
+                A centralized hub for your organization's knowledge. Connect deeper data sources.
             </p>
         </div>
     );

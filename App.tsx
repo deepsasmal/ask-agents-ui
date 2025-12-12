@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Network, LayoutDashboard, MessageSquareText, Settings, LogOut, PanelLeftClose, PanelLeft, ChevronRight, Home, ChevronDown, PenLine, Loader2, MessageSquare, Trash2, PieChart, BookOpen, MoreVertical, Moon, Sun, User } from 'lucide-react';
+import { Network, LayoutDashboard, MessageSquareText, Settings, LogOut, PanelLeftClose, PanelLeft, ChevronRight, Home, ChevronDown, PenLine, Loader2, MessageSquare, Trash2, PieChart, BookOpen, MoreVertical, Moon, Sun, User, ChartNetwork } from 'lucide-react';
 import { GraphBuilderModule } from './components/modules/GraphBuilderModule';
 import { ChatModule } from './components/modules/ChatModule';
 import { LandingPageModule } from './components/modules/LandingPageModule';
@@ -262,18 +262,18 @@ const App: React.FC = () => {
                         <div className={`my-3 border-t border-slate-100 mx-2 dark:border-slate-700/50 ${isSidebarCollapsed ? 'opacity-0' : 'opacity-100'}`}></div>
 
                         <SidebarItem
-                            icon={<LayoutDashboard className="w-4 h-4" />}
-                            label="Graph Builder"
-                            isActive={activeModule === 'GRAPH_BUILDER'}
-                            collapsed={isSidebarCollapsed}
-                            onClick={() => setActiveModule('GRAPH_BUILDER')}
-                        />
-                        <SidebarItem
                             icon={<MessageSquareText className="w-4 h-4" />}
                             label="Chat"
                             isActive={activeModule === 'CHAT'}
                             collapsed={isSidebarCollapsed}
                             onClick={() => setActiveModule('CHAT')}
+                        />
+                        <SidebarItem
+                            icon={<ChartNetwork className="w-4 h-4" />}
+                            label="Graph Builder"
+                            isActive={activeModule === 'GRAPH_BUILDER'}
+                            collapsed={isSidebarCollapsed}
+                            onClick={() => setActiveModule('GRAPH_BUILDER')}
                         />
                         <SidebarItem
                             icon={<PieChart className="w-4 h-4" />}
@@ -380,7 +380,7 @@ const App: React.FC = () => {
                                 <div className="text-xs font-bold text-slate-900 truncate transition-colors dark:text-slate-200">{authApi.getUserDisplayName()}</div>
                                 <div className="text-[10px] text-slate-500 truncate">{authApi.getUserEmail()}</div>
                             </div>
-                            <div className={`relative ${isSidebarCollapsed ? 'mt-1' : 'ml-auto'}`} ref={profileMenuRef}>
+                            <div className={`relative ${isSidebarCollapsed ? 'hidden' : 'ml-auto'}`} ref={profileMenuRef}>
                                 <button
                                     onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
                                     className="p-1.5 rounded-md hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-600"
