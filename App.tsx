@@ -541,7 +541,7 @@ const SidebarItem = ({ icon, label, isActive, collapsed, onClick }: { icon: Reac
         <button
             onClick={onClick}
             className={`
-                group flex items-center w-full p-2.5 rounded-xl transition-all duration-200 ease-out
+                group flex items-center w-full p-2.5 rounded-xl transition-all duration-200 ease-out relative
                 ${isActive
                     ? 'bg-slate-100 text-slate-900 shadow-sm dark:bg-slate-800 dark:text-white'
                     : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800'
@@ -561,6 +561,11 @@ const SidebarItem = ({ icon, label, isActive, collapsed, onClick }: { icon: Reac
             {/* Active Indicator (Chevron) */}
             {isActive && !collapsed && (
                 <ChevronRight className="w-3.5 h-3.5 ml-auto text-slate-400" />
+            )}
+
+            {/* Active Line Indicator */}
+            {isActive && (
+                <div className="absolute bottom-0 left-2 right-2 h-[2px] bg-green-500 rounded-full" />
             )}
         </button>
     )

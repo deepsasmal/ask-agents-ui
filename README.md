@@ -1,20 +1,47 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# AskAgents
 
-# Run and deploy your AI Studio app
+**Transform your data into intelligent insights.**
 
-This contains everything you need to run your app locally.
+AskAgents is a unified platform designed to help you build knowledge graphs and interact with AI agents securely. Empower your data team to unlock the full potential of your information through an intuitive interface.
 
-View your app in AI Studio: https://ai.studio/apps/drive/13xCxCMks4e7I5cYymVt2IK6LMxcc1Wes
+## Features
 
-## Run Locally
+- **Knowledge Graph Builder**: Visual tool to construct and manage complex data relationships.
+- **AI Chat**: Interact with your data using advanced AI agents.
+- **Data Insights**: visualize and analyze your data.
+- **Secure Management**: Enterprise-grade security for your knowledge base.
 
-**Prerequisites:**  Node.js
+## Getting Started
 
+### Prerequisites
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+- Node.js (v18 or higher recommended)
+- npm or yarn
+
+### Installation
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/deepsasmal/ask-agents-ui.git
+   ```
+
+2. Navigate to the project directory:
+   ```bash
+   cd ask-agents-ui
+   ```
+
+3. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+4. Start the development server:
+   ```bash
+   npm run dev
+   ```
+
+The application will be available at `http://localhost:5173` (or the port shown in your terminal).
+
+## License
+
+[MIT](LICENSE)

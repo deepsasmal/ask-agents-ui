@@ -103,6 +103,14 @@ export interface ConfigResponse {
     }>;
     component_id?: string; // fallback if not in dbs array
   };
+  knowledge?: {
+    dbs: Array<{
+      db_id: string;
+      domain_config: {
+        display_name: string;
+      };
+    }>;
+  };
 }
 
 export interface Session {
@@ -856,5 +864,47 @@ export const graphApi = {
       body: JSON.stringify({ email }),
     });
     return handleResponse<GraphMetadataByEmailResponse>(response);
+  }
+};
+
+export interface KnowledgeItem {
+  id: string;
+  name: string;
+  description: string;
+  type: string;
+  size: string;
+  linked_to: any;
+  metadata: any;
+  access_count: any;
+  status: string;
+  status_message: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface KnowledgeContentResponse {
+  data: KnowledgeItem[];
+  meta: {
+    page: number;
+    limit: number;
+    total_pages: number;
+    total_count: number;
+    search_time_ms: number;
+  }
+}
+
+export const knowledgeApi = {
+  getContent: async (dbId: string, page: number = 1, limit: number = 25) => {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+      sort_by: 'updated_at',
+      sort_order: 'desc',
+      db_id: dbId
+    });
+    const response = await fetch(`${API_BASE_URL}/knowledge/content?${params.toString()}`, {
+      headers: { ...getAuthHeaders() }
+    });
+    return handleResponse<KnowledgeContentResponse>(response);
   }
 };
