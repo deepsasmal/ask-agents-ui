@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Network, LayoutDashboard, MessageSquareText, Settings, LogOut, PanelLeftClose, PanelLeft, ChevronRight, Home, ChevronDown, PenLine, Loader2, MessageSquare, Trash2 } from 'lucide-react';
+import { Network, LayoutDashboard, MessageSquareText, Settings, LogOut, PanelLeftClose, PanelLeft, ChevronRight, Home, ChevronDown, PenLine, Loader2, MessageSquare, Trash2, PieChart, BookOpen, MoreVertical, Moon, Sun, User } from 'lucide-react';
 import { GraphBuilderModule } from './components/modules/GraphBuilderModule';
 import { ChatModule } from './components/modules/ChatModule';
 import { LandingPageModule } from './components/modules/LandingPageModule';
+import { DataInsightsModule } from './components/modules/DataInsightsModule';
+import { KnowledgeModule } from './components/modules/KnowledgeModule';
 import { LoginPage } from './components/auth/LoginPage';
 import { authApi, sessionApi, configApi, Session } from './services/api';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
-type Module = 'LANDING' | 'GRAPH_BUILDER' | 'CHAT' | 'SETTINGS';
+type Module = 'LANDING' | 'GRAPH_BUILDER' | 'CHAT' | 'DATA_INSIGHTS' | 'KNOWLEDGE' | 'SETTINGS';
 
 const generateUUID = () => {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -56,9 +58,25 @@ const App: React.FC = () => {
     const [isChatsCollapsed, setIsChatsCollapsed] = useState(false);
     const [currentSessionId, setCurrentSessionId] = useState<string>(() => generateUUID());
     const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null);
+    const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
     const initializedRef = useRef(false);
+    const profileMenuRef = useRef<HTMLDivElement>(null);
 
     const toggleSidebar = () => setIsSidebarCollapsed(!isSidebarCollapsed);
+
+    // Handle click outside profile menu
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
+                setIsProfileMenuOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, []);
 
     // Initialize: Fetch Config and Sessions (only when authenticated)
     useEffect(() => {
@@ -257,6 +275,20 @@ const App: React.FC = () => {
                             collapsed={isSidebarCollapsed}
                             onClick={() => setActiveModule('CHAT')}
                         />
+                        <SidebarItem
+                            icon={<PieChart className="w-4 h-4" />}
+                            label="Data Insights"
+                            isActive={activeModule === 'DATA_INSIGHTS'}
+                            collapsed={isSidebarCollapsed}
+                            onClick={() => setActiveModule('DATA_INSIGHTS')}
+                        />
+                        <SidebarItem
+                            icon={<BookOpen className="w-4 h-4" />}
+                            label="Knowledge"
+                            isActive={activeModule === 'KNOWLEDGE'}
+                            collapsed={isSidebarCollapsed}
+                            onClick={() => setActiveModule('KNOWLEDGE')}
+                        />
 
                         <SidebarItem
                             icon={<Settings className="w-4 h-4" />}
@@ -348,13 +380,56 @@ const App: React.FC = () => {
                                 <div className="text-xs font-bold text-slate-900 truncate transition-colors dark:text-slate-200">{authApi.getUserDisplayName()}</div>
                                 <div className="text-[10px] text-slate-500 truncate">{authApi.getUserEmail()}</div>
                             </div>
-                            <button
-                                onClick={handleLogout}
-                                className={`p-1.5 rounded-md hover:bg-slate-100 transition-colors ${isSidebarCollapsed ? 'mt-1' : 'ml-auto'}`}
-                                title="Sign Out"
-                            >
-                                <LogOut className="w-3.5 h-3.5 text-slate-400 hover:text-red-500 transition-colors" />
-                            </button>
+                            <div className={`relative ${isSidebarCollapsed ? 'mt-1' : 'ml-auto'}`} ref={profileMenuRef}>
+                                <button
+                                    onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+                                    className="p-1.5 rounded-md hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-600"
+                                    title="Options"
+                                >
+                                    <MoreVertical className="w-3.5 h-3.5" />
+                                </button>
+
+                                {/* Profile Menu Popup */}
+                                {isProfileMenuOpen && (
+                                    <div className={`absolute bottom-full mb-2 bg-white rounded-xl shadow-xl border border-slate-200 w-56 overflow-hidden z-[60] animate-fade-in
+                                        ${isSidebarCollapsed ? 'left-1/2 -translate-x-1/2' : 'right-0'}
+                                    `}>
+                                        <div className="p-2 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                                            <button
+                                                onClick={() => setIsDarkMode(false)}
+                                                className={`flex-1 flex items-center justify-center gap-2 p-1.5 rounded-lg transition-colors ${!isDarkMode ? 'bg-white shadow-sm text-brand-600 font-medium' : 'text-slate-500 hover:bg-slate-100'}`}
+                                            >
+                                                <Sun className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                onClick={() => setIsDarkMode(true)}
+                                                className={`flex-1 flex items-center justify-center gap-2 p-1.5 rounded-lg transition-colors ${isDarkMode ? 'bg-white shadow-sm text-brand-600 font-medium' : 'text-slate-500 hover:bg-slate-100'}`}
+                                            >
+                                                <Moon className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                        <div className="p-1">
+                                            <button
+                                                onClick={() => {
+                                                    setActiveModule('SETTINGS');
+                                                    setIsProfileMenuOpen(false);
+                                                }}
+                                                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-colors"
+                                            >
+                                                <User className="w-4 h-4" />
+                                                <span>Profile Settings</span>
+                                            </button>
+                                            <button
+                                                onClick={handleLogout}
+                                                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                            >
+                                                <LogOut className="w-4 h-4" />
+                                                <span>Logout</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </aside>
@@ -394,6 +469,8 @@ const App: React.FC = () => {
                                 onSessionUpdate={refreshSessions}
                             />
                         )}
+                        {activeModule === 'DATA_INSIGHTS' && <DataInsightsModule />}
+                        {activeModule === 'KNOWLEDGE' && <KnowledgeModule />}
                         {activeModule === 'SETTINGS' && (
                             <div className="flex items-center justify-center h-full bg-[#f8fafc] dark:bg-[#0f172a]">
                                 <div className="w-full max-w-2xl px-4 flex flex-col gap-6">
