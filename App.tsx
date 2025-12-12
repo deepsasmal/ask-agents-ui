@@ -30,6 +30,24 @@ const App: React.FC = () => {
     const [isAuthenticated, setIsAuthenticated] = useState<boolean>(authApi.isAuthenticated());
     const [activeModule, setActiveModule] = useState<Module>('LANDING');
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+    const [isDarkMode, setIsDarkMode] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('theme') === 'dark' ||
+                (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        }
+        return false;
+    });
+
+    // Dark Mode Effect
+    useEffect(() => {
+        if (isDarkMode) {
+            document.documentElement.classList.add('dark');
+            localStorage.setItem('theme', 'dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+            localStorage.setItem('theme', 'light');
+        }
+    }, [isDarkMode]);
 
     // Chat sessions state
     const [sessions, setSessions] = useState<Session[]>([]);
@@ -166,7 +184,7 @@ const App: React.FC = () => {
 
                 {/* Sidebar - Minimal Light Theme */}
                 <aside
-                    className={`bg-white border-r border-slate-200 flex flex-col transition-all duration-300 ease-in-out z-50 shrink-0
+                    className={`bg-white border-r border-slate-200 flex flex-col transition-all duration-300 ease-in-out z-50 shrink-0 dark:bg-slate-900 dark:border-slate-800
           ${isSidebarCollapsed ? 'w-16' : 'w-64'} 
         `}
                 >
@@ -198,7 +216,7 @@ const App: React.FC = () => {
                             </div>
 
                             <div className={`flex flex-col transition-all duration-300 ${isSidebarCollapsed ? 'w-0 opacity-0 overflow-hidden' : 'w-auto opacity-100'}`}>
-                                <span className="font-bold text-xl tracking-tight text-slate-900 leading-snug whitespace-nowrap">Ask<span className="text-brand-600">Agents</span></span>
+                                <span className="font-bold text-xl tracking-tight text-slate-900 leading-snug whitespace-nowrap dark:text-white">Ask<span className="text-brand-600">Agents</span></span>
                             </div>
 
                             {/* Collapse Toggle integrated in header when open */}
@@ -223,7 +241,7 @@ const App: React.FC = () => {
                             onClick={() => setActiveModule('LANDING')}
                         />
 
-                        <div className={`my-3 border-t border-slate-100 mx-2 ${isSidebarCollapsed ? 'opacity-0' : 'opacity-100'}`}></div>
+                        <div className={`my-3 border-t border-slate-100 mx-2 dark:border-slate-700/50 ${isSidebarCollapsed ? 'opacity-0' : 'opacity-100'}`}></div>
 
                         <SidebarItem
                             icon={<LayoutDashboard className="w-4 h-4" />}
@@ -248,14 +266,14 @@ const App: React.FC = () => {
                             onClick={() => setActiveModule('SETTINGS')}
                         />
 
-                        <div className={`my-3 border-t border-slate-100 mx-2 ${isSidebarCollapsed ? 'opacity-0' : 'opacity-100'}`}></div>
+                        <div className={`my-3 border-t border-slate-100 mx-2 dark:border-slate-700/50 ${isSidebarCollapsed ? 'opacity-0' : 'opacity-100'}`}></div>
 
                         {/* Your Chats Section - Collapsible */}
                         {!isSidebarCollapsed && (
                             <div className="mb-4">
                                 <button
                                     onClick={() => setIsChatsCollapsed(!isChatsCollapsed)}
-                                    className="flex items-center justify-between w-full px-2 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors group"
+                                    className="flex items-center justify-between w-full px-2 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors group dark:text-slate-400 dark:hover:text-slate-200"
                                 >
                                     <span className="uppercase tracking-wider">Your chats</span>
                                     <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isChatsCollapsed ? '-rotate-90' : ''}`} />
@@ -266,7 +284,7 @@ const App: React.FC = () => {
                                         {/* New Chat Button */}
                                         <button
                                             onClick={handleNewChat}
-                                            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-colors group"
+                                            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-colors group dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800"
                                         >
                                             <PenLine className="w-3.5 h-3.5 shrink-0" />
                                             <span className="font-medium">New Chat</span>
@@ -288,7 +306,7 @@ const App: React.FC = () => {
                                                         key={session.session_id}
                                                         onClick={() => handleSessionClick(session.session_id)}
                                                         className={`w-full text-left px-3 py-2 rounded-lg text-xs flex items-center gap-2 transition-colors group relative overflow-hidden
-                                                ${currentSessionId === session.session_id ? 'bg-brand-50 text-brand-700 font-medium' : 'text-slate-700 hover:bg-slate-50'}
+                                                ${currentSessionId === session.session_id ? 'bg-brand-50 text-brand-700 font-medium dark:bg-brand-900/20 dark:text-brand-400' : 'text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800'}
                                             `}
                                                     >
                                                         <MessageSquare className={`w-3.5 h-3.5 shrink-0 ${currentSessionId === session.session_id ? 'text-brand-600' : 'text-slate-400 group-hover:text-slate-600'}`} />
@@ -319,7 +337,7 @@ const App: React.FC = () => {
                     </div>
 
                     {/* User / Footer */}
-                    <div className="p-3 border-t border-slate-100 mb-1">
+                    <div className="p-3 border-t border-slate-100 mb-1 dark:border-slate-800">
                         <div
                             className={`flex items-center gap-2.5 p-2 rounded-lg transition-colors group ${isSidebarCollapsed ? 'flex-col justify-center' : ''}`}
                         >
@@ -327,7 +345,7 @@ const App: React.FC = () => {
                                 {authApi.getUserInitials()}
                             </div>
                             <div className={`overflow-hidden transition-all duration-300 ${isSidebarCollapsed ? 'w-0 opacity-0 hidden' : 'w-auto opacity-100'}`}>
-                                <div className="text-xs font-bold text-slate-900 truncate transition-colors">{authApi.getUserDisplayName()}</div>
+                                <div className="text-xs font-bold text-slate-900 truncate transition-colors dark:text-slate-200">{authApi.getUserDisplayName()}</div>
                                 <div className="text-[10px] text-slate-500 truncate">{authApi.getUserEmail()}</div>
                             </div>
                             <button
@@ -342,26 +360,97 @@ const App: React.FC = () => {
                 </aside>
 
                 {/* Main Content */}
-                <main className="flex-1 flex flex-col h-full overflow-hidden bg-[#f8fafc] relative">
-                    {activeModule === 'LANDING' && (
-                        <LandingPageModule onNavigate={(module) => setActiveModule(module)} />
-                    )}
-                    {activeModule === 'GRAPH_BUILDER' && <GraphBuilderModule />}
-                    {activeModule === 'CHAT' && (
-                        <ChatModule
-                            sessionId={currentSessionId}
-                            onSessionUpdate={refreshSessions}
-                        />
-                    )}
-                    {activeModule === 'SETTINGS' && (
-                        <div className="flex items-center justify-center h-full text-slate-400 flex-col gap-4 animate-fade-in">
-                            <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-sm border border-slate-100">
-                                <Settings className="w-10 h-10 text-slate-300" />
+                <main className="flex-1 flex flex-col h-full overflow-hidden bg-[#f8fafc] relative dark:bg-[#0f172a]">
+                    {/* Global Page Transition Styles */}
+                    <style>
+                        {`
+                          @keyframes page-enter {
+                            0% {
+                              opacity: 0;
+                              transform: translateY(10px) scale(0.99);
+                              filter: blur(4px);
+                            }
+                            100% {
+                              opacity: 1;
+                              transform: translateY(0) scale(1);
+                              filter: blur(0);
+                            }
+                          }
+                          .animate-page-enter {
+                            animation: page-enter 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+                            will-change: transform, opacity, filter;
+                          }
+                        `}
+                    </style>
+
+                    <div key={activeModule} className="flex-1 h-full w-full animate-page-enter">
+                        {activeModule === 'LANDING' && (
+                            <LandingPageModule onNavigate={(module) => setActiveModule(module)} />
+                        )}
+                        {activeModule === 'GRAPH_BUILDER' && <GraphBuilderModule />}
+                        {activeModule === 'CHAT' && (
+                            <ChatModule
+                                sessionId={currentSessionId}
+                                onSessionUpdate={refreshSessions}
+                            />
+                        )}
+                        {activeModule === 'SETTINGS' && (
+                            <div className="flex items-center justify-center h-full bg-[#f8fafc] dark:bg-[#0f172a]">
+                                <div className="w-full max-w-2xl px-4 flex flex-col gap-6">
+                                    <div className="text-center mb-4">
+                                        <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-md border border-slate-100 mx-auto mb-4 dark:bg-slate-800 dark:border-slate-700">
+                                            <Settings className="w-8 h-8 text-brand-600" />
+                                        </div>
+                                        <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Settings</h2>
+                                        <p className="text-slate-500 text-sm">Manage your application preferences and behavior.</p>
+                                    </div>
+
+                                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden dark:bg-slate-800 dark:border-slate-700">
+                                        <div className="p-4 border-b border-slate-100 bg-slate-50/50 dark:bg-slate-800/50 dark:border-slate-700">
+                                            <h3 className="font-bold text-slate-800 text-sm dark:text-slate-200">Appearance</h3>
+                                        </div>
+                                        <div className="p-5">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex flex-col gap-1">
+                                                    <span className="font-semibold text-sm text-slate-900 dark:text-white">Dark Mode</span>
+                                                    <span className="text-xs text-slate-500 dark:text-slate-400">Switch between light and dark themes.</span>
+                                                </div>
+                                                <button
+                                                    onClick={() => setIsDarkMode(!isDarkMode)}
+                                                    className={`
+                            relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-brand-600 focus:ring-offset-2
+                            ${isDarkMode ? 'bg-brand-600' : 'bg-slate-200'}
+                          `}
+                                                    type="button"
+                                                >
+                                                    <span className="sr-only">Use setting</span>
+                                                    <span
+                                                        className={`
+                              pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out
+                              ${isDarkMode ? 'translate-x-5' : 'translate-x-0'}
+                            `}
+                                                    />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex justify-center mt-8">
+                                        <button
+                                            onClick={handleLogout}
+                                            className="text-red-600 hover:text-red-700 font-bold text-sm bg-red-50 hover:bg-red-100 px-6 py-2.5 rounded-xl transition-all"
+                                        >
+                                            Sign Out of Account
+                                        </button>
+                                    </div>
+
+                                    <div className="text-center mt-4">
+                                        <p className="text-xs text-slate-400 font-medium">AskAgents v0.9.0 (Beta)</p>
+                                    </div>
+                                </div>
                             </div>
-                            <p className="font-medium text-slate-500">Settings module coming soon</p>
-                            <button onClick={handleLogout} className="text-brand-600 hover:text-brand-700 font-bold text-sm">Sign Out</button>
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </main>
 
             </div>
@@ -377,8 +466,8 @@ const SidebarItem = ({ icon, label, isActive, collapsed, onClick }: { icon: Reac
             className={`
                 group flex items-center w-full p-2.5 rounded-xl transition-all duration-200 ease-out
                 ${isActive
-                    ? 'bg-slate-100 text-slate-900 shadow-sm'
-                    : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+                    ? 'bg-slate-100 text-slate-900 shadow-sm dark:bg-slate-800 dark:text-white'
+                    : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800'
                 }
                 ${collapsed ? 'justify-center' : 'gap-3'}
             `}

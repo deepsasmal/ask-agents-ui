@@ -68,7 +68,7 @@ export const DbConnectStep: React.FC<DbConnectStepProps> = ({ data, updateData, 
       <Card className="shadow-supreme border-0">
 
         {/* Source Selection Dropdown */}
-        <div className="mb-5 border-b border-slate-100 pb-5">
+        <div className="mb-4 border-b border-slate-100 pb-4">
           <label className="text-xs font-semibold text-slate-700 ml-1 mb-1.5 block">Data Source Type</label>
           <div className="relative group">
             <select
@@ -89,7 +89,7 @@ export const DbConnectStep: React.FC<DbConnectStepProps> = ({ data, updateData, 
           </div>
         </div>
 
-        <div className="flex items-center gap-4 mb-5 pb-4 border-b border-slate-100">
+        <div className="flex items-center gap-4 mb-4 pb-4 border-b border-slate-100">
           {/* PostgreSQL Logo Asset */}
           <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center flex-shrink-0 shadow-md shadow-blue-900/10 ring-1 ring-slate-100 overflow-hidden relative group p-1">
             <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -156,7 +156,7 @@ export const DbConnectStep: React.FC<DbConnectStepProps> = ({ data, updateData, 
             onClick={handleTestConnection}
             isLoading={isTesting}
             size="sm"
-            className="bg-slate-50 hover:bg-slate-100 border-slate-200"
+            className="bg-slate-50 hover:bg-slate-100 border-slate-200 text-xs px-3"
           >
             Test Connection
           </Button>

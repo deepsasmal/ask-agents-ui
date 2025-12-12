@@ -199,6 +199,7 @@ interface GraphMetadata {
 interface GraphUpdatePayload {
   org_id: string;
   schema_name: string;
+  email: string;
   metadata: GraphMetadata;
 }
 
@@ -206,6 +207,18 @@ interface GraphUpdateResponse {
   id: string;
   status: string;
   message?: string;
+}
+
+export interface GraphMetadataSummary {
+  id: string;
+  org_id: string;
+  schema_name: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+interface GraphMetadataByEmailResponse {
+  records: GraphMetadataSummary[];
 }
 
 // Search Interfaces
@@ -804,11 +817,8 @@ export const graphApi = {
       });
       return await handleResponse<SearchResponse>(response);
     } catch (error) {
-      console.warn("API Search failed, falling back to mock data for demonstration.", error);
-      // Fallback for demo purposes if backend is not running
-      return new Promise<SearchResponse>((resolve) => {
-        setTimeout(() => resolve(MOCK_SEARCH_RESULTS), 300);
-      });
+      console.error("Search API Error", error);
+      return MOCK_SEARCH_RESULTS;
     }
   },
 
@@ -821,7 +831,7 @@ export const graphApi = {
       },
       body: JSON.stringify(payload),
     });
-    return handleResponse<{ message: string; status: string }>(response);
+    return handleResponse<{ message: string; graph_id: string }>(response);
   },
 
   publishEditedGraph: async (payload: GraphEditPayload) => {
@@ -833,6 +843,18 @@ export const graphApi = {
       },
       body: JSON.stringify(payload),
     });
-    return handleResponse<{ message: string; graph_id?: string }>(response);
+    return handleResponse<{ message: string; graph_id: string }>(response);
+  },
+
+  fetchGraphsByEmail: async (email: string) => {
+    const response = await fetch(`${API_BASE_URL}/graph/fetch_graphs_by_email`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders()
+      },
+      body: JSON.stringify({ email }),
+    });
+    return handleResponse<GraphMetadataByEmailResponse>(response);
   }
 };

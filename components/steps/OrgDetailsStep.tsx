@@ -145,7 +145,7 @@ export const OrgDetailsStep: React.FC<OrgDetailsStepProps> = ({ data, updateData
 
             <Card className="relative border-0 shadow-supreme ring-1 ring-white/50 backdrop-blur-md bg-white/90 overflow-hidden h-full flex flex-col" noPadding>
               {/* Visual Illustration Header */}
-              <div className="h-40 shrink-0 bg-gradient-to-br from-slate-50 to-brand-50/50 relative overflow-hidden flex items-center justify-center border-b border-slate-100">
+              <div className="h-32 shrink-0 bg-gradient-to-br from-slate-50 to-brand-50/50 relative overflow-hidden flex items-center justify-center border-b border-slate-100">
                 {/* CSS Node Network Illustration */}
                 <div className="absolute inset-0">
                   <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[240px] h-[240px] border border-brand-100/50 rounded-full" />
@@ -154,9 +154,9 @@ export const OrgDetailsStep: React.FC<OrgDetailsStepProps> = ({ data, updateData
 
                 {/* Central Hub */}
                 <div className="relative z-10 flex flex-col items-center">
-                  <div className="w-16 h-16 bg-white rounded-2xl shadow-xl shadow-brand-500/10 flex items-center justify-center ring-4 ring-white relative mb-2">
-                    <Building2 className="w-8 h-8 text-brand-600" />
-                    <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-brand-500 rounded-full border-2 border-white" />
+                  <div className="w-12 h-12 bg-white rounded-xl shadow-xl shadow-brand-500/10 flex items-center justify-center ring-4 ring-white relative mb-2">
+                    <Building2 className="w-6 h-6 text-brand-600" />
+                    <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-brand-500 rounded-full border-2 border-white" />
                   </div>
                   {/* Connecting Lines */}
                   <div className="absolute top-1/2 left-full w-12 h-[2px] bg-gradient-to-r from-brand-300 to-transparent transform -translate-y-1/2 ml-3" />

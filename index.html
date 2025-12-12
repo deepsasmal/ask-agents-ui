@@ -1,120 +1,128 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Ask Agents</title>
-    <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            fontFamily: {
-              sans: ['Inter', 'sans-serif'],
-            },
-            colors: {
-              brand: {
-                50: '#f0fdfa',
-                100: '#ccfbf1',
-                200: '#99f6e4',
-                300: '#5eead4',
-                400: '#2dd4bf',
-                500: '#14b8a6',
-                600: '#1dad8f', // Primary
-                700: '#0f766e',
-                800: '#115e59',
-                900: '#134e4a',
-                950: '#042f2e',
-              }
-            },
-            animation: {
-              'fade-in': 'fadeIn 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards',
-              'fade-in-up': 'fadeInUp 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards',
-              'fade-in-down': 'fadeInDown 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards',
-              'fade-in-left': 'fadeInLeft 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards',
-              'fade-in-right': 'fadeInRight 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards',
-              'scale-in': 'scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
-              'slide-up': 'slideUp 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards',
-              'slide-down': 'slideDown 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards',
-              'bounce-slow': 'bounce 3s infinite',
-              'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-              'spring': 'spring 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
-            },
-            keyframes: {
-              fadeIn: {
-                '0%': { opacity: '0' },
-                '100%': { opacity: '1' },
-              },
-              fadeInUp: {
-                '0%': { opacity: '0', transform: 'translateY(12px)' },
-                '100%': { opacity: '1', transform: 'translateY(0)' },
-              },
-              fadeInDown: {
-                '0%': { opacity: '0', transform: 'translateY(-12px)' },
-                '100%': { opacity: '1', transform: 'translateY(0)' },
-              },
-              fadeInLeft: {
-                '0%': { opacity: '0', transform: 'translateX(-16px)' },
-                '100%': { opacity: '1', transform: 'translateX(0)' },
-              },
-              fadeInRight: {
-                '0%': { opacity: '0', transform: 'translateX(16px)' },
-                '100%': { opacity: '1', transform: 'translateX(0)' },
-              },
-              scaleIn: {
-                '0%': { opacity: '0', transform: 'scale(0.95)' },
-                '100%': { opacity: '1', transform: 'scale(1)' },
-              },
-              slideUp: {
-                '0%': { opacity: '0', transform: 'translateY(100%)' },
-                '100%': { opacity: '1', transform: 'translateY(0)' },
-              },
-              slideDown: {
-                '0%': { opacity: '0', transform: 'translateY(-100%)' },
-                '100%': { opacity: '1', transform: 'translateY(0)' },
-              },
-              spring: {
-                '0%': { transform: 'scale(0.9)' },
-                '50%': { transform: 'scale(1.02)' },
-                '100%': { transform: 'scale(1)' },
-              }
-            },
-            boxShadow: {
-              'glow': '0 0 20px -5px rgba(29, 173, 143, 0.5)',
-              'card': '0 10px 40px -10px rgba(0, 0, 0, 0.08)',
-              'supreme': '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
-              'soft': '0 2px 8px -2px rgba(0, 0, 0, 0.08)',
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ask Agents</title>
+  <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#f0fdfa',
+              100: '#ccfbf1',
+              200: '#99f6e4',
+              300: '#5eead4',
+              400: '#2dd4bf',
+              500: '#14b8a6',
+              600: '#1dad8f', // Primary
+              700: '#0f766e',
+              800: '#115e59',
+              900: '#134e4a',
+              950: '#042f2e',
             }
+          },
+          animation: {
+            'fade-in': 'fadeIn 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards',
+            'fade-in-up': 'fadeInUp 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards',
+            'fade-in-down': 'fadeInDown 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards',
+            'fade-in-left': 'fadeInLeft 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards',
+            'fade-in-right': 'fadeInRight 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards',
+            'scale-in': 'scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
+            'slide-up': 'slideUp 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards',
+            'slide-down': 'slideDown 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards',
+            'bounce-slow': 'bounce 3s infinite',
+            'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            'spring': 'spring 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
+          },
+          keyframes: {
+            fadeIn: {
+              '0%': { opacity: '0' },
+              '100%': { opacity: '1' },
+            },
+            fadeInUp: {
+              '0%': { opacity: '0', transform: 'translateY(12px)' },
+              '100%': { opacity: '1', transform: 'translateY(0)' },
+            },
+            fadeInDown: {
+              '0%': { opacity: '0', transform: 'translateY(-12px)' },
+              '100%': { opacity: '1', transform: 'translateY(0)' },
+            },
+            fadeInLeft: {
+              '0%': { opacity: '0', transform: 'translateX(-16px)' },
+              '100%': { opacity: '1', transform: 'translateX(0)' },
+            },
+            fadeInRight: {
+              '0%': { opacity: '0', transform: 'translateX(16px)' },
+              '100%': { opacity: '1', transform: 'translateX(0)' },
+            },
+            scaleIn: {
+              '0%': { opacity: '0', transform: 'scale(0.95)' },
+              '100%': { opacity: '1', transform: 'scale(1)' },
+            },
+            slideUp: {
+              '0%': { opacity: '0', transform: 'translateY(100%)' },
+              '100%': { opacity: '1', transform: 'translateY(0)' },
+            },
+            slideDown: {
+              '0%': { opacity: '0', transform: 'translateY(-100%)' },
+              '100%': { opacity: '1', transform: 'translateY(0)' },
+            },
+            spring: {
+              '0%': { transform: 'scale(0.9)' },
+              '50%': { transform: 'scale(1.02)' },
+              '100%': { transform: 'scale(1)' },
+            }
+          },
+          boxShadow: {
+            'glow': '0 0 20px -5px rgba(29, 173, 143, 0.5)',
+            'card': '0 10px 40px -10px rgba(0, 0, 0, 0.08)',
+            'supreme': '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+            'soft': '0 2px 8px -2px rgba(0, 0, 0, 0.08)',
           }
         }
       }
-    </script>
-    <style>
-      body {
-        font-family: 'Inter', sans-serif;
-        background-color: #f8fafc;
-        -webkit-font-smoothing: antialiased;
-        -moz-osx-font-smoothing: grayscale;
-      }
-      ::-webkit-scrollbar {
-        width: 6px;
-        height: 6px;
-      }
-      ::-webkit-scrollbar-track {
-        background: transparent;
-      }
-      ::-webkit-scrollbar-thumb {
-        background: #cbd5e1;
-        border-radius: 3px;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #94a3b8;
-      }
-    </style>
+    }
+  </script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f8fafc;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+  </style>
 </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
-  </body>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+
 </html>
