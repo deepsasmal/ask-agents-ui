@@ -1,11 +1,12 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { BookOpen, Plus, ExternalLink, X, FileText, Globe, Type, Info, ChevronDown, ChevronUp, Trash2, Settings, Save } from 'lucide-react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { BookOpen, Plus, ExternalLink, X, FileText, Globe, Type, Info, ChevronDown, ChevronUp, Trash2, Settings, Save, Check, AlertTriangle } from 'lucide-react';
 import { configApi, ConfigResponse, knowledgeApi, KnowledgeItem } from '../../services/api';
 
 interface FileSettings {
     id: string;
     file?: File;
     url?: string;
+    textContent?: string;
     name: string;
     description: string;
     reader: string;
@@ -203,17 +204,22 @@ const FileItem: React.FC<{
 interface AddContentModalProps {
     isOpen: boolean;
     onClose: () => void;
+    dbId: string;
+    onUploaded: () => Promise<void> | void;
 }
 
-const AddContentModal: React.FC<AddContentModalProps> = ({ isOpen, onClose }) => {
+const AddContentModal: React.FC<AddContentModalProps> = ({ isOpen, onClose, dbId, onUploaded }) => {
     const [view, setView] = useState<'selection' | 'file' | 'web' | 'text'>('selection');
     const [files, setFiles] = useState<FileSettings[]>([]);
     const [urlInput, setUrlInput] = useState('');
     const [urlError, setUrlError] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
+    const [saveError, setSaveError] = useState<string | null>(null);
 
     // Text View State
     const [textName, setTextName] = useState('');
     const [textDescription, setTextDescription] = useState('');
+    const [textBody, setTextBody] = useState('');
     const [textChunkerEnabled, setTextChunkerEnabled] = useState(false);
     const [textChunkerType, setTextChunkerType] = useState('FixedSizeChunker');
     const [textChunkSize, setTextChunkSize] = useState(5000);
@@ -232,12 +238,15 @@ const AddContentModal: React.FC<AddContentModalProps> = ({ isOpen, onClose }) =>
             setUrlInput('');
             setUrlError('');
             resetTextForm();
+            setIsSaving(false);
+            setSaveError(null);
         }
     }, [isOpen]);
 
     const resetTextForm = () => {
         setTextName('');
         setTextDescription('');
+        setTextBody('');
         setTextChunkerEnabled(false);
         setTextChunkerType('FixedSizeChunker');
         setTextChunkSize(5000);
@@ -262,13 +271,14 @@ const AddContentModal: React.FC<AddContentModalProps> = ({ isOpen, onClose }) =>
     };
 
     const handleTextAdd = () => {
-        if (!textName) return; // Basic validation
+        if (!textName || !textBody) return; // Basic validation
 
         const newFile: FileSettings = {
             id: crypto.randomUUID(),
             name: textName,
             description: textDescription,
             reader: 'TextReader',
+            textContent: textBody,
             chunkerEnabled: textChunkerEnabled,
             chunkerType: textChunkerType,
             chunkSize: textChunkSize,
@@ -345,6 +355,18 @@ const AddContentModal: React.FC<AddContentModalProps> = ({ isOpen, onClose }) =>
                         </div>
 
                         <div className="space-y-4">
+                            <div className="space-y-1">
+                                <label className="text-sm font-medium text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                                    <FileText className="w-4 h-4" /> Text Content
+                                </label>
+                                <textarea
+                                    value={textBody}
+                                    onChange={(e) => setTextBody(e.target.value)}
+                                    placeholder="Paste or type the text content to ingest"
+                                    rows={6}
+                                    className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all resize-none"
+                                />
+                            </div>
                             <div className="flex items-center gap-3">
                                 <div
                                     onClick={() => setTextChunkerEnabled(!textChunkerEnabled)}
@@ -545,6 +567,72 @@ const AddContentModal: React.FC<AddContentModalProps> = ({ isOpen, onClose }) =>
         }));
     };
 
+    const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+    const pollContentStatus = async (contentId: string) => {
+        if (!dbId) return;
+        const maxAttempts = 12; // ~60s
+        for (let i = 0; i < maxAttempts; i++) {
+            try {
+                const res = await knowledgeApi.getContentStatus(dbId, contentId);
+                if (res?.status && res.status !== 'processing') {
+                    return res.status;
+                }
+            } catch (e) {
+                // ignore and keep polling
+            }
+            await sleep(5000);
+        }
+    };
+
+    const handleSaveSelectedFiles = async () => {
+        if (!dbId) {
+            setSaveError('No knowledge database selected.');
+            return;
+        }
+
+        const selected = files.filter(f => f.isSelected);
+        if (selected.length === 0) return;
+
+        setIsSaving(true);
+        setSaveError(null);
+
+        try {
+            const createdIds: string[] = [];
+
+            for (const file of selected) {
+                const metadataObj = file.metadata.reduce<Record<string, string>>((acc, curr) => {
+                    acc[curr.key] = curr.value;
+                    return acc;
+                }, {});
+
+                const resp = await knowledgeApi.uploadContent(dbId, {
+                    name: file.name,
+                    description: file.description || '',
+                    url: file.url || '',
+                    metadata: metadataObj,
+                    file: file.file || null,
+                    reader: file.reader,
+                    textContent: file.textContent
+                });
+
+                const newId = resp?.data?.id || resp?.id || resp?.content_id || '';
+                if (newId) createdIds.push(newId);
+            }
+
+            if (createdIds.length > 0) {
+                await Promise.all(createdIds.map(id => pollContentStatus(id)));
+            }
+
+            await onUploaded?.();
+            onClose();
+        } catch (error: any) {
+            setSaveError(error?.message || 'Failed to upload content.');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
     if (!isOpen) return null;
 
     if (view === 'file') {
@@ -677,12 +765,14 @@ const AddContentModal: React.FC<AddContentModalProps> = ({ isOpen, onClose }) =>
                             Back
                         </button>
                         <button
-                            className={`px-6 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider shadow-sm transition-colors ${files.some(f => f.isSelected) ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-slate-400 cursor-not-allowed text-white'}`}
-                            disabled={!files.some(f => f.isSelected)}
+                            onClick={handleSaveSelectedFiles}
+                            className={`px-6 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider shadow-sm transition-colors ${files.some(f => f.isSelected) && dbId && !isSaving ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-slate-400 cursor-not-allowed text-white'}`}
+                            disabled={!files.some(f => f.isSelected) || !dbId || isSaving}
                         >
-                            Save
+                            {isSaving ? 'Saving...' : 'Save'}
                         </button>
                     </div>
+                    {saveError && <p className="px-6 pb-4 text-xs text-red-500">{saveError}</p>}
                 </div>
             </div>
         );
@@ -879,6 +969,8 @@ export const KnowledgeModule: React.FC = () => {
     // Selection & Side Panel State
     const [selectedContentId, setSelectedContentId] = useState<string | null>(null);
     const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     // Side Panel Form State
     const [editName, setEditName] = useState('');
@@ -903,6 +995,39 @@ export const KnowledgeModule: React.FC = () => {
         } else {
             setCheckedItems(new Set(knowledgeContent.map(item => item.id)));
         }
+    };
+
+    const clearSelection = () => {
+        setCheckedItems(new Set());
+    };
+
+    const handleDeleteSelected = () => {
+        if (checkedItems.size === 0) return;
+        setShowDeleteConfirm(true);
+    };
+
+    const handleConfirmDelete = () => {
+        if (!selectedDbId || checkedItems.size === 0) return;
+
+        setIsDeleting(true);
+        const idsToDelete = Array.from(checkedItems);
+
+        Promise.all(idsToDelete.map(id => knowledgeApi.deleteContent(selectedDbId, id)))
+            .then(() => {
+                setCheckedItems(new Set());
+                setShowDeleteConfirm(false);
+                loadContent();
+            })
+            .catch((error) => {
+                console.error('Failed to delete content:', error);
+            })
+            .finally(() => {
+                setIsDeleting(false);
+            });
+    };
+
+    const handleCancelDelete = () => {
+        setShowDeleteConfirm(false);
     };
 
     const handleRowClick = (item: KnowledgeItem) => {
@@ -932,8 +1057,7 @@ export const KnowledgeModule: React.FC = () => {
         newMeta.splice(index, 1);
         setEditMetadata(newMeta);
     };
-
-
+    
     useEffect(() => {
         const fetchConfig = async () => {
             try {
@@ -952,34 +1076,28 @@ export const KnowledgeModule: React.FC = () => {
         fetchConfig();
     }, []);
 
+    const knowledgeDbs = config?.knowledge?.dbs || [];
+    const selectedDbConfig = knowledgeDbs.find(db => db.domain_config.display_name === selectedDb);
+    const selectedDbId = selectedDbConfig?.db_id || '';
+
+    const loadContent = useCallback(async () => {
+        if (!selectedDbId) return;
+        setIsContentLoading(true);
+        try {
+            const response = await knowledgeApi.getContent(selectedDbId);
+            setKnowledgeContent(Array.isArray(response.data) ? response.data : []);
+        } catch (error) {
+            console.error('Failed to fetch knowledge content:', error);
+            setKnowledgeContent([]);
+        } finally {
+            setIsContentLoading(false);
+        }
+    }, [selectedDbId]);
+
     // Fetch Knowledge Content when DB changes
     useEffect(() => {
-        const fetchContent = async () => {
-            if (!selectedDb || !config?.knowledge?.dbs) return;
-
-            // Find the actual db_id from the display_name
-            const dbConfig = config.knowledge.dbs.find(
-                db => db.domain_config.display_name === selectedDb
-            );
-
-            if (!dbConfig) return;
-
-            setIsContentLoading(true);
-            try {
-                const response = await knowledgeApi.getContent(dbConfig.db_id);
-                setKnowledgeContent(Array.isArray(response.data) ? response.data : []);
-            } catch (error) {
-                console.error('Failed to fetch knowledge content:', error);
-                setKnowledgeContent([]);
-            } finally {
-                setIsContentLoading(false);
-            }
-        };
-
-        fetchContent();
-    }, [selectedDb, config]);
-
-    const knowledgeDbs = config?.knowledge?.dbs || [];
+        loadContent();
+    }, [loadContent]);
 
     if (loading) {
         return (
@@ -991,7 +1109,39 @@ export const KnowledgeModule: React.FC = () => {
 
     return (
         <div className="flex-1 h-full flex flex-col bg-white dark:bg-slate-950 relative">
-            <AddContentModal isOpen={isAddContentOpen} onClose={() => setIsAddContentOpen(false)} />
+            <AddContentModal
+                isOpen={isAddContentOpen}
+                onClose={() => setIsAddContentOpen(false)}
+                dbId={selectedDbId}
+                onUploaded={loadContent}
+            />
+            {showDeleteConfirm && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-md border border-slate-200 dark:border-slate-800 p-6 space-y-4">
+                        <div>
+                            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+                                {`Are you sure you want to delete these ${checkedItems.size} item${checkedItems.size > 1 ? 's' : ''}?`}
+                            </h3>
+                            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">This action is irreversible.</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={handleCancelDelete}
+                                className="flex-1 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleConfirmDelete}
+                                className={`flex-1 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm transition-colors ${isDeleting ? 'opacity-80 cursor-not-allowed' : ''}`}
+                                disabled={isDeleting}
+                            >
+                                {isDeleting ? 'Deleting...' : 'Delete'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Header */}
             <div className="flex items-center justify-between px-8 py-6 border-b border-slate-200 dark:border-slate-800">
@@ -1037,7 +1187,7 @@ export const KnowledgeModule: React.FC = () => {
             ) : knowledgeContent.length > 0 ? (
                 <div className="flex-1 overflow-hidden flex bg-white dark:bg-slate-950">
                     {/* Main Table Area */}
-                    <div className={`flex-1 flex flex-col overflow-hidden transition-all duration-300 ${selectedContentId ? 'w-2/3' : 'w-full'}`}>
+                    <div className={`flex-1 flex flex-col overflow-hidden transition-all duration-300 ${selectedContentId ? 'w-2/3' : 'w-full'} relative`}>
 
                         {/* Table Header Controls */}
                         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 z-10">
@@ -1052,54 +1202,59 @@ export const KnowledgeModule: React.FC = () => {
                             </button>
                         </div>
 
-                        <div className="flex-1 overflow-auto">
-                            <table className="w-full text-left border-collapse">
-                                <thead className="sticky top-0 bg-white dark:bg-slate-950 shadow-sm z-10">
-                                    <tr className="border-b border-slate-200 dark:border-slate-800">
-                                        <th className="py-3 pl-6 pr-3 w-10">
+                        <div className="flex-1 overflow-auto px-6 pb-6 bg-slate-50/50 dark:bg-slate-950">
+                            <table className="w-full text-left border-separate border-spacing-y-3 border-spacing-x-0">
+                                <thead className="sticky top-0 z-10 backdrop-blur">
+                                    <tr className="bg-white/95 dark:bg-slate-950/95 shadow-[0_10px_30px_-22px_rgba(15,23,42,0.35)] border border-slate-200 dark:border-slate-800 rounded-2xl">
+                                        <th className="py-3 pl-5 pr-3 w-10 align-middle first:rounded-l-2xl last:rounded-r-2xl">
                                             <input
                                                 type="checkbox"
                                                 checked={knowledgeContent.length > 0 && checkedItems.size === knowledgeContent.length}
                                                 onChange={toggleAllChecks}
-                                                className="rounded border-slate-300 dark:border-slate-600 w-4 h-4 text-emerald-600 focus:ring-emerald-500 cursor-pointer accent-emerald-600"
+                                                className="rounded-full border-slate-300 dark:border-slate-600 w-4 h-4 text-emerald-600 focus:ring-emerald-500 cursor-pointer accent-emerald-600"
                                             />
                                         </th>
-                                        <th className="py-3 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Name</th>
-                                        <th className="py-3 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Content Type</th>
-                                        <th className="py-3 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Metadata</th>
-                                        <th className="py-3 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
-                                        <th className="py-3 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">Updated At</th>
+                                        <th className="py-3 px-3 text-[11px] font-semibold text-slate-500 uppercase tracking-[0.08em] first:rounded-l-2xl last:rounded-r-2xl">Name</th>
+                                        <th className="py-3 px-3 text-[11px] font-semibold text-slate-500 uppercase tracking-[0.08em] whitespace-nowrap first:rounded-l-2xl last:rounded-r-2xl">Content Type</th>
+                                        <th className="py-3 px-3 text-[11px] font-semibold text-slate-500 uppercase tracking-[0.08em] first:rounded-l-2xl last:rounded-r-2xl">Metadata</th>
+                                        <th className="py-3 px-3 text-[11px] font-semibold text-slate-500 uppercase tracking-[0.08em] first:rounded-l-2xl last:rounded-r-2xl">Status</th>
+                                        <th className="py-3 px-3 text-[11px] font-semibold text-slate-500 uppercase tracking-[0.08em] whitespace-nowrap first:rounded-l-2xl last:rounded-r-2xl">Updated At</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                <tbody className="align-middle">
                                     {knowledgeContent.map((item) => (
                                         <tr
                                             key={item.id}
                                             onClick={() => handleRowClick(item)}
-                                            className={`hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors group cursor-pointer ${selectedContentId === item.id ? 'bg-orange-50 dark:bg-orange-900/10' : ''}`}
+                                            className={`group cursor-pointer bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-[0_10px_30px_-18px_rgba(15,23,42,0.35)] hover:shadow-[0_16px_40px_-18px_rgba(16,185,129,0.35)] transition-all duration-200 ${
+                                                selectedContentId === item.id ? 'ring-2 ring-emerald-500/50' : ''
+                                            }`}
                                         >
-                                            <td className="py-3 pl-6 pr-3" onClick={(e) => e.stopPropagation()}>
+                                            <td className="p-4 pl-5 pr-3 first:rounded-l-2xl last:rounded-r-2xl align-middle" onClick={(e) => e.stopPropagation()}>
                                                 <input
                                                     type="checkbox"
                                                     checked={checkedItems.has(item.id)}
                                                     onChange={() => toggleCheck(item.id)}
-                                                    className="rounded border-slate-300 dark:border-slate-600 w-4 h-4 text-emerald-600 focus:ring-emerald-500 cursor-pointer accent-emerald-600"
+                                                    className="rounded-full border-slate-300 dark:border-slate-600 w-4 h-4 text-emerald-600 focus:ring-emerald-500 cursor-pointer accent-emerald-600"
                                                 />
                                             </td>
-                                            <td className="py-3 px-3">
-                                                <span className="text-sm font-medium text-slate-900 dark:text-slate-200 truncate block max-w-[200px]">{item.name}</span>
+                                            <td className="p-4 px-3 first:rounded-l-2xl last:rounded-r-2xl">
+                                                <span className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate block max-w-[220px] leading-tight">{item.name}</span>
+                                                {item.description && (
+                                                    <span className="text-xs text-slate-500 dark:text-slate-400 truncate block max-w-[220px] mt-1">{item.description}</span>
+                                                )}
                                             </td>
-                                            <td className="py-3 px-3">
-                                                <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                                            <td className="p-4 px-3 first:rounded-l-2xl last:rounded-r-2xl">
+                                                <div className="inline-flex items-center gap-2 px-2 py-1 bg-slate-50 dark:bg-slate-800 rounded-full text-xs font-medium text-slate-600 dark:text-slate-300">
                                                     {item.type.toLowerCase().includes('text') ? <Type className="w-4 h-4 text-orange-500" /> : <FileText className="w-4 h-4 text-blue-500" />}
-                                                    <span className="text-xs font-medium capitalize">{item.type}</span>
+                                                    <span className="capitalize">{item.type}</span>
                                                 </div>
                                             </td>
-                                            <td className="py-3 px-3">
-                                                <div className="flex flex-wrap gap-1 max-w-[200px]">
+                                            <td className="p-4 px-3 first:rounded-l-2xl last:rounded-r-2xl">
+                                                <div className="flex flex-wrap gap-1 max-w-[240px]">
                                                     {item.metadata && Object.keys(item.metadata).length > 0 ? (
                                                         Object.entries(item.metadata).slice(0, 2).map(([k, v], i) => (
-                                                            <span key={i} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-500 border border-slate-200 dark:border-slate-700">
+                                                            <span key={i} className="inline-flex items-center px-2 py-1 rounded-full text-[11px] font-medium bg-slate-50 dark:bg-slate-800 text-slate-600 border border-slate-200 dark:border-slate-700">
                                                                 {k} = {String(v)}
                                                             </span>
                                                         ))
@@ -1108,14 +1263,23 @@ export const KnowledgeModule: React.FC = () => {
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="py-3 px-3">
-                                                <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${item.status === 'completed' ? 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300' : item.status === 'failed' ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400' : 'bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400'}`}>
-                                                    {item.status === 'completed' && <div className="w-1.5 h-1.5 rounded-full bg-slate-400" />}
+                                            <td className="p-4 px-3 first:rounded-l-2xl last:rounded-r-2xl">
+                                                <span
+                                                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide ${
+                                                        item.status === 'completed'
+                                                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-900/40'
+                                                            : item.status === 'failed'
+                                                            ? 'bg-rose-200 text-rose-900 border border-rose-300 dark:bg-rose-900/30 dark:text-rose-100 dark:border-rose-900/50'
+                                                            : 'bg-amber-50 text-amber-600 border border-amber-100 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-900/40'
+                                                    }`}
+                                                >
+                                                    {item.status === 'completed' && <Check className="w-3.5 h-3.5" />}
+                                                    {item.status === 'failed' && <AlertTriangle className="w-3.5 h-3.5" />}
                                                     {item.status}
                                                 </span>
                                             </td>
-                                            <td className="py-3 px-3">
-                                                <span className="text-xs text-slate-500">
+                                            <td className="p-4 px-3 first:rounded-l-2xl last:rounded-r-2xl">
+                                                <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
                                                     {new Date(item.updated_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                                 </span>
                                             </td>
@@ -1124,6 +1288,23 @@ export const KnowledgeModule: React.FC = () => {
                                 </tbody>
                             </table>
                         </div>
+                        {checkedItems.size > 0 && (
+                            <div className="absolute left-1/2 -translate-x-1/2 bottom-4 flex items-center gap-3 bg-white/90 dark:bg-slate-900/90 border border-emerald-100 dark:border-emerald-900/40 shadow-lg rounded-full px-4 py-2 text-sm text-slate-700 dark:text-slate-200 backdrop-blur">
+                                <span className="font-semibold">{checkedItems.size} of {knowledgeContent.length} items selected</span>
+                                <button
+                                    onClick={clearSelection}
+                                    className="px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wide border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                                >
+                                    Clear Selection
+                                </button>
+                                <button
+                                    onClick={handleDeleteSelected}
+                                    className="px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wide bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-colors"
+                                >
+                                    Delete Selected
+                                </button>
+                            </div>
+                        )}
                     </div>
 
                     {/* Side Panel */}

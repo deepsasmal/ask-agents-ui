@@ -906,5 +906,59 @@ export const knowledgeApi = {
       headers: { ...getAuthHeaders() }
     });
     return handleResponse<KnowledgeContentResponse>(response);
+  },
+
+  deleteContent: async (dbId: string, contentId: string) => {
+    const response = await fetch(`${API_BASE_URL}/knowledge/content/${encodeURIComponent(contentId)}?db_id=${encodeURIComponent(dbId)}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders()
+      },
+      body: JSON.stringify({})
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage = errorData.detail || errorData.message || 'Failed to delete content';
+      throw new ApiError(errorMessage, response.status);
+    }
+    return true;
+  },
+
+  uploadContent: async (dbId: string, payload: { name: string; description?: string; url?: string; metadata?: Record<string, string>; file?: File | null; reader?: string; textContent?: string }) => {
+    const formData = new FormData();
+    formData.append('name', payload.name);
+    formData.append('description', payload.description || '');
+    formData.append('url', payload.url || '');
+    formData.append('metadata', JSON.stringify(payload.metadata || {}));
+    formData.append('reader_id', payload.textContent ? 'text' : '');
+    if (payload.textContent) {
+      formData.append('text_content', payload.textContent);
+    }
+
+    if (payload.file) {
+      formData.append('file', payload.file);
+    }
+
+    const response = await fetch(`${API_BASE_URL}/knowledge/content?db_id=${encodeURIComponent(dbId)}`, {
+      method: 'POST',
+      headers: {
+        ...getAuthHeaders()
+      },
+      body: formData
+    });
+
+    return handleResponse<any>(response);
+  },
+
+  getContentStatus: async (dbId: string, contentId: string) => {
+    const response = await fetch(`${API_BASE_URL}/knowledge/content/${encodeURIComponent(contentId)}/status?db_id=${encodeURIComponent(dbId)}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders()
+      }
+    });
+    return handleResponse<{ status: string; status_message?: string }>(response);
   }
 };
