@@ -923,7 +923,32 @@ export const agentApi = {
     cachedAgents = null;
   },
 
-  runAgent: async (agentId: string, message: string, sessionId: string, userId: string, files: File[] | null | undefined, onEvent: (event: string, data: any) => void) => {
+  cancelRun: async (agentId: string, runId: string) => {
+    const response = await fetch(`${API_BASE_URL}/agents/${agentId}/runs/${runId}/cancel`, {
+      method: 'POST',
+      headers: {
+        ...getAuthHeaders(),
+      },
+    });
+
+    // Backend might return 200/202/204; treat non-OK as failure with best-effort message
+    if (response.status === 204) return { message: 'Cancellation requested' };
+    if (!response.ok) {
+      const errText = await response.text().catch(() => '');
+      throw new Error(errText || 'Failed to cancel run');
+    }
+    return response.json().catch(() => ({ message: 'Cancellation requested' }));
+  },
+
+  runAgent: async (
+    agentId: string,
+    message: string,
+    sessionId: string,
+    userId: string,
+    files: File[] | null | undefined,
+    onEvent: (event: string, data: any) => void,
+    options?: { signal?: AbortSignal }
+  ) => {
     const formData = new FormData();
     formData.append('message', message);
     formData.append('stream', 'true');
@@ -943,6 +968,7 @@ export const agentApi = {
       method: 'POST',
       headers: headers,
       body: formData,
+      signal: options?.signal,
     });
 
     if (!response.ok) {
@@ -957,7 +983,18 @@ export const agentApi = {
     let buffer = '';
 
     while (true) {
-      const { done, value } = await reader.read();
+      if (options?.signal?.aborted) return;
+
+      let chunk: ReadableStreamReadResult<Uint8Array>;
+      try {
+        chunk = await reader.read();
+      } catch (e: any) {
+        // Aborted requests will surface here in some browsers
+        if (options?.signal?.aborted || e?.name === 'AbortError') return;
+        throw e;
+      }
+
+      const { done, value } = chunk;
       if (done) break;
 
       buffer += decoder.decode(value, { stream: true });
@@ -987,6 +1024,8 @@ export const agentApi = {
             }
           }
         }
+
+        if (options?.signal?.aborted) return;
 
         if (eventType && eventData) {
           onEvent(eventType, eventData);

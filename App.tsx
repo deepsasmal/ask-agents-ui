@@ -212,12 +212,9 @@ const App: React.FC = () => {
                         <div
                             className="flex items-center gap-3 cursor-pointer group w-full justify-center lg:justify-start"
                             onClick={() => {
-                                if (isSidebarCollapsed) {
-                                    toggleSidebar();
-                                    setActiveModule('LANDING');
-                                } else {
-                                    setActiveModule('LANDING');
-                                }
+                                // Clicking the sidebar header should never "navigate" and reset the view.
+                                // It should only expand the sidebar when collapsed.
+                                if (isSidebarCollapsed) toggleSidebar();
                             }}
                             title="Back to Home"
                         >
@@ -241,6 +238,7 @@ const App: React.FC = () => {
                             {/* Collapse Toggle integrated in header when open */}
                             {!isSidebarCollapsed && (
                                 <button
+                                    type="button"
                                     onClick={(e) => { e.stopPropagation(); toggleSidebar(); }}
                                     className="ml-auto text-slate-300 hover:text-slate-600 transition-colors p-1"
                                 >
@@ -305,6 +303,7 @@ const App: React.FC = () => {
                         {!isSidebarCollapsed && (
                             <div className="mb-4">
                                 <button
+                                    type="button"
                                     onClick={() => setIsChatsCollapsed(!isChatsCollapsed)}
                                     className="flex items-center justify-between w-full px-2 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors group dark:text-slate-400 dark:hover:text-slate-200"
                                 >
@@ -316,6 +315,7 @@ const App: React.FC = () => {
                                     <div className="mt-2 space-y-1">
                                         {/* New Chat Button */}
                                         <button
+                                            type="button"
                                             onClick={handleNewChat}
                                             className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-colors group dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800"
                                         >
@@ -336,6 +336,7 @@ const App: React.FC = () => {
                                             <div className="space-y-0.5">
                                                 {sessions.map((session) => (
                                                     <button
+                                                        type="button"
                                                         key={session.session_id}
                                                         onClick={() => handleSessionClick(session.session_id)}
                                                         className={`w-full text-left px-3 py-2 rounded-lg text-xs flex items-center gap-2 transition-colors group relative overflow-hidden
@@ -352,6 +353,7 @@ const App: React.FC = () => {
                                                             </div>
                                                         ) : (
                                                             <button
+                                                                type="button"
                                                                 onClick={(e) => handleDeleteSession(session.session_id, e)}
                                                                 className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-100 rounded"
                                                                 title="Delete session"
@@ -383,6 +385,7 @@ const App: React.FC = () => {
                             </div>
                             <div className={`relative ${isSidebarCollapsed ? 'hidden' : 'ml-auto'}`} ref={profileMenuRef}>
                                 <button
+                                    type="button"
                                     onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
                                     className="p-1.5 rounded-md hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-600"
                                     title="Options"
@@ -397,12 +400,14 @@ const App: React.FC = () => {
                                     `}>
                                         <div className="p-2 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                                             <button
+                                                type="button"
                                                 onClick={() => setIsDarkMode(false)}
                                                 className={`flex-1 flex items-center justify-center gap-2 p-1.5 rounded-lg transition-colors ${!isDarkMode ? 'bg-white shadow-sm text-brand-600 font-medium' : 'text-slate-500 hover:bg-slate-100'}`}
                                             >
                                                 <Sun className="w-4 h-4" />
                                             </button>
                                             <button
+                                                type="button"
                                                 onClick={() => setIsDarkMode(true)}
                                                 className={`flex-1 flex items-center justify-center gap-2 p-1.5 rounded-lg transition-colors ${isDarkMode ? 'bg-white shadow-sm text-brand-600 font-medium' : 'text-slate-500 hover:bg-slate-100'}`}
                                             >
@@ -411,6 +416,7 @@ const App: React.FC = () => {
                                         </div>
                                         <div className="p-1">
                                             <button
+                                                type="button"
                                                 onClick={() => {
                                                     setActiveModule('SETTINGS');
                                                     setIsProfileMenuOpen(false);
@@ -421,6 +427,7 @@ const App: React.FC = () => {
                                                 <span>Profile Settings</span>
                                             </button>
                                             <button
+                                                type="button"
                                                 onClick={handleLogout}
                                                 className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                             >
@@ -492,6 +499,7 @@ const App: React.FC = () => {
 const SidebarItem = ({ icon, label, isActive, collapsed, onClick }: { icon: React.ReactNode, label: string, isActive: boolean, collapsed: boolean, onClick: () => void }) => {
     return (
         <button
+            type="button"
             onClick={onClick}
             className={`
                 group flex items-center w-full p-2.5 rounded-xl transition-all duration-200 ease-out relative

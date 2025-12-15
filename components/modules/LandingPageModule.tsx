@@ -1,9 +1,9 @@
 import React from 'react';
-import { Network, MessageSquareText, ArrowRight, Sparkles, Bot, Database } from 'lucide-react';
+import { Network, MessageSquareText, ArrowRight, Sparkles, Bot, Database, PieChart } from 'lucide-react';
 import { Button } from '../ui/Common';
 
 interface LandingPageProps {
-    onNavigate: (module: 'GRAPH_BUILDER' | 'CHAT') => void;
+    onNavigate: (module: 'GRAPH_BUILDER' | 'CHAT' | 'DATA_INSIGHTS') => void;
 }
 
 export const LandingPageModule: React.FC<LandingPageProps> = ({ onNavigate }) => {
@@ -98,6 +98,31 @@ export const LandingPageModule: React.FC<LandingPageProps> = ({ onNavigate }) =>
 
                             <span className="mt-auto inline-flex items-center text-sm text-brand-600 font-bold group-hover:gap-2 transition-all">
                                 Launch Chat <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Data Insights Card */}
+                    <div
+                        onClick={() => onNavigate('DATA_INSIGHTS')}
+                        className="group relative bg-white rounded-2xl p-6 border border-slate-200 shadow-xl shadow-slate-200/50 hover:shadow-2xl hover:shadow-brand-900/5 transition-all duration-300 cursor-pointer overflow-hidden min-h-[240px] md:col-span-2"
+                    >
+                        <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 duration-500">
+                            <PieChart className="w-48 h-48 text-brand-600" />
+                        </div>
+
+                        <div className="relative z-10 h-full flex flex-col items-start">
+                            <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-700 mb-4 group-hover:scale-110 transition-transform duration-300 shadow-sm">
+                                <PieChart className="w-6 h-6" />
+                            </div>
+
+                            <h3 className="text-xl font-bold text-slate-900 mb-2">Data Insights</h3>
+                            <p className="text-slate-500 text-sm mb-6 max-w-xs leading-relaxed">
+                                Explore quick insights, summaries, and visualizations from your connected data.
+                            </p>
+
+                            <span className="mt-auto inline-flex items-center text-sm text-emerald-700 font-bold group-hover:gap-2 transition-all">
+                                Open Insights <ArrowRight className="w-3.5 h-3.5 ml-1" />
                             </span>
                         </div>
                     </div>

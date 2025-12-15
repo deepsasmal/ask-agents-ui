@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { Bot, MoreHorizontal, Loader2, Sparkles, Copy, BarChart2, Hammer, X, Terminal, Code, Paperclip, ArrowUp, Check, User } from 'lucide-react';
+import { Bot, MoreHorizontal, Loader2, Sparkles, Copy, BarChart2, Hammer, X, Terminal, Code, Paperclip, ArrowUp, Check, User, Square } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ToolVisualization, ToolCall } from '../chat/ToolVisualization';
@@ -7,7 +7,8 @@ import { ChartRenderer } from '../chat/ChartRenderer';
 import { agentApi, configApi, sessionApi, authApi, Agent, RunMetrics } from '../../services/api';
 import { ExploredGraphModal } from '../modals/ExploredGraphModal';
 import { ChartModal } from '../modals/ChartModal';
-import chatbotLogo from '../../assets/chatbot_logo.png';
+// NOTE: `assets/` is configured as Vite `publicDir`, so assets are served from the root path.
+const chatbotLogo = '/chatbot_logo.png';
 import { toast } from 'react-toastify';
 
 interface Message {
@@ -52,6 +53,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
     const [fetchError, setFetchError] = useState<string | null>(null);
     const [expandedMetricsId, setExpandedMetricsId] = useState<string | null>(null);
     const [selectedToolCall, setSelectedToolCall] = useState<ToolCall | null>(null);
+    const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
 
     // DB Config for loading session history
     const [dbConfig, setDbConfig] = useState<DbConfig | null>(null);
@@ -72,6 +74,31 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
     const [showAgentMenu, setShowAgentMenu] = useState(false);
     const [isInputFocused, setIsInputFocused] = useState(false);
 
+    // Streaming status (rotates every ~3s while assistant is streaming)
+    const STREAMING_VERBS = useMemo(
+        () => [
+            'Generating',
+            'Analyzing',
+            'Computing',
+            'Working',
+            'Evaluating',
+            'Processing',
+            'Reasoning',
+            'Inferring',
+            'Synthesizing',
+            'Structuring',
+            'Scanning',
+            'Drafting',
+            'Parsing',
+            'Interpreting',
+            'Assessing',
+            'Calculating',
+            'Planning',
+        ],
+        []
+    );
+    const [streamVerb, setStreamVerb] = useState<string>('Generating');
+
     // Mention / Agent Switch States
     const [showMentionPopup, setShowMentionPopup] = useState(false);
     const [mentionQuery, setMentionQuery] = useState('');
@@ -84,6 +111,79 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
 
     // Guard against double initialization in Strict Mode
     const initializedRef = useRef(false);
+    const currentRunRef = useRef<{ abort: AbortController; botMsgId: string; agentId: string; runId?: string } | null>(null);
+
+    const getFirstName = useCallback(() => {
+        const display = (authApi.getUserDisplayName?.() || authApi.getCurrentUser?.() || '').trim();
+        if (!display) return 'there';
+        // If it's an email, take part before '@'
+        const base = display.includes('@') ? display.split('@')[0] : display;
+        const cleaned = base.replace(/[._-]+/g, ' ').trim();
+        const first = cleaned.split(/\s+/)[0];
+        return first ? first[0].toUpperCase() + first.slice(1) : 'there';
+    }, []);
+
+    const getGreeting = useCallback((name: string) => {
+        const hour = new Date().getHours();
+        const period: 'morning' | 'afternoon' | 'evening' =
+            hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening';
+
+        const options: Record<typeof period, string[]> = {
+            morning: [
+                `Good morning, ${name}`,
+                `Morning, ${name}`,
+                `Hope your morning’s going well, ${name}`
+            ],
+            afternoon: [
+                `Good afternoon, ${name}`,
+                `Hope your day’s going well, ${name}`,
+                `Hi ${name} — ready when you are`
+            ],
+            evening: [
+                `Good evening, ${name}`,
+                `Hope you’re having a good evening, ${name}`,
+                `Hi ${name} — let’s pick up where you left off`
+            ]
+        };
+
+        // Deterministic pick (avoid flicker between renders)
+        const seed = `${period}|${name}|${new Date().toDateString()}`;
+        let h = 0;
+        for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+        const arr = options[period];
+        return arr[h % arr.length];
+    }, []);
+
+    const heroGreeting = useMemo(() => {
+        const name = getFirstName();
+        return getGreeting(name);
+    }, [getFirstName, getGreeting, sessionId]);
+
+    const hasStreamingAssistant = useMemo(
+        () => messages.some(m => m.role === 'assistant' && m.isStreaming),
+        [messages]
+    );
+
+    useEffect(() => {
+        if (!hasStreamingAssistant) return;
+
+        const pickNext = (prev?: string) => {
+            if (STREAMING_VERBS.length === 0) return 'Working';
+            if (STREAMING_VERBS.length === 1) return STREAMING_VERBS[0];
+            let next = prev;
+            while (next === prev) {
+                next = STREAMING_VERBS[Math.floor(Math.random() * STREAMING_VERBS.length)];
+            }
+            return next || STREAMING_VERBS[0];
+        };
+
+        setStreamVerb(prev => pickNext(prev));
+        const interval = window.setInterval(() => {
+            setStreamVerb(prev => pickNext(prev));
+        }, 3000);
+
+        return () => window.clearInterval(interval);
+    }, [hasStreamingAssistant, STREAMING_VERBS]);
 
     // Initialize: Fetch Agents and Config
     useEffect(() => {
@@ -99,15 +199,8 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
                 setAgents(fetchedAgents);
                 if (fetchedAgents.length > 0) {
                     setSelectedAgentId(fetchedAgents[0].id);
-                    // Initial welcome message (will be cleared if loading a session)
-                    setMessages([
-                        {
-                            id: 'welcome',
-                            role: 'assistant',
-                            content: `Hello! I am ${fetchedAgents[0].name}. How can I assist you today?`,
-                            timestamp: new Date()
-                        }
-                    ]);
+                    // New session hero is rendered when there are no messages
+                    setMessages([]);
                 } else {
                     setFetchError('No agents available.');
                 }
@@ -206,28 +299,13 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
                     setMessages(mappedMessages);
                 } else {
                     // New session - show welcome message
-                    const agent = agents.find(a => a.id === selectedAgentId);
-                    setMessages([
-                        {
-                            id: Date.now().toString(),
-                            role: 'assistant',
-                            content: `Hello! I am ${agent?.name || 'your assistant'}. How can I assist you today?`,
-                            timestamp: new Date()
-                        }
-                    ]);
+                    // New session - show hero (no messages)
+                    setMessages([]);
                 }
             } catch (err) {
                 console.error("Failed to load session", err);
                 // New session - show welcome message
-                const agent = agents.find(a => a.id === selectedAgentId);
-                setMessages([
-                    {
-                        id: Date.now().toString(),
-                        role: 'assistant',
-                        content: `Hello! I am ${agent?.name || 'your assistant'}. How can I assist you today?`,
-                        timestamp: new Date()
-                    }
-                ]);
+                setMessages([]);
             }
         };
 
@@ -354,11 +432,45 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
         setShowMentionPopup(false);
     };
 
-    const handleSend = async () => {
-        const userId = authApi.getCurrentUser();
-        if ((!inputValue.trim() && files.length === 0) || !selectedAgentId || !userId) return;
+    const handleStop = () => {
+        if (!currentRunRef.current) return;
+        const { abort, agentId, runId, botMsgId } = currentRunRef.current;
 
-        const userText = inputValue;
+        // Best-effort server-side cancel (graceful stop)
+        if (runId) {
+            agentApi.cancelRun(agentId, runId).catch((e) => {
+                // Don't surface cancel errors to the user; local abort still stops UI stream.
+                console.warn('Failed to cancel run:', e);
+            });
+        }
+
+        // Always abort local stream so UI stops immediately
+        abort.abort();
+
+        // Mark the current streaming message as stopped
+        setMessages(prev => prev.map(msg => {
+            if (msg.id === botMsgId) {
+                const hasAnyContent = Boolean(msg.content && msg.content.trim());
+                return {
+                    ...msg,
+                    isStreaming: false,
+                    content: hasAnyContent ? msg.content : 'Stopped.'
+                };
+            }
+            return msg;
+        }));
+        setIsTyping(false);
+        currentRunRef.current = null;
+    };
+
+    const handleSend = async (overrideText?: string) => {
+        const userId = authApi.getCurrentUser();
+        const effectiveInput = (overrideText ?? inputValue).trim();
+        // Allow typing while generating, but do not allow sending a new message until current run stops/completes.
+        if (isTyping) return;
+        if ((!effectiveInput && files.length === 0) || !selectedAgentId || !userId) return;
+
+        const userText = effectiveInput;
         const currentFiles = files;
 
         setInputValue('');
@@ -392,7 +504,18 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
         setIsTyping(true);
 
         try {
+            const abort = new AbortController();
+            currentRunRef.current = { abort, botMsgId, agentId: selectedAgentId };
+
             await agentApi.runAgent(selectedAgentId, userText, sessionId, userId, currentFiles, (event, data) => {
+                if (event === 'RunStarted') {
+                    // Capture run_id so Stop can call /cancel
+                    const runId = data?.run_id || data?.runId || data?.id;
+                    if (currentRunRef.current && currentRunRef.current.botMsgId === botMsgId && runId) {
+                        currentRunRef.current.runId = String(runId);
+                    }
+                    return;
+                }
                 if (event === 'RunContent') {
                     if (data.content) {
                         setMessages(prev => prev.map(msg => {
@@ -465,6 +588,12 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
             });
 
         } catch (error) {
+            // If user stopped the stream, don't show as an error.
+            const maybeErr = error as any;
+            if (maybeErr?.name === 'AbortError') {
+                // handled by handleStop() UI update
+                return;
+            }
             console.error('Chat error:', error);
             setMessages(prev => prev.map(msg =>
                 msg.id === botMsgId ? {
@@ -476,6 +605,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
             ));
         } finally {
             setIsTyping(false);
+            currentRunRef.current = null;
         }
     };
 
@@ -504,7 +634,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
 
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            handleSend();
+            if (!isTyping) handleSend();
         }
     };
 
@@ -518,6 +648,19 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
 
     const toggleMetrics = (id: string) => {
         setExpandedMetricsId(prev => prev === id ? null : id);
+    };
+
+    const handleCopyMessage = async (messageId: string, text: string) => {
+        try {
+            await navigator.clipboard.writeText(text);
+            setCopiedMessageId(messageId);
+            window.setTimeout(() => {
+                setCopiedMessageId(prev => (prev === messageId ? null : prev));
+            }, 1000);
+        } catch (e) {
+            console.error('Failed to copy:', e);
+            toast.error('Failed to copy');
+        }
     };
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -559,6 +702,20 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
 
     return (
         <div className="flex h-full bg-slate-50 overflow-hidden relative">
+            <style>
+                {`
+                  @keyframes stream-verb-fade {
+                    0% { opacity: 0; transform: translateY(-6px); }
+                    20% { opacity: 1; transform: translateY(0); }
+                    80% { opacity: 1; transform: translateY(0); }
+                    100% { opacity: 0; transform: translateY(6px); }
+                  }
+                  .animate-stream-verb {
+                    animation: stream-verb-fade 3s ease-in-out infinite;
+                    will-change: opacity, transform;
+                  }
+                `}
+            </style>
 
             <ExploredGraphModal
                 isOpen={isGraphModalOpen}
@@ -598,6 +755,39 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
 
                 {/* Messages */}
                 <div className="flex-1 overflow-y-auto p-4 space-y-6 scroll-smooth pb-6">
+                    {/* New Session Hero */}
+                    {messages.length === 0 && !isLoadingAgents && !fetchError && (
+                        <div className="h-full w-full flex items-center justify-center">
+                            <div className="w-full max-w-4xl mx-auto flex flex-col items-center justify-center py-16">
+                                <div className="w-full max-w-2xl mx-auto text-center mb-8">
+                                    <div className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">
+                                        {heroGreeting}
+                                    </div>
+                                </div>
+
+                                {/* Only show suggested questions for a new session */}
+                                <div className="flex flex-wrap items-center justify-center gap-3">
+                                    {[
+                                        'Which tools do you have access to?',
+                                        'Tell me about yourself',
+                                        "What's your special skill?"
+                                    ].map((preset) => (
+                                        <button
+                                            key={preset}
+                                            onClick={() => handleSend(preset)}
+                                            className="px-4 py-2 rounded-2xl bg-white border border-slate-200/60 shadow-sm text-sm text-slate-900 transition-all
+                                                hover:bg-slate-50 hover:border-emerald-500 hover:ring-2 hover:ring-emerald-100
+                                                focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-200 focus-visible:border-emerald-500
+                                            "
+                                        >
+                                            {preset}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {messages.map((msg) => (
                         <div
                             key={msg.id}
@@ -701,9 +891,17 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
 
                                             {/* Streaming Indicator */}
                                             {msg.isStreaming && !msg.content && (
-                                                <div className="flex items-center gap-2 text-slate-400 animate-fade-in h-7">
-                                                    <Loader2 className="w-3 h-3 animate-spin" />
-                                                    <span className="text-[11px] font-medium">Thinking</span>
+                                                <div className="flex items-center gap-2 text-slate-500 animate-fade-in h-7 select-none">
+                                                    {/* Top-to-down fading "signal" bars */}
+                                                    <div className="flex flex-col gap-1">
+                                                        <span className="block w-6 h-[2px] rounded-full bg-gradient-to-r from-emerald-500/0 via-emerald-500/60 to-emerald-500/0 animate-stream-verb" />
+                                                        <span className="block w-6 h-[2px] rounded-full bg-gradient-to-r from-emerald-500/0 via-emerald-500/40 to-emerald-500/0 animate-stream-verb" style={{ animationDelay: '300ms' }} />
+                                                        <span className="block w-6 h-[2px] rounded-full bg-gradient-to-r from-emerald-500/0 via-emerald-500/30 to-emerald-500/0 animate-stream-verb" style={{ animationDelay: '600ms' }} />
+                                                    </div>
+
+                                                    <span className="text-[11px] font-semibold tracking-wide">
+                                                        <span className="inline-block animate-stream-verb">{streamVerb}</span>
+                                                    </span>
                                                 </div>
                                             )}
 
@@ -733,11 +931,21 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
                                             {!msg.isStreaming && !msg.error && (
                                                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                     <button
-                                                        onClick={() => navigator.clipboard.writeText(msg.content)}
-                                                        className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-                                                        title="Copy to clipboard"
+                                                        onClick={() => handleCopyMessage(msg.id, msg.content)}
+                                                        className={`p-1.5 rounded-lg transition-colors flex items-center gap-1.5
+                                                            ${copiedMessageId === msg.id ? 'text-emerald-700 bg-emerald-50' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'}
+                                                        `}
+                                                        title={copiedMessageId === msg.id ? 'Copied' : 'Copy to clipboard'}
                                                     >
-                                                        <Copy className="w-3.5 h-3.5" />
+                                                        {copiedMessageId === msg.id ? (
+                                                            <>
+                                                                <Check className="w-3.5 h-3.5" />
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <Copy className="w-3.5 h-3.5" />
+                                                            </>
+                                                        )}
                                                     </button>
 
                                                     {msg.metrics && (
@@ -866,21 +1074,35 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
                                                 setTimeout(() => setIsInputFocused(false), 150);
                                             }
                                         }}
-                                        disabled={isTyping || isLoadingAgents || !selectedAgentId}
+                                        disabled={isLoadingAgents || !selectedAgentId}
                                         rows={1}
                                     />
 
                                     {/* Send Button */}
                                     <button
-                                        className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-200 shrink-0 ${isInputFocused ? '' : 'absolute right-2 top-1/2 -translate-y-1/2'
-                                            } ${(inputValue.trim() || files.length > 0) && !isTyping && selectedAgentId
-                                                ? 'bg-brand-600 text-white hover:bg-brand-700 shadow-md hover:shadow-lg hover:scale-105'
-                                                : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                                            }`}
-                                        disabled={(!inputValue.trim() && files.length === 0) || isTyping || !selectedAgentId}
-                                        onClick={handleSend}
+                                        className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-200 shrink-0 ${isInputFocused ? '' : 'absolute right-2 top-1/2 -translate-y-1/2'}`}
+                                        onClick={isTyping ? handleStop : handleSend}
+                                        disabled={
+                                            isTyping
+                                                ? false
+                                                : (!inputValue.trim() && files.length === 0) || !selectedAgentId
+                                        }
+                                        title={isTyping ? 'Stop generating' : 'Send'}
                                     >
-                                        {isTyping ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowUp className="w-4 h-4" />}
+                                        {isTyping ? (
+                                            <div className="w-full h-full rounded-xl bg-slate-900 text-white flex items-center justify-center hover:bg-slate-800 transition-colors">
+                                                <Square className="w-4 h-4 fill-white" />
+                                            </div>
+                                        ) : (
+                                            <div
+                                                className={`w-full h-full rounded-xl flex items-center justify-center transition-colors ${(inputValue.trim() || files.length > 0) && selectedAgentId
+                                                    ? 'bg-brand-600 text-white hover:bg-brand-700 shadow-md hover:shadow-lg hover:scale-105'
+                                                    : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                                    }`}
+                                            >
+                                                <ArrowUp className="w-4 h-4" />
+                                            </div>
+                                        )}
                                     </button>
                                 </div>
 

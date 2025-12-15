@@ -5,6 +5,9 @@ import react from '@vitejs/plugin-react';
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
     return {
+      // Use `assets/` as the public directory so `assets/favicon.png` is served at `/favicon.png`
+      // (and copied as-is to the build output).
+      publicDir: 'assets',
       server: {
         port: 3001,
         host: '0.0.0.0',
