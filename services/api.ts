@@ -167,6 +167,53 @@ export interface SessionData {
   updated_at: string | number;
 }
 
+// --- Session Runs (new history endpoint) ---
+interface SessionRunToolEntry {
+  result?: any;
+  metrics?: any;
+  tool_args?: any;
+  tool_name?: string;
+  tool_call_id?: string;
+  tool_call_error?: boolean;
+}
+
+interface SessionRunMessage {
+  id?: string;
+  role: string;
+  content?: string;
+  created_at?: number;
+  from_history?: boolean;
+  metrics?: any;
+  tool_calls?: Array<{
+    id?: string;
+    tool_call_id?: string;
+    type?: string;
+    function?: {
+      name?: string;
+      arguments?: any;
+    };
+  }>;
+  // Some backends may emit tool message metadata here instead of in `tools`
+  tool_name?: string;
+  tool_args?: any;
+  tool_call_id?: string;
+  tool_call_error?: boolean;
+}
+
+interface SessionRun {
+  run_id: string;
+  parent_run_id?: string;
+  agent_id?: string;
+  user_id?: string;
+  run_input?: string;
+  content?: string;
+  run_response_format?: string;
+  metrics?: any;
+  messages?: SessionRunMessage[];
+  tools?: SessionRunToolEntry[];
+  created_at?: string | number;
+}
+
 interface SessionsApiResponse {
   data: Session[];
   meta: {
@@ -555,22 +602,190 @@ export const sessionApi = {
     return result.data;
   },
   getSession: async (sessionId: string, userId: string, dbId: string, table: string, componentId?: string) => {
+    // NOTE: Backend now serves history via:
+    //   GET /sessions/{sessionId}/runs?session_id={sessionId}&type=agent&db_id=...&table=...
+    // `userId` is kept in the signature because callers still pass it, but it's not required by the new endpoint.
     const params = new URLSearchParams({
+      session_id: sessionId,
       type: 'agent',
-      user_id: userId,
       db_id: dbId,
       table: table
     });
 
-    // Add component_id if provided
-    if (componentId) {
-      params.append('component_id', componentId);
-    }
+    if (componentId) params.append('component_id', componentId);
 
-    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}?${params.toString()}`, {
+    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/runs?${params.toString()}`, {
       headers: { ...getAuthHeaders() }
     });
-    return handleResponse<SessionData>(response);
+
+    const runs = await handleResponse<SessionRun[]>(response);
+
+    // Convert runs -> SessionData (the UI expects chat_history-like messages)
+    const chat_history: SessionMessage[] = [];
+
+    const toEpochSeconds = (value: any): number | undefined => {
+      if (value === null || value === undefined) return undefined;
+      if (typeof value === 'number') {
+        // Heuristic: treat large numbers as milliseconds
+        return value > 1e12 ? Math.floor(value / 1000) : Math.floor(value);
+      }
+      if (typeof value === 'string') {
+        const d = new Date(value);
+        const ms = d.getTime();
+        return Number.isFinite(ms) ? Math.floor(ms / 1000) : undefined;
+      }
+      return undefined;
+    };
+
+    const safeJsonParse = (maybeJson: any) => {
+      if (typeof maybeJson !== 'string') return maybeJson;
+      const s = maybeJson.trim();
+      if (!s) return maybeJson;
+      // only attempt parse for likely JSON values
+      if (!(s.startsWith('{') || s.startsWith('['))) return maybeJson;
+      try {
+        return JSON.parse(s);
+      } catch {
+        return maybeJson;
+      }
+    };
+
+    const sortedRuns = [...(runs || [])].sort((a, b) => {
+      const ta =
+        toEpochSeconds(a?.created_at) ??
+        toEpochSeconds((a?.messages || []).find(m => (m as any).from_history === false)?.created_at) ??
+        0;
+      const tb =
+        toEpochSeconds(b?.created_at) ??
+        toEpochSeconds((b?.messages || []).find(m => (m as any).from_history === false)?.created_at) ??
+        0;
+      return ta - tb;
+    });
+
+    for (const run of sortedRuns) {
+      const runMessages = Array.isArray(run.messages) ? run.messages : [];
+      const runTools = Array.isArray(run.tools) ? run.tools : [];
+
+      const runCreatedAtSec =
+        toEpochSeconds(run.created_at) ??
+        toEpochSeconds(runMessages.find(m => (m as any).from_history === false)?.created_at) ??
+        toEpochSeconds(runMessages[runMessages.length - 1]?.created_at) ??
+        undefined;
+
+      // The backend often includes previous conversation in `messages` (from_history=true).
+      // For correct ordering, prefer the *current* (from_history=false) user/assistant messages.
+      const userCandidates = runMessages.filter(m => m.role === 'user');
+      const assistantCandidates = runMessages.filter(m => m.role === 'assistant');
+      const userMsg =
+        userCandidates.filter(m => (m as any).from_history === false).slice(-1)[0] ??
+        userCandidates.slice(-1)[0];
+      const assistantMsg =
+        assistantCandidates.filter(m => (m as any).from_history === false).slice(-1)[0] ??
+        assistantCandidates.slice(-1)[0];
+
+      // Build a tool result lookup by tool_call_id
+      const toolResultById = new Map<string, SessionRunToolEntry>();
+      for (const t of runTools) {
+        const id = t.tool_call_id;
+        if (id) toolResultById.set(id, t);
+      }
+      // Some backends emit tool results as messages with role 'tool'
+      for (const m of runMessages) {
+        if (m.role !== 'tool') continue;
+        const id = m.tool_call_id;
+        if (!id) continue;
+        if (!toolResultById.has(id)) {
+          toolResultById.set(id, {
+            result: m.content,
+            tool_args: m.tool_args,
+            tool_name: m.tool_name,
+            tool_call_id: id,
+            tool_call_error: m.tool_call_error
+          });
+        }
+      }
+
+      // 1) User message
+      if (run.run_input || userMsg?.content) {
+        chat_history.push({
+          id: userMsg?.id || `run-${run.run_id}-user`,
+          role: 'user',
+          content: run.run_input || userMsg?.content || '',
+          created_at: userMsg?.created_at ?? runCreatedAtSec
+        });
+      }
+
+      // 2) Assistant message
+      if (run.content || assistantMsg?.content) {
+        // Tool calls may appear on a different assistant message than the final assistant "content".
+        // Collect tool calls from all assistant messages in this run (prefer from_history=false).
+        const assistantMsgsWithToolCalls = runMessages.filter(
+          m => m.role === 'assistant' && Array.isArray((m as any).tool_calls) && (m as any).tool_calls.length > 0
+        ) as SessionRunMessage[];
+        const preferredToolCallMsgs = assistantMsgsWithToolCalls.filter(m => (m as any).from_history === false);
+        const toolCallMsgs = preferredToolCallMsgs.length ? preferredToolCallMsgs : assistantMsgsWithToolCalls;
+        const rawToolCalls = toolCallMsgs.flatMap(m => (Array.isArray(m.tool_calls) ? m.tool_calls : []));
+
+        const enrichedToolCalls = rawToolCalls.map((tc: any) => {
+          const callId = tc?.id || tc?.tool_call_id;
+          const toolResult = callId ? toolResultById.get(callId) : undefined;
+          const parsedResult = safeJsonParse(toolResult?.result);
+          return {
+            ...tc,
+            id: callId,
+            result: parsedResult,
+            tool_args: toolResult?.tool_args,
+            tool_name: toolResult?.tool_name,
+            tool_call_error: toolResult?.tool_call_error,
+            metrics: toolResult?.metrics
+          };
+        });
+
+        chat_history.push({
+          id: assistantMsg?.id || `run-${run.run_id}-assistant`,
+          role: 'assistant',
+          content: run.content || assistantMsg?.content || '',
+          created_at: assistantMsg?.created_at ?? runCreatedAtSec,
+          metrics: run.metrics || assistantMsg?.metrics,
+          tool_calls: enrichedToolCalls.length ? (enrichedToolCalls as any) : undefined
+        });
+      }
+    }
+
+    const firstRun = Array.isArray(runs) && runs.length > 0 ? runs[0] : undefined;
+    // Ensure message ordering strictly follows timestamps (user sees "responses" in time order)
+    const sortedHistory = [...chat_history]
+      .map((m, idx) => ({ m, idx }))
+      .sort((a, b) => {
+        const ta = typeof a.m.created_at === 'number' ? a.m.created_at : 0;
+        const tb = typeof b.m.created_at === 'number' ? b.m.created_at : 0;
+        if (ta !== tb) return ta - tb;
+        // If timestamps tie, show user before assistant
+        if (a.m.role !== b.m.role) return a.m.role === 'user' ? -1 : 1;
+        return a.idx - b.idx;
+      })
+      .map(x => x.m);
+
+    chat_history.length = 0;
+    chat_history.push(...sortedHistory);
+
+    const createdAt =
+      typeof chat_history[0]?.created_at === 'number'
+        ? new Date((chat_history[0]!.created_at as number) * 1000).toISOString()
+        : Date.now();
+    const updatedAt =
+      typeof chat_history[chat_history.length - 1]?.created_at === 'number'
+        ? new Date((chat_history[chat_history.length - 1]!.created_at as number) * 1000).toISOString()
+        : Date.now();
+
+    return {
+      session_id: sessionId,
+      user_id: firstRun?.user_id || userId,
+      agent_id: firstRun?.agent_id,
+      chat_history,
+      created_at: createdAt,
+      updated_at: updatedAt
+    };
   },
   deleteSession: async (sessionId: string, dbId: string) => {
     const params = new URLSearchParams({

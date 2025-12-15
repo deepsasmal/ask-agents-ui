@@ -308,7 +308,7 @@ const App: React.FC = () => {
                                     onClick={() => setIsChatsCollapsed(!isChatsCollapsed)}
                                     className="flex items-center justify-between w-full px-2 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors group dark:text-slate-400 dark:hover:text-slate-200"
                                 >
-                                    <span className="uppercase tracking-wider">Your chats</span>
+                                    <span className="tracking-wider">Your Chats</span>
                                     <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isChatsCollapsed ? '-rotate-90' : ''}`} />
                                 </button>
 
@@ -342,7 +342,7 @@ const App: React.FC = () => {
                                                 ${currentSessionId === session.session_id ? 'bg-brand-50 text-brand-700 font-medium dark:bg-brand-900/20 dark:text-brand-400' : 'text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800'}
                                             `}
                                                     >
-                                                        <MessageSquare className={`w-3.5 h-3.5 shrink-0 ${currentSessionId === session.session_id ? 'text-brand-600' : 'text-slate-400 group-hover:text-slate-600'}`} />
+
                                                         <div className="flex-1 truncate">
                                                             {session.session_name || 'Untitled Conversation'}
                                                         </div>

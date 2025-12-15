@@ -156,7 +156,8 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
                     // Map history
                     const history = sessionData.chat_history || sessionData.messages || [];
                     const mappedMessages: Message[] = history
-                        .filter((m: any) => m.role !== 'system')
+                        // New history responses may contain extra roles (e.g., "tool"). The UI only renders user/assistant bubbles.
+                        .filter((m: any) => m.role === 'user' || m.role === 'assistant')
                         .map((m: any, idx: number) => {
                             // Parse tool calls from the new API format
                             let toolCalls: ToolCall[] | undefined;
@@ -192,6 +193,15 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
                                 toolCalls: toolCalls
                             };
                         });
+
+                    // Ensure display order always follows timestamps (API runs can contain merged history).
+                    mappedMessages.sort((a, b) => {
+                        const ta = a.timestamp?.getTime?.() || 0;
+                        const tb = b.timestamp?.getTime?.() || 0;
+                        if (ta !== tb) return ta - tb;
+                        if (a.role !== b.role) return a.role === 'user' ? -1 : 1;
+                        return 0;
+                    });
 
                     setMessages(mappedMessages);
                 } else {

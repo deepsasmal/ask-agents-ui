@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Trash2, Network, Clock, Hash, Tag, Info, X, ArrowRightLeft, Plus } from 'lucide-react';
+import { Trash2, Network, Hash, Tag, X, ArrowRightLeft, Plus, Save } from 'lucide-react';
 import { Button, Input } from '../ui/Common';
 import { EditorNode, EditorEdge } from '../../types';
 import { EDITOR_CONFIG, getConstraint } from './editorConfig';
@@ -89,15 +89,30 @@ export const RightPanel: React.FC<RightPanelProps> = ({
                 </div>
             </div>
 
-            <div className="p-4 border-t border-slate-200 bg-slate-50">
+            <div className="p-4 border-t border-slate-200 bg-slate-50 flex gap-2">
+                <Button 
+                    variant="primary" 
+                    className="flex-1"
+                    leftIcon={<Save className="w-4 h-4" />}
+                    onClick={() => {
+                        // Blur any active input to trigger save
+                        if (document.activeElement instanceof HTMLElement) {
+                            document.activeElement.blur();
+                        }
+                        onClose();
+                    }}
+                    size="md"
+                >
+                    Save
+                </Button>
                 <Button 
                     variant="ghost" 
-                    className="w-full text-red-600 hover:text-red-700 hover:bg-red-50"
+                    className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50"
                     leftIcon={<Trash2 className="w-4 h-4" />}
                     onClick={() => onDeleteEdge(selectedEdge.id)}
                     size="md"
                 >
-                    Delete Connection
+                    Delete
                 </Button>
             </div>
         </div>
@@ -227,32 +242,32 @@ export const RightPanel: React.FC<RightPanelProps> = ({
                     )}
                 </div>
             </div>
-
-            {/* Audit Info */}
-            <div className="pt-3 border-t border-slate-100">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 block">Audit Information</span>
-                <div className="space-y-1">
-                    <div className="flex items-center gap-2 text-[10px] text-slate-500">
-                        <Clock className="w-3 h-3" />
-                        <span>Created: Oct 24, 2024</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-[10px] text-slate-500">
-                        <Info className="w-3 h-3" />
-                        <span>ID: {selectedNode.id.substring(0, 8)}...</span>
-                    </div>
-                </div>
-            </div>
         </div>
 
-        <div className="p-4 border-t border-slate-200 bg-slate-50">
+        <div className="p-4 border-t border-slate-200 bg-slate-50 flex gap-2">
+            <Button 
+                variant="primary" 
+                className="flex-1"
+                leftIcon={<Save className="w-4 h-4" />}
+                onClick={() => {
+                    // Blur any active input to trigger save
+                    if (document.activeElement instanceof HTMLElement) {
+                        document.activeElement.blur();
+                    }
+                    onClose();
+                }}
+                size="md"
+            >
+                Save
+            </Button>
             <Button 
                 variant="ghost" 
-                className="w-full text-red-600 hover:text-red-700 hover:bg-red-50"
+                className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50"
                 leftIcon={<Trash2 className="w-4 h-4" />}
                 onClick={() => onDeleteNode(selectedNode.id)}
                 size="md"
             >
-                Delete Node
+                Delete
             </Button>
         </div>
         </div>
