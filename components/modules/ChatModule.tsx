@@ -260,6 +260,17 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
         if (messages.length === 0) return;
         const lastMsg = messages[messages.length - 1];
 
+        // When user sends a message, immediately scroll that question to the top
+        if (lastMsg.role === 'user') {
+            setTimeout(() => {
+                const el = document.getElementById(`message-${lastMsg.id}`);
+                if (el) {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }, 30);
+            return;
+        }
+
         // If the last message is the bot's streaming response, scroll user question to top
         if (lastMsg.role === 'assistant' && lastMsg.isStreaming) {
             const prevMsg = messages[messages.length - 2];

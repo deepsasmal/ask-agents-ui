@@ -5,6 +5,7 @@ import { ChatModule } from './components/modules/ChatModule';
 import { LandingPageModule } from './components/modules/LandingPageModule';
 import { DataInsightsModule } from './components/modules/DataInsightsModule';
 import { KnowledgeModule } from './components/modules/KnowledgeModule';
+import { SettingsModule } from './components/modules/SettingsModule';
 import { LoginPage } from './components/auth/LoginPage';
 import { authApi, sessionApi, configApi, Session } from './services/api';
 import { ToastContainer } from 'react-toastify';
@@ -472,60 +473,12 @@ const App: React.FC = () => {
                         {activeModule === 'DATA_INSIGHTS' && <DataInsightsModule />}
                         {activeModule === 'KNOWLEDGE' && <KnowledgeModule />}
                         {activeModule === 'SETTINGS' && (
-                            <div className="flex items-center justify-center h-full bg-[#f8fafc] dark:bg-[#0f172a]">
-                                <div className="w-full max-w-2xl px-4 flex flex-col gap-6">
-                                    <div className="text-center mb-4">
-                                        <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-md border border-slate-100 mx-auto mb-4 dark:bg-slate-800 dark:border-slate-700">
-                                            <Settings className="w-8 h-8 text-brand-600" />
-                                        </div>
-                                        <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Settings</h2>
-                                        <p className="text-slate-500 text-sm">Manage your application preferences and behavior.</p>
-                                    </div>
-
-                                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden dark:bg-slate-800 dark:border-slate-700">
-                                        <div className="p-4 border-b border-slate-100 bg-slate-50/50 dark:bg-slate-800/50 dark:border-slate-700">
-                                            <h3 className="font-bold text-slate-800 text-sm dark:text-slate-200">Appearance</h3>
-                                        </div>
-                                        <div className="p-5">
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex flex-col gap-1">
-                                                    <span className="font-semibold text-sm text-slate-900 dark:text-white">Dark Mode</span>
-                                                    <span className="text-xs text-slate-500 dark:text-slate-400">Switch between light and dark themes.</span>
-                                                </div>
-                                                <button
-                                                    onClick={() => setIsDarkMode(!isDarkMode)}
-                                                    className={`
-                            relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-brand-600 focus:ring-offset-2
-                            ${isDarkMode ? 'bg-brand-600' : 'bg-slate-200'}
-                          `}
-                                                    type="button"
-                                                >
-                                                    <span className="sr-only">Use setting</span>
-                                                    <span
-                                                        className={`
-                              pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out
-                              ${isDarkMode ? 'translate-x-5' : 'translate-x-0'}
-                            `}
-                                                    />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex justify-center mt-8">
-                                        <button
-                                            onClick={handleLogout}
-                                            className="text-red-600 hover:text-red-700 font-bold text-sm bg-red-50 hover:bg-red-100 px-6 py-2.5 rounded-xl transition-all"
-                                        >
-                                            Sign Out of Account
-                                        </button>
-                                    </div>
-
-                                    <div className="text-center mt-4">
-                                        <p className="text-xs text-slate-400 font-medium">AskAgents v0.9.0 (Beta)</p>
-                                    </div>
-                                </div>
-                            </div>
+                            <SettingsModule
+                                isDarkMode={isDarkMode}
+                                onToggleDarkMode={() => setIsDarkMode(!isDarkMode)}
+                                onLogout={handleLogout}
+                                onClose={() => setActiveModule('LANDING')}
+                            />
                         )}
                     </div>
                 </main>
@@ -558,14 +511,9 @@ const SidebarItem = ({ icon, label, isActive, collapsed, onClick }: { icon: Reac
                 <span className={`text-sm whitespace-nowrap transition-all duration-300 ${isActive ? 'font-bold' : 'font-medium'}`}>{label}</span>
             )}
 
-            {/* Active Indicator (Chevron) */}
-            {isActive && !collapsed && (
-                <ChevronRight className="w-3.5 h-3.5 ml-auto text-slate-400" />
-            )}
-
-            {/* Active Line Indicator */}
+            {/* Active Vertical Line Indicator */}
             {isActive && (
-                <div className="absolute bottom-0 left-2 right-2 h-[2px] bg-green-500 rounded-full" />
+                <div className="absolute top-1 bottom-1 right-0 w-[2px] rounded-full bg-emerald-500 shadow-[0_0_0_1px_rgba(16,185,129,0.18)]" />
             )}
         </button>
     )
