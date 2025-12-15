@@ -1102,7 +1102,7 @@ export const KnowledgeModule: React.FC = () => {
     if (loading) {
         return (
             <div className="flex-1 h-full flex items-center justify-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600"></div>
             </div>
         );
     }
@@ -1182,7 +1182,7 @@ export const KnowledgeModule: React.FC = () => {
             {/* Content Area */}
             {isContentLoading ? (
                 <div className="flex-1 flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600"></div>
                 </div>
             ) : knowledgeContent.length > 0 ? (
                 <div className="flex-1 overflow-hidden flex bg-white dark:bg-slate-950">
