@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Database, Loader2, RefreshCw, Search, ChevronDown, ChevronUp, AlertTriangle, Plus, Columns, X, Table } from 'lucide-react';
+import { Database, Loader2, RefreshCw, Search, ChevronDown, ChevronUp, AlertTriangle, Plus, Columns, X, Table, KeyRound, Link as LinkIcon, ShieldCheck, Info } from 'lucide-react';
 import { mindsdbApi, MindsDbDatabase, MindsDbSchemaTable, MindsDbShowTableResponse } from '../../services/api';
+import { normalizeMindsDbSchemaTables } from '../../utils/mindsdbSchema';
 
 type LoadState = 'idle' | 'loading' | 'success' | 'error';
 
@@ -262,6 +263,8 @@ const SchemaModal: React.FC<{
   const [sampleTableName, setSampleTableName] = useState<string | null>(null);
   const [sample, setSample] = useState<SampleState>({ state: 'idle' });
 
+  const normalized = useMemo(() => normalizeMindsDbSchemaTables(schema.tables), [schema.tables]);
+
   useEffect(() => {
     if (!isOpen) return;
     setTableQuery('');
@@ -272,14 +275,14 @@ const SchemaModal: React.FC<{
 
   const filteredTables = useMemo(() => {
     const q = tableQuery.trim().toLowerCase();
-    if (!q) return schema.tables;
-    return schema.tables.filter((t) => {
-      const tn = safeString(t?.table_name).toLowerCase();
-      if (tn.includes(q)) return true;
-      const cols = Array.isArray(t?.columns) ? t.columns : [];
-      return cols.some((c) => safeString(c?.column_name).toLowerCase().includes(q));
+    if (!q) return normalized;
+    return normalized.filter((t) => {
+      if (t.tableName.toLowerCase().includes(q)) return true;
+      if (t.columns.some((c) => c.name.toLowerCase().includes(q) || c.type.toLowerCase().includes(q))) return true;
+      if (t.constraints.some((c) => c.name.toLowerCase().includes(q) || c.type.toLowerCase().includes(q))) return true;
+      return false;
     });
-  }, [schema.tables, tableQuery]);
+  }, [normalized, tableQuery]);
 
   const toggleTable = (tableName: string) => {
     setExpandedTables((prev) => {
@@ -426,9 +429,10 @@ const SchemaModal: React.FC<{
           ) : (
             <div className="space-y-3">
               {filteredTables.map((t) => {
-                const tableName = safeString(t?.table_name) || '(unnamed_table)';
+                const tableName = safeString(t?.tableName) || '(unnamed_table)';
                 const isOpen = expandedTables.has(tableName);
                 const cols = Array.isArray(t?.columns) ? t.columns : [];
+                const constraints = Array.isArray(t?.constraints) ? t.constraints : [];
                 return (
                   <div
                     key={tableName}
@@ -448,6 +452,11 @@ const SchemaModal: React.FC<{
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wide bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
                             {cols.length} cols
                           </span>
+                          {constraints.length > 0 ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wide bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                              {constraints.length} constraints
+                            </span>
+                          ) : null}
                         </div>
                       </div>
                       <div className="shrink-0 text-slate-400">
@@ -477,14 +486,105 @@ const SchemaModal: React.FC<{
                           ) : (
                             <div className="space-y-2">
                               {cols.map((c) => {
-                                const cn = safeString((c as any)?.column_name) || '—';
-                                const dt = safeString((c as any)?.data_type) || '—';
+                                const cn = safeString((c as any)?.name) || '—';
+                                const dt = safeString((c as any)?.type) || '—';
+                                const isPk = !!(c as any)?.isPrimaryKey;
+                                const isFk = !!(c as any)?.isForeignKey;
+                                const fkRef = safeString((c as any)?.foreignKeyReference).trim();
                                 return (
-                                  <div key={cn} className="flex items-center justify-between gap-3 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/40">
-                                    <span className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate">{cn}</span>
-                                    <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wide bg-brand-50 text-brand-700 border border-brand-100 dark:bg-brand-900/20 dark:text-brand-300 dark:border-brand-900/40">
-                                      {dt}
-                                    </span>
+                                  <div key={cn} className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/40">
+                                    <div className="flex items-center justify-between gap-3">
+                                      <div className="min-w-0 flex items-center gap-2">
+                                        <span className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate">{cn}</span>
+                                        <div className="flex items-center gap-1 shrink-0">
+                                          {isPk ? (
+                                            <span className="inline-flex items-center justify-center w-5 h-5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-200" title="Primary key">
+                                              <KeyRound className="w-3 h-3" />
+                                            </span>
+                                          ) : null}
+                                          {isFk ? (
+                                            <span className="inline-flex items-center justify-center w-5 h-5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-200" title={fkRef ? `Foreign key → ${fkRef}` : 'Foreign key'}>
+                                              <LinkIcon className="w-3 h-3" />
+                                            </span>
+                                          ) : null}
+                                        </div>
+                                      </div>
+                                      <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wide bg-brand-50 text-brand-700 border border-brand-100 dark:bg-brand-900/20 dark:text-brand-300 dark:border-brand-900/40">
+                                        {dt}
+                                      </span>
+                                    </div>
+                                    {isFk && fkRef ? (
+                                      <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                                        <span className="font-semibold">→</span> {fkRef}
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="pt-5">
+                          <div className="flex items-center justify-between">
+                            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Constraints</div>
+                            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{constraints.length}</div>
+                          </div>
+                          {constraints.length === 0 ? (
+                            <div className="mt-2 text-xs text-slate-400">No constraints returned.</div>
+                          ) : (
+                            <div className="mt-2 space-y-2">
+                              {constraints.map((con) => {
+                                const type = safeString(con.type);
+                                const name = safeString(con.name) || '—';
+                                const colsText = (con.affectedColumns || []).join(', ');
+                                const icon =
+                                  type.includes('PRIMARY KEY') ? (
+                                    <KeyRound className="w-3.5 h-3.5" />
+                                  ) : type.includes('FOREIGN KEY') ? (
+                                    <LinkIcon className="w-3.5 h-3.5" />
+                                  ) : type.includes('UNIQUE') ? (
+                                    <ShieldCheck className="w-3.5 h-3.5" />
+                                  ) : (
+                                    <Info className="w-3.5 h-3.5" />
+                                  );
+
+                                const ref =
+                                  Array.isArray(con.references) && con.references.length > 0
+                                    ? con.references
+                                      .map((r: any) => {
+                                        const from = safeString(r?.fromColumn);
+                                        const toTable = safeString(r?.toTable);
+                                        const toCol = safeString(r?.toColumn);
+                                        const to = toTable && toCol ? `${toTable}.${toCol}` : (toTable || '');
+                                        return to ? `${from} → ${to}` : from;
+                                      })
+                                      .filter(Boolean)
+                                      .join(' • ')
+                                    : '';
+
+                                return (
+                                  <div key={`${name}:${type}:${colsText}`} className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/40">
+                                    <div className="flex items-start justify-between gap-3">
+                                      <div className="min-w-0">
+                                        <div className="flex items-center gap-2">
+                                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 shrink-0">
+                                            {icon}
+                                          </span>
+                                          <div className="min-w-0">
+                                            <div className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate">{name}</div>
+                                            <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                                              {type}{colsText ? ` • ${colsText}` : ''}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                    {ref ? (
+                                      <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                                        <span className="font-semibold">→</span> {ref}
+                                      </div>
+                                    ) : null}
                                   </div>
                                 );
                               })}

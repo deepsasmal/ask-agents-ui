@@ -1218,13 +1218,28 @@ export interface MindsDbDatabasesResponse {
 }
 
 export interface MindsDbSchemaColumn {
-  column_name: string;
-  data_type: string;
+  // Old payload shape:
+  column_name?: string;
+  data_type?: string;
+  // New payload shape:
+  name?: string;
+  type?: string;
+  is_primary_key?: boolean;
+  is_foreign_key?: boolean;
+}
+
+export interface MindsDbSchemaConstraint {
+  name: string;
+  type: string;
+  affected_columns?: string[];
+  // allow backend extensions without breaking the UI
+  [k: string]: any;
 }
 
 export interface MindsDbSchemaTable {
   table_name: string;
   columns: MindsDbSchemaColumn[];
+  constraints?: MindsDbSchemaConstraint[];
 }
 
 export interface MindsDbDbSchemaResponse {

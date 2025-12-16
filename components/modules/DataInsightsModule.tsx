@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { BarChart2, Database, Loader2, Plus, ChevronDown, ChevronRight, Wand2, RefreshCw, Sparkles, Table2, Info, Square, CheckSquare } from 'lucide-react';
+import { BarChart2, Database, Loader2, Plus, ChevronDown, ChevronRight, Wand2, RefreshCw, Sparkles, Table2, Info, Square, CheckSquare, KeyRound, Link as LinkIcon } from 'lucide-react';
 import { Button, Card } from '../ui/Common';
 import { mindsdbApi } from '../../services/api';
 import type { MindsDbDatabase, MindsDbSchemaTable } from '../../services/api';
+import { normalizeMindsDbSchemaTables } from '../../utils/mindsdbSchema';
 
 type View = 'EMPTY' | 'BUILDER';
 
@@ -10,6 +11,9 @@ interface InsightColumn {
   name: string;
   type: string;
   description: string;
+  isPrimaryKey?: boolean;
+  isForeignKey?: boolean;
+  foreignKeyReference?: string;
 }
 
 interface InsightTable {
@@ -57,6 +61,25 @@ export const DataInsightsModule: React.FC = () => {
 
   const selectedCount = useMemo(() => tables.filter(t => t.selected).length, [tables]);
   const areAllSelected = tables.length > 0 && tables.every(t => t.selected);
+
+  const validation = useMemo(() => {
+    const selected = tables.filter(t => t.selected);
+    const missingTableDescriptions = selected.filter(t => !t.description?.trim()).length;
+    const missingColumnDescriptions = selected.reduce((acc, t) => {
+      const missingCols = (t.columns || []).filter(c => !c.description?.trim()).length;
+      return acc + missingCols;
+    }, 0);
+
+    const canProceed =
+      selected.length > 0 &&
+      missingTableDescriptions === 0 &&
+      missingColumnDescriptions === 0 &&
+      schemaState === 'success' &&
+      !batchFilling &&
+      !autofilling;
+
+    return { canProceed, missingTableDescriptions, missingColumnDescriptions };
+  }, [tables, schemaState, batchFilling, autofilling]);
 
   const loadDatabases = async () => {
     setDbsState('loading');
@@ -108,16 +131,20 @@ export const DataInsightsModule: React.FC = () => {
   }, [selectedDb]);
 
   const toInsightTables = (schemaTables: MindsDbSchemaTable[]): InsightTable[] => {
-    return (schemaTables || []).map((t) => ({
-      name: safeString((t as any)?.table_name),
+    const normalized = normalizeMindsDbSchemaTables(schemaTables);
+    return normalized.map((t) => ({
+      name: t.tableName,
       selected: false,
       description: '',
-      columns: (Array.isArray((t as any)?.columns) ? (t as any).columns : []).map((c: any) => ({
-        name: safeString(c?.column_name),
-        type: safeString(c?.data_type),
-        description: ''
+      columns: t.columns.map((c) => ({
+        name: c.name,
+        type: c.type,
+        description: '',
+        isPrimaryKey: c.isPrimaryKey,
+        isForeignKey: c.isForeignKey,
+        foreignKeyReference: c.foreignKeyReference
       }))
-    })).filter(t => !!t.name);
+    }));
   };
 
   const loadSchema = async () => {
@@ -347,6 +374,48 @@ export const DataInsightsModule: React.FC = () => {
                 {schemaState === 'loading' ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                 Reload schema
               </button>
+
+              <Button
+                disabled={!validation.canProceed}
+                onClick={() => { /* no-op for now */ }}
+                rightIcon={<ChevronRight className="w-4 h-4" />}
+                className="shadow-brand-600/20"
+                title={
+                  validation.canProceed
+                    ? 'Proceed'
+                    : selectedCount === 0
+                      ? 'Select at least one table'
+                      : `Add descriptions to continue (${validation.missingTableDescriptions} table(s), ${validation.missingColumnDescriptions} column(s) missing)`
+                }
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+
+          {/* Guidance */}
+          <div className="px-6 py-3 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950">
+            <div className="flex items-start gap-3 p-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/30">
+              <div className="w-9 h-9 rounded-xl bg-brand-50 dark:bg-brand-900/20 border border-brand-100 dark:border-brand-900/40 flex items-center justify-center shrink-0">
+                <Info className="w-4 h-4 text-brand-700 dark:text-brand-300" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-slate-900 dark:text-white">Describe what these tables/columns mean</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Add short descriptions for the <span className="font-semibold">selected</span> tables and columns so it’s clear what insights you’re building.
+                  You can use <span className="font-semibold">Smart fill</span> to auto-generate.
+                </div>
+                {selectedCount > 0 ? (
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                    Remaining: <span className="font-semibold">{validation.missingTableDescriptions}</span> table description(s),{' '}
+                    <span className="font-semibold">{validation.missingColumnDescriptions}</span> column description(s)
+                  </div>
+                ) : (
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                    Start by selecting one or more tables from the left.
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -493,10 +562,32 @@ export const DataInsightsModule: React.FC = () => {
                               className="flex flex-col xl:flex-row xl:items-start gap-3 p-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/20 hover:shadow-md hover:border-brand-200 dark:hover:border-brand-900/40 hover:bg-white dark:hover:bg-slate-900/30 transition-all duration-300 group"
                             >
                               <div className="w-full xl:w-1/3 space-y-1 min-w-0">
-                                <span className="font-bold text-xs text-slate-800 dark:text-slate-100 break-all">{c.name}</span>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-xs text-slate-800 dark:text-slate-100 break-all">{c.name}</span>
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    {c.isPrimaryKey ? (
+                                      <span className="flex items-center justify-center w-5 h-5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-200" title="Primary key">
+                                        <KeyRound className="w-3 h-3" />
+                                      </span>
+                                    ) : null}
+                                    {c.isForeignKey ? (
+                                      <span
+                                        className="flex items-center justify-center w-5 h-5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-200"
+                                        title={c.foreignKeyReference ? `Foreign key → ${c.foreignKeyReference}` : 'Foreign key'}
+                                      >
+                                        <LinkIcon className="w-3 h-3" />
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                </div>
                                 <div className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-slate-200/60 dark:bg-slate-800 text-slate-600 dark:text-slate-200 border border-slate-200 dark:border-slate-700">
                                   {c.type || 'unknown'}
                                 </div>
+                                {c.isForeignKey && c.foreignKeyReference ? (
+                                  <div className="text-[11px] text-slate-500 dark:text-slate-400 break-all">
+                                    <span className="font-semibold">→</span> {c.foreignKeyReference}
+                                  </div>
+                                ) : null}
                               </div>
 
                               <div className="flex-1 flex gap-2 group/input relative">
