@@ -463,9 +463,13 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
         currentRunRef.current = null;
     };
 
-    const handleSend = async (overrideText?: string) => {
+    const handleSend = async (overrideText?: unknown) => {
         const userId = authApi.getCurrentUser();
-        const effectiveInput = (overrideText ?? inputValue).trim();
+        const override =
+            typeof overrideText === 'string'
+                ? overrideText
+                : undefined; // e.g. ignore accidental MouseEvent passed from onClick
+        const effectiveInput = (override ?? inputValue).trim();
         // Allow typing while generating, but do not allow sending a new message until current run stops/completes.
         if (isTyping) return;
         if ((!effectiveInput && files.length === 0) || !selectedAgentId || !userId) return;
@@ -1081,7 +1085,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
                                     {/* Send Button */}
                                     <button
                                         className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-200 shrink-0 ${isInputFocused ? '' : 'absolute right-2 top-1/2 -translate-y-1/2'}`}
-                                        onClick={isTyping ? handleStop : handleSend}
+                                        onClick={isTyping ? handleStop : () => handleSend()}
                                         disabled={
                                             isTyping
                                                 ? false
