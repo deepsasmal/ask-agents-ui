@@ -1217,7 +1217,33 @@ export interface MindsDbDatabasesResponse {
   databases: MindsDbDatabase[];
 }
 
+export interface MindsDbSchemaColumn {
+  column_name: string;
+  data_type: string;
+}
+
+export interface MindsDbSchemaTable {
+  table_name: string;
+  columns: MindsDbSchemaColumn[];
+}
+
+export interface MindsDbDbSchemaResponse {
+  status?: string;
+  db: string;
+  tables: MindsDbSchemaTable[];
+}
+
+export interface MindsDbShowTableResponse {
+  status?: string;
+  db: string;
+  table: string;
+  columns: string[];
+  rows: Array<Record<string, any>>;
+}
+
 let cachedMindsDbDatabases: MindsDbDatabase[] | null = null;
+const cachedMindsDbSchemas = new Map<string, MindsDbSchemaTable[]>();
+const cachedMindsDbShowTables = new Map<string, MindsDbShowTableResponse>();
 
 export const mindsdbApi = {
   getDatabases: async () => {
@@ -1229,8 +1255,40 @@ export const mindsdbApi = {
     cachedMindsDbDatabases = Array.isArray(data?.databases) ? data.databases : [];
     return cachedMindsDbDatabases;
   },
+  getDbSchema: async (dbName: string) => {
+    const key = String(dbName || '').trim();
+    if (!key) return [];
+    const cached = cachedMindsDbSchemas.get(key);
+    if (cached) return cached;
+    const response = await fetch(`${API_BASE_URL}/mindsdb/dbschema?db=${encodeURIComponent(key)}`, {
+      headers: { 'accept': 'application/json', ...getAuthHeaders() }
+    });
+    const data = await handleResponse<MindsDbDbSchemaResponse>(response);
+    const tables = Array.isArray((data as any)?.tables) ? (data as any).tables as MindsDbSchemaTable[] : [];
+    cachedMindsDbSchemas.set(key, tables);
+    return tables;
+  },
+  getShowTable: async (dbName: string, tableName: string) => {
+    const db = String(dbName || '').trim();
+    const table = String(tableName || '').trim();
+    if (!db || !table) {
+      return { db, table, columns: [], rows: [] } as MindsDbShowTableResponse;
+    }
+    const cacheKey = `${db}::${table}`;
+    const cached = cachedMindsDbShowTables.get(cacheKey);
+    if (cached) return cached;
+    const response = await fetch(
+      `${API_BASE_URL}/mindsdb/showtable?db=${encodeURIComponent(db)}&table=${encodeURIComponent(table)}`,
+      { headers: { 'accept': 'application/json', ...getAuthHeaders() } }
+    );
+    const data = await handleResponse<MindsDbShowTableResponse>(response);
+    cachedMindsDbShowTables.set(cacheKey, data);
+    return data;
+  },
   clearCache: () => {
     cachedMindsDbDatabases = null;
+    cachedMindsDbSchemas.clear();
+    cachedMindsDbShowTables.clear();
   }
 };
 

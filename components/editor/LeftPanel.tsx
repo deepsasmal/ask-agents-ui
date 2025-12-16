@@ -50,7 +50,7 @@ export const LeftPanel: React.FC<LeftPanelProps> = ({ onCreateNode }) => {
   };
 
   return (
-    <div className="w-72 flex flex-col border-r border-slate-200 bg-white h-[calc(100vh-8rem)] z-10 shrink-0 select-none">
+    <div className="w-full h-full min-h-0 flex flex-col border-r border-slate-200 bg-white z-10 select-none">
       
       {/* Tabs */}
       <div className="flex border-b border-slate-200">

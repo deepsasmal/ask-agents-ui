@@ -1,6 +1,6 @@
 
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { TopBar } from './TopBar';
 import { LeftPanel } from './LeftPanel';
 import { RightPanel } from './RightPanel';
@@ -27,6 +27,19 @@ export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName, initialGr
     const [isPublishing, setIsPublishing] = useState(false);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
+    const [isDesktop, setIsDesktop] = useState<boolean>(() => {
+        if (typeof window === 'undefined') return true;
+        return window.matchMedia('(min-width: 1024px)').matches;
+    });
+    const [isLeftPanelOpen, setIsLeftPanelOpen] = useState<boolean>(() => {
+        if (typeof window === 'undefined') return true;
+        return window.matchMedia('(min-width: 1024px)').matches;
+    });
+    const [isRightPanelOpen, setIsRightPanelOpen] = useState<boolean>(() => {
+        if (typeof window === 'undefined') return true;
+        return window.matchMedia('(min-width: 1024px)').matches;
+    });
+
     const [state, setState] = useState<EditorState>({
         nodes: INITIAL_NODES,
         edges: INITIAL_EDGES,
@@ -35,6 +48,46 @@ export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName, initialGr
         pan: { x: 0, y: 0 },
         zoom: 1
     });
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const mq = window.matchMedia('(min-width: 1024px)');
+        const handle = () => setIsDesktop(mq.matches);
+        handle();
+        mq.addEventListener('change', handle);
+        return () => mq.removeEventListener('change', handle);
+    }, []);
+
+    useEffect(() => {
+        // On desktop, panels are always visible (classic three-column editor).
+        if (isDesktop) {
+            setIsLeftPanelOpen(true);
+            setIsRightPanelOpen(true);
+        }
+    }, [isDesktop]);
+
+    useEffect(() => {
+        // On smaller screens, open the properties panel automatically when something is selected.
+        if (!isDesktop && (state.selectedNodeId || state.selectedEdgeId)) {
+            setIsRightPanelOpen(true);
+        }
+    }, [isDesktop, state.selectedNodeId, state.selectedEdgeId]);
+
+    const toggleLeftPanel = () => {
+        setIsLeftPanelOpen(prev => {
+            const next = !prev;
+            if (!isDesktop && next) setIsRightPanelOpen(false);
+            return next;
+        });
+    };
+
+    const toggleRightPanel = () => {
+        setIsRightPanelOpen(prev => {
+            const next = !prev;
+            if (!isDesktop && next) setIsLeftPanelOpen(false);
+            return next;
+        });
+    };
 
     const handleCreateNode = (newNodeData: Partial<EditorNode>) => {
         const newNode: EditorNode = {
@@ -286,14 +339,14 @@ export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName, initialGr
 
     if (!graphId) {
         return (
-            <div className="h-[calc(100vh-5rem)] bg-slate-100 flex flex-col">
+            <div className="h-full min-h-0 bg-slate-100 flex flex-col">
                 <GraphSelector onSelect={(id) => setGraphId(id)} />
             </div>
         );
     }
 
     return (
-        <div className="flex flex-col h-[calc(100vh-5rem)] bg-slate-100">
+        <div className="flex flex-col h-full min-h-0 bg-slate-100">
             <TopBar
                 projectName={projectName || ''}
                 graphId={graphId}
@@ -304,35 +357,84 @@ export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName, initialGr
                 isPublishing={isPublishing}
                 hasUnsavedChanges={hasUnsavedChanges}
                 onImportNode={handleImportNode}
+                isLeftPanelOpen={isLeftPanelOpen}
+                isRightPanelOpen={isRightPanelOpen}
+                onToggleLeftPanel={toggleLeftPanel}
+                onToggleRightPanel={toggleRightPanel}
             />
 
-            <div className="flex flex-1 overflow-hidden relative">
-                <LeftPanel onCreateNode={handleCreateNode} />
+            <div className="relative flex flex-1 min-h-0 min-w-0 overflow-hidden">
+                {/* Desktop layout: fixed side panels + canvas */}
+                {isDesktop && (
+                    <div className="w-72 shrink-0 h-full">
+                        <LeftPanel onCreateNode={handleCreateNode} />
+                    </div>
+                )}
 
-                <Canvas
-                    nodes={state.nodes}
-                    edges={state.edges}
-                    onNodeSelect={handleNodeSelect}
-                    selectedNodeId={state.selectedNodeId}
-                    onEdgeSelect={handleEdgeSelect}
-                    selectedEdgeId={state.selectedEdgeId}
-                    onNodesChange={(newNodes) => {
-                        setState(prev => ({ ...prev, nodes: newNodes }));
-                        setHasUnsavedChanges(true); // Dragging changes position, consider unsaved
-                    }}
-                    onEdgeCreate={handleCreateEdge}
-                />
+                <div className="flex-1 min-w-0 min-h-0">
+                    <Canvas
+                        nodes={state.nodes}
+                        edges={state.edges}
+                        onNodeSelect={handleNodeSelect}
+                        selectedNodeId={state.selectedNodeId}
+                        onEdgeSelect={handleEdgeSelect}
+                        selectedEdgeId={state.selectedEdgeId}
+                        onNodesChange={(newNodes) => {
+                            setState(prev => ({ ...prev, nodes: newNodes }));
+                            setHasUnsavedChanges(true); // Dragging changes position, consider unsaved
+                        }}
+                        onEdgeCreate={handleCreateEdge}
+                    />
+                </div>
 
-                <RightPanel
-                    nodes={state.nodes}
-                    selectedNode={selectedNode}
-                    selectedEdge={selectedEdge}
-                    onClose={() => setState(prev => ({ ...prev, selectedNodeId: null, selectedEdgeId: null }))}
-                    onUpdateNode={handleUpdateNode}
-                    onDeleteNode={handleDeleteNode}
-                    onUpdateEdge={handleUpdateEdge}
-                    onDeleteEdge={handleDeleteEdge}
-                />
+                {isDesktop && (
+                    <div className="w-72 shrink-0 h-full">
+                        <RightPanel
+                            nodes={state.nodes}
+                            selectedNode={selectedNode}
+                            selectedEdge={selectedEdge}
+                            onClose={() => setState(prev => ({ ...prev, selectedNodeId: null, selectedEdgeId: null }))}
+                            onUpdateNode={handleUpdateNode}
+                            onDeleteNode={handleDeleteNode}
+                            onUpdateEdge={handleUpdateEdge}
+                            onDeleteEdge={handleDeleteEdge}
+                        />
+                    </div>
+                )}
+
+                {/* Mobile/Tablet layout: side panels become drawers */}
+                {!isDesktop && isLeftPanelOpen && (
+                    <div className="absolute inset-0 z-40">
+                        <div
+                            className="absolute inset-0 bg-slate-900/20 backdrop-blur-[1px]"
+                            onClick={() => setIsLeftPanelOpen(false)}
+                        />
+                        <div className="absolute left-0 top-0 bottom-0 w-80 max-w-[85vw] shadow-2xl">
+                            <LeftPanel onCreateNode={handleCreateNode} />
+                        </div>
+                    </div>
+                )}
+
+                {!isDesktop && isRightPanelOpen && (
+                    <div className="absolute inset-0 z-40">
+                        <div
+                            className="absolute inset-0 bg-slate-900/20 backdrop-blur-[1px]"
+                            onClick={() => setIsRightPanelOpen(false)}
+                        />
+                        <div className="absolute right-0 top-0 bottom-0 w-80 max-w-[85vw] shadow-2xl">
+                            <RightPanel
+                                nodes={state.nodes}
+                                selectedNode={selectedNode}
+                                selectedEdge={selectedEdge}
+                                onClose={() => setState(prev => ({ ...prev, selectedNodeId: null, selectedEdgeId: null }))}
+                                onUpdateNode={handleUpdateNode}
+                                onDeleteNode={handleDeleteNode}
+                                onUpdateEdge={handleUpdateEdge}
+                                onDeleteEdge={handleDeleteEdge}
+                            />
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

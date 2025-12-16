@@ -39,7 +39,7 @@ export const RightPanel: React.FC<RightPanelProps> = ({
       }
 
       return (
-        <div className="w-72 flex flex-col border-l border-slate-200 bg-white h-[calc(100vh-8rem)] z-10 animate-fade-in-right shrink-0">
+        <div className="w-full h-full min-h-0 flex flex-col border-l border-slate-200 bg-white z-10 animate-fade-in-right">
              <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
                 <div className="flex items-center gap-2">
                     <span className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600">
@@ -160,7 +160,7 @@ export const RightPanel: React.FC<RightPanelProps> = ({
     };
 
     return (
-        <div className="w-72 flex flex-col border-l border-slate-200 bg-white h-[calc(100vh-8rem)] z-10 animate-fade-in-right shrink-0">
+        <div className="w-full h-full min-h-0 flex flex-col border-l border-slate-200 bg-white z-10 animate-fade-in-right">
         
         {/* Header */}
         <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
@@ -276,7 +276,7 @@ export const RightPanel: React.FC<RightPanelProps> = ({
 
   // -- EMPTY STATE --
   return (
-    <div className="w-72 border-l border-slate-200 bg-white h-[calc(100vh-8rem)] flex items-center justify-center p-6 text-center shrink-0">
+    <div className="w-full h-full min-h-0 border-l border-slate-200 bg-white flex items-center justify-center p-6 text-center">
         <div className="space-y-3 opacity-50">
            <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto">
              <Tag className="w-6 h-6 text-slate-400" />

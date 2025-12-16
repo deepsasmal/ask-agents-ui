@@ -18,7 +18,16 @@ const navItems: Array<{ key: 'Profile' | 'Agents' | 'Data'; label: string; icon:
 ];
 
 export const SettingsModule: React.FC<SettingsModuleProps> = ({ isDarkMode, onToggleDarkMode, onLogout, onClose, agents = [] }) => {
-    const [activeItem, setActiveItem] = useState<'Profile' | 'Agents' | 'Data'>('Profile');
+    const [activeItem, setActiveItem] = useState<'Profile' | 'Agents' | 'Data'>(() => {
+        // Allow other screens to deep-link into a specific Settings tab (e.g. Data -> "New connection").
+        try {
+            const v = localStorage.getItem('settings_active_tab');
+            if (v === 'Profile' || v === 'Agents' || v === 'Data') return v;
+        } catch {
+            // ignore
+        }
+        return 'Profile';
+    });
     const [name, setName] = useState('');
     const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
@@ -41,6 +50,15 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ isDarkMode, onTo
         // Trigger enter transition on mount.
         const t = setTimeout(() => setIsAnimatingIn(true), 10);
         return () => clearTimeout(t);
+    }, []);
+
+    // Clear deep-link marker after mount so future Settings opens default to Profile.
+    useEffect(() => {
+        try {
+            localStorage.removeItem('settings_active_tab');
+        } catch {
+            // ignore
+        }
     }, []);
 
     useEffect(() => {
