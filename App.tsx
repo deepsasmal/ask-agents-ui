@@ -7,7 +7,7 @@ import { DataInsightsModule } from './components/modules/DataInsightsModule';
 import { KnowledgeModule } from './components/modules/KnowledgeModule';
 import { SettingsModule } from './components/modules/SettingsModule';
 import { LoginPage } from './components/auth/LoginPage';
-import { authApi, sessionApi, configApi, Session } from './services/api';
+import { authApi, sessionApi, configApi, Session, Agent } from './services/api';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -55,6 +55,7 @@ const App: React.FC = () => {
     // Chat sessions state
     const [sessions, setSessions] = useState<Session[]>([]);
     const [dbConfig, setDbConfig] = useState<DbConfig | null>(null);
+    const [configAgents, setConfigAgents] = useState<Agent[]>([]);
     const [isLoadingSessions, setIsLoadingSessions] = useState(false);
     const [isChatsCollapsed, setIsChatsCollapsed] = useState(false);
     const [currentSessionId, setCurrentSessionId] = useState<string>(() => generateUUID());
@@ -88,6 +89,17 @@ const App: React.FC = () => {
         const initialize = async () => {
             try {
                 const configData = await configApi.getConfig();
+
+                // Agents may be returned at the root (preferred) or nested (backend variants)
+                const agentsFromConfig = (() => {
+                    const rootAgents = (configData as any)?.agents;
+                    if (Array.isArray(rootAgents)) return rootAgents as Agent[];
+                    const nestedAgents = (configData as any)?.session?.agents;
+                    if (Array.isArray(nestedAgents)) return nestedAgents as Agent[];
+                    return [];
+                })();
+                setConfigAgents(agentsFromConfig);
+
                 if (configData.session?.dbs?.length > 0 && configData.session.dbs[0].tables.length > 0) {
                     // Extract component_id from config (prioritize db-level, fallback to session-level)
                     const componentId = configData.session.dbs[0].component_id || configData.session.component_id;
@@ -485,6 +497,7 @@ const App: React.FC = () => {
                                 onToggleDarkMode={() => setIsDarkMode(!isDarkMode)}
                                 onLogout={handleLogout}
                                 onClose={() => setActiveModule('LANDING')}
+                                agents={configAgents}
                             />
                         )}
                     </div>

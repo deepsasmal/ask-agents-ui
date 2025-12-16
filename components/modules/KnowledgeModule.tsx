@@ -1187,7 +1187,7 @@ export const KnowledgeModule: React.FC = () => {
             ) : knowledgeContent.length > 0 ? (
                 <div className="flex-1 overflow-hidden flex bg-white dark:bg-slate-950">
                     {/* Main Table Area */}
-                    <div className={`flex-1 flex flex-col overflow-hidden transition-all duration-300 ${selectedContentId ? 'w-2/3' : 'w-full'} relative`}>
+                    <div className={`flex-1 flex flex-col overflow-hidden ${selectedContentId ? 'w-2/3' : 'w-full'} relative`}>
 
                         {/* Table Header Controls */}
                         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 z-10">
@@ -1310,7 +1310,7 @@ export const KnowledgeModule: React.FC = () => {
                     {/* Side Panel */}
                     {/* Side Panel */}
                     {selectedContentId && (
-                        <div className="w-[400px] border-l border-slate-200 dark:border-slate-800 flex flex-col bg-white dark:bg-slate-950 transition-all duration-300 shadow-xl z-20 h-full overflow-hidden">
+                        <div className="w-[400px] border-l border-slate-200 dark:border-slate-800 flex flex-col bg-white dark:bg-slate-950 shadow-xl z-20 h-full overflow-hidden">
                             {/* Panel Header */}
                             <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex items-start justify-between shrink-0">
                                 <div className="space-y-1 overflow-hidden">

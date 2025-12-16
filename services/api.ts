@@ -78,11 +78,54 @@ export interface Agent {
   id: string; // Corresponds to agent_id
   name: string;
   description?: string;
+  db_id?: string;
   model?: {
     name: string;
     model: string;
     provider: string;
   };
+}
+
+export interface AgentTool {
+  name: string;
+  description?: string;
+  parameters?: any;
+  requires_confirmation?: boolean;
+  external_execution?: boolean;
+}
+
+export interface AgentDetails {
+  id: string;
+  name: string;
+  db_id?: string;
+  model?: {
+    name?: string;
+    model?: string;
+    provider?: string;
+    [key: string]: any;
+  };
+  tools?: {
+    tools?: AgentTool[];
+    tool_call_limit?: number;
+    [key: string]: any;
+  };
+  sessions?: {
+    session_table?: string;
+    add_history_to_context?: boolean;
+    num_history_runs?: number;
+    [key: string]: any;
+  };
+  knowledge?: {
+    knowledge_table?: string;
+    [key: string]: any;
+  };
+  system_message?: {
+    description?: string;
+    instructions?: string;
+    markdown?: boolean;
+    [key: string]: any;
+  };
+  [key: string]: any;
 }
 
 export interface RunMetrics {
@@ -103,6 +146,7 @@ export interface ConfigResponse {
     }>;
     component_id?: string; // fallback if not in dbs array
   };
+  agents?: Agent[];
   knowledge?: {
     dbs: Array<{
       db_id: string;
@@ -482,6 +526,7 @@ const MOCK_SEARCH_RESULTS: SearchResponse = {
 // Cache for API responses
 let cachedConfig: ConfigResponse | null = null;
 let cachedAgents: Agent[] | null = null;
+const cachedAgentDetails = new Map<string, AgentDetails>();
 
 export const authApi = {
   login: async (username: string, password: string) => {
@@ -919,8 +964,20 @@ export const agentApi = {
     cachedAgents = data;
     return data;
   },
+  getAgent: async (agentId: string) => {
+    const cached = cachedAgentDetails.get(agentId);
+    if (cached) return cached;
+
+    const response = await fetch(`${API_BASE_URL}/agents/${encodeURIComponent(agentId)}`, {
+      headers: { ...getAuthHeaders() }
+    });
+    const data = await handleResponse<AgentDetails>(response);
+    cachedAgentDetails.set(agentId, data);
+    return data;
+  },
   clearCache: () => {
     cachedAgents = null;
+    cachedAgentDetails.clear();
   },
 
   cancelRun: async (agentId: string, runId: string) => {
@@ -1146,6 +1203,36 @@ export interface KnowledgeContentResponse {
     search_time_ms: number;
   }
 }
+
+// --- MindsDB Databases ---
+export interface MindsDbDatabase {
+  name: string;
+  engine?: string;
+  params?: string;
+  repr?: string;
+}
+
+export interface MindsDbDatabasesResponse {
+  status?: string;
+  databases: MindsDbDatabase[];
+}
+
+let cachedMindsDbDatabases: MindsDbDatabase[] | null = null;
+
+export const mindsdbApi = {
+  getDatabases: async () => {
+    if (cachedMindsDbDatabases) return cachedMindsDbDatabases;
+    const response = await fetch(`${API_BASE_URL}/mindsdb/databases`, {
+      headers: { 'accept': 'application/json', ...getAuthHeaders() }
+    });
+    const data = await handleResponse<MindsDbDatabasesResponse>(response);
+    cachedMindsDbDatabases = Array.isArray(data?.databases) ? data.databases : [];
+    return cachedMindsDbDatabases;
+  },
+  clearCache: () => {
+    cachedMindsDbDatabases = null;
+  }
+};
 
 export const knowledgeApi = {
   getContent: async (dbId: string, page: number = 1, limit: number = 25) => {
