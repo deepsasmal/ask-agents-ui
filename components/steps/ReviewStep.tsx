@@ -15,7 +15,7 @@ interface ReviewStepProps {
 
 export const ReviewStep: React.FC<ReviewStepProps> = ({ data, onBack, onComplete, isSuccess = false }) => {
   const [isCreating, setIsCreating] = useState(false);
-  const [enableTextIndexing, setEnableTextIndexing] = useState(false);
+  const [enableTextIndexing, setEnableTextIndexing] = useState(true);
   const [enableVectorSearch, setEnableVectorSearch] = useState(false);
 
   const handleCreate = async () => {
@@ -49,7 +49,7 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({ data, onBack, onComplete
 
   if (isSuccess) {
       return (
-          <div className="flex flex-col items-center justify-center text-center animate-fade-in py-16">
+          <div className="h-full min-h-0 w-full flex flex-col items-center justify-center text-center animate-fade-in py-10">
               <div className="relative mb-8">
                   <div className="absolute inset-0 bg-brand-500 blur-2xl opacity-20 rounded-full animate-pulse-slow"></div>
                   <div className="w-32 h-32 bg-white rounded-full flex items-center justify-center text-brand-600 shadow-2xl shadow-brand-200 border-[6px] border-brand-50 relative z-10">
@@ -70,14 +70,15 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({ data, onBack, onComplete
   }
 
   return (
-    <div className="max-w-4xl mx-auto animate-fade-in">
-      <div className="mb-8">
+    <div className="min-h-full w-full flex flex-col animate-fade-in">
+      <div className="mb-6 shrink-0">
         <h2 className="text-3xl font-bold text-slate-900">Review & Build</h2>
         <p className="text-slate-500 mt-1">Review your configuration before generating the knowledge graph.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <Card className="shadow-sm border-slate-200 bg-white/50">
+      <div className="flex flex-col gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="shadow-sm border-slate-200 bg-white/50" noPadding>
            <div className="flex flex-col items-center text-center p-4">
                <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mb-3">
                    <Database className="w-6 h-6" />
@@ -87,7 +88,7 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({ data, onBack, onComplete
            </div>
         </Card>
 
-        <Card className="shadow-sm border-slate-200 bg-white/50">
+        <Card className="shadow-sm border-slate-200 bg-white/50" noPadding>
            <div className="flex flex-col items-center text-center p-4">
                <div className="w-12 h-12 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center mb-3">
                    <Layers className="w-6 h-6" />
@@ -97,7 +98,7 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({ data, onBack, onComplete
            </div>
         </Card>
 
-        <Card className="shadow-sm border-slate-200 bg-white/50">
+        <Card className="shadow-sm border-slate-200 bg-white/50" noPadding>
            <div className="flex flex-col items-center text-center p-4">
                <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mb-3">
                    <FileText className="w-6 h-6" />
@@ -106,10 +107,10 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({ data, onBack, onComplete
                <span className="text-sm font-medium text-slate-500">Target Schema</span>
            </div>
         </Card>
-      </div>
+        </div>
 
-      <div className="space-y-6 mb-10">
-        <Card className="shadow-supreme border-0">
+        <div className="space-y-6">
+        <Card className="shadow-supreme border-0" noPadding>
            <div className="flex items-center gap-4 border-b border-slate-100 p-6">
               <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center text-brand-600">
                   <Settings2 className="w-5 h-5" />
@@ -137,7 +138,7 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({ data, onBack, onComplete
                           <Search className="w-4 h-4 text-slate-600" />
                           <span className="font-bold text-slate-900">Enable Text Indexing</span>
                       </div>
-                      <p className="text-sm text-slate-500">Creates full-text search indexes on string columns for faster keyword lookup.</p>
+                      <p className="text-sm text-slate-500">Creates full-text search indexes on name and description fields for faster keyword lookup.</p>
                   </div>
               </label>
 
@@ -163,7 +164,7 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({ data, onBack, onComplete
            </div>
         </Card>
 
-        <Card className="shadow-supreme border-0 bg-gradient-to-br from-brand-600 to-brand-700 text-white overflow-hidden relative">
+        <Card className="shadow-supreme border-0 bg-gradient-to-br from-brand-600 to-brand-700 text-white overflow-hidden relative" noPadding>
            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
            <div className="relative p-8 flex items-center justify-between">
               <div>
@@ -175,9 +176,10 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({ data, onBack, onComplete
               </div>
            </div>
         </Card>
+        </div>
       </div>
 
-      <div className="flex justify-between pb-8">
+      <div className="flex justify-between pt-6 pb-6">
         <Button variant="ghost" onClick={onBack} leftIcon={<ArrowLeft className="w-4 h-4" />}>
           Back
         </Button>

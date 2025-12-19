@@ -48,18 +48,18 @@ export const OrgDetailsStep: React.FC<OrgDetailsStepProps> = ({ data, updateData
   };
 
   return (
-    <div className="animate-fade-in max-w-4xl mx-auto">
+    <div className="h-full min-h-0 w-full flex flex-col animate-fade-in">
       {/* Header Section */}
-      <div className="mb-4">
+      <div className="mb-4 shrink-0">
         <h2 className="text-xl font-bold text-slate-900 mb-1">Organization Details</h2>
         <p className="text-slate-500 text-sm">Tell us about your organization to personalize your knowledge graph ontology.</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1 min-h-0">
         {/* Left Form Section */}
-        <div className="lg:col-span-7 flex flex-col">
-          <Card className="shadow-supreme border-0 h-full flex flex-col" noPadding>
-            <div className="p-4 space-y-4 flex-1">
+        <div className="lg:col-span-7 min-h-0 flex flex-col">
+          <Card className="shadow-supreme border-0 flex-1 min-h-0 flex flex-col" noPadding>
+            <div className="p-4 space-y-4 flex-1 min-h-0">
               <div className="grid grid-cols-1 gap-5">
                 <Input
                   label="Organization Name"
@@ -136,8 +136,8 @@ export const OrgDetailsStep: React.FC<OrgDetailsStepProps> = ({ data, updateData
         </div>
 
         {/* Right Sidebar Section */}
-        <div className="lg:col-span-5 flex flex-col">
-          <div className="h-full relative group">
+        <div className="lg:col-span-5 min-h-0 flex flex-col">
+          <div className="flex-1 min-h-[280px] lg:min-h-0 relative group">
             {/* Decorative Background Effects */}
             <div className="absolute -inset-1 bg-gradient-to-r from-brand-200 to-brand-100 rounded-[2rem] blur opacity-40 group-hover:opacity-60 transition duration-1000 group-hover:duration-200" />
             <div className="absolute top-10 -right-10 w-40 h-40 bg-brand-300/30 rounded-full blur-3xl" />
@@ -172,7 +172,7 @@ export const OrgDetailsStep: React.FC<OrgDetailsStepProps> = ({ data, updateData
                 </div>
               </div>
 
-              <div className="p-6 space-y-5 flex-1">
+              <div className="p-4 sm:p-6 space-y-5 flex-1 min-h-0">
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Project Preview</h3>

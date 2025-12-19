@@ -80,6 +80,8 @@ export interface EditorEdge {
   target: string;
   label: string;
   type?: 'default' | 'dashed';
+  // Optional user-adjustable control point (world coords) to bend the relationship arrow.
+  control?: { x: number; y: number };
 }
 
 export interface EditorState {

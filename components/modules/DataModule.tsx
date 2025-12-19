@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Database, Loader2, RefreshCw, Search, ChevronDown, ChevronUp, AlertTriangle, Plus, Columns, X, Table, KeyRound, Link as LinkIcon, ShieldCheck, Info } from 'lucide-react';
 import { mindsdbApi, MindsDbDatabase, MindsDbSchemaTable, MindsDbShowTableResponse } from '../../services/api';
 import { normalizeMindsDbSchemaTables } from '../../utils/mindsdbSchema';
+import { setNextSettingsTab } from '../../utils/settingsDeeplink';
 
 type LoadState = 'idle' | 'loading' | 'success' | 'error';
 
@@ -668,11 +669,7 @@ export const DataModule: React.FC = () => {
 
   const onNewConnection = () => {
     // Best-effort: route user to Settings -> Data tab (no create-connection API yet).
-    try {
-      localStorage.setItem('settings_active_tab', 'Data');
-    } catch {
-      // ignore
-    }
+    setNextSettingsTab('Data');
     setShowNewConnHint(true);
   };
 

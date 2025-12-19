@@ -526,7 +526,8 @@ const MOCK_SEARCH_RESULTS: SearchResponse = {
 // Cache for API responses
 let cachedConfig: ConfigResponse | null = null;
 let cachedAgents: Agent[] | null = null;
-const cachedAgentDetails = new Map<string, AgentDetails>();
+// NOTE: Intentionally do NOT cache agent details.
+// Users expect Settings -> Agent Details to always reflect the latest backend state.
 
 export const authApi = {
   login: async (username: string, password: string) => {
@@ -617,6 +618,61 @@ export const configApi = {
   },
   clearCache: () => {
     cachedConfig = null;
+  }
+};
+
+// --- App Config Metrics (runtime editable config) ---
+export type AppConfigMetrics = Record<string, any>;
+
+export type AppConfigRefreshResponse = Record<string, any> & {
+  runtime_rebind?: { updated?: number; [k: string]: any };
+};
+
+export const appConfigApi = {
+  getAllMetrics: async (includeSensitive: boolean = false) => {
+    const params = new URLSearchParams();
+    if (includeSensitive) params.set('include_sensitive', 'true');
+    const qs = params.toString();
+    const response = await fetch(`${API_BASE_URL}/app-config/metrics${qs ? `?${qs}` : ''}`, {
+      headers: { 'accept': 'application/json', ...getAuthHeaders() }
+    });
+    return handleResponse<AppConfigMetrics>(response);
+  },
+
+  updateMetric: async (key: string, value: any) => {
+    const k = String(key || '').trim();
+    if (!k) throw new ApiError('Metric key is required');
+    const response = await fetch(`${API_BASE_URL}/app-config/metrics/${encodeURIComponent(k)}`, {
+      method: 'PUT',
+      headers: {
+        'accept': 'application/json',
+        'Content-Type': 'application/json',
+        ...getAuthHeaders()
+      },
+      // Backend schema is MetricUpdateRequest; most implementations accept `{ value: ... }`.
+      body: JSON.stringify({ value })
+    });
+    return handleResponse<any>(response);
+  },
+
+  refreshConfig: async (rebindRuntime: boolean = true) => {
+    const params = new URLSearchParams();
+    // Backend default is true; only send the param when explicitly disabling rebinding.
+    if (rebindRuntime === false) params.set('rebind_runtime', 'false');
+    const qs = params.toString();
+
+    const response = await fetch(`${API_BASE_URL}/app-config/refresh${qs ? `?${qs}` : ''}`, {
+      method: 'POST',
+      headers: { 'accept': 'application/json', ...getAuthHeaders() }
+    });
+    // Some backends may return an empty body; tolerate both.
+    if (response.status === 204) return {};
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage = errorData.detail || errorData.message || 'Failed to refresh config';
+      throw new ApiError(errorMessage, response.status);
+    }
+    return (await response.json().catch(() => ({}))) as AppConfigRefreshResponse;
   }
 };
 
@@ -965,19 +1021,16 @@ export const agentApi = {
     return data;
   },
   getAgent: async (agentId: string) => {
-    const cached = cachedAgentDetails.get(agentId);
-    if (cached) return cached;
-
     const response = await fetch(`${API_BASE_URL}/agents/${encodeURIComponent(agentId)}`, {
+      // Avoid any intermediate caching layers when viewing Settings -> Agent Details.
+      cache: 'no-store',
       headers: { ...getAuthHeaders() }
     });
     const data = await handleResponse<AgentDetails>(response);
-    cachedAgentDetails.set(agentId, data);
     return data;
   },
   clearCache: () => {
     cachedAgents = null;
-    cachedAgentDetails.clear();
   },
 
   cancelRun: async (agentId: string, runId: string) => {

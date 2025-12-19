@@ -23,6 +23,7 @@ const INITIAL_EDGES: EditorEdge[] = [];
 
 export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName, initialGraphId }) => {
     const [graphId, setGraphId] = useState(initialGraphId || '');
+    const [isGraphSelectorOpen, setIsGraphSelectorOpen] = useState(false);
     const [isSavingDraft, setIsSavingDraft] = useState(false);
     const [isPublishing, setIsPublishing] = useState(false);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -50,12 +51,28 @@ export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName, initialGr
     });
 
     useEffect(() => {
-        if (typeof window === 'undefined') return;
+        if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+
         const mq = window.matchMedia('(min-width: 1024px)');
-        const handle = () => setIsDesktop(mq.matches);
+
+        const handle = (e?: MediaQueryListEvent) => {
+            // Some browsers call the listener with no args (older APIs), so fall back to mq.matches
+            const matches = typeof e?.matches === 'boolean' ? e.matches : mq.matches;
+            setIsDesktop(matches);
+        };
+
         handle();
-        mq.addEventListener('change', handle);
-        return () => mq.removeEventListener('change', handle);
+
+        // Support both modern and legacy MediaQueryList APIs
+        if (typeof mq.addEventListener === 'function') {
+            mq.addEventListener('change', handle);
+            return () => mq.removeEventListener('change', handle);
+        }
+
+        // eslint-disable-next-line deprecation/deprecation
+        mq.addListener(handle);
+        // eslint-disable-next-line deprecation/deprecation
+        return () => mq.removeListener(handle);
     }, []);
 
     useEffect(() => {
@@ -89,11 +106,29 @@ export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName, initialGr
         });
     };
 
+    const handleSetGraphId = (id: string) => {
+        setGraphId(id);
+        // If the user clears the graph id (switch graph), open the selector so they aren't "stuck".
+        if (!id) setIsGraphSelectorOpen(true);
+    };
+
+    const getViewportAnchor = () => {
+        // Place new nodes within the current visible area, regardless of pan/zoom.
+        // Screen = world * zoom + pan  =>  world = (screen - pan) / zoom
+        // Use a safe top-left-ish anchor to guarantee visibility without needing viewport size.
+        const zoom = state.zoom || 1;
+        return {
+            x: (-state.pan.x) / zoom + 80,
+            y: (-state.pan.y) / zoom + 80
+        };
+    };
+
     const handleCreateNode = (newNodeData: Partial<EditorNode>) => {
+        const anchor = getViewportAnchor();
         const newNode: EditorNode = {
             id: `node-${Date.now()}`,
-            x: 250, // Center-ish
-            y: 200,
+            x: anchor.x,
+            y: anchor.y,
             data: {},
             type: 'TECHNICAL',
             subType: 'TABLE',
@@ -101,7 +136,7 @@ export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName, initialGr
             ...newNodeData,
         } as EditorNode;
 
-        setState(prev => ({ ...prev, nodes: [...prev.nodes, newNode] }));
+        setState(prev => ({ ...prev, nodes: [...prev.nodes, newNode], selectedNodeId: newNode.id, selectedEdgeId: null }));
         setHasUnsavedChanges(true);
     };
 
@@ -133,14 +168,15 @@ export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName, initialGr
 
         // Prepare Properties
         const { name, description, datatype, ...otherProps } = nodeResult.properties;
+        const anchor = getViewportAnchor();
 
         const newNode: EditorNode = {
             id: id,
             type: type,
             subType: subType,
             label: name,
-            x: 300 + Math.random() * 50, // Random offset to avoid exact stacking
-            y: 200 + Math.random() * 50,
+            x: anchor.x + Math.random() * 30, // small jitter to avoid exact stacking
+            y: anchor.y + Math.random() * 30,
             data: {
                 description: description,
                 dataType: datatype,
@@ -337,20 +373,12 @@ export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName, initialGr
     const selectedNode = state.nodes.find(n => n.id === state.selectedNodeId) || null;
     const selectedEdge = state.edges.find(e => e.id === state.selectedEdgeId) || null;
 
-    if (!graphId) {
-        return (
-            <div className="h-full min-h-0 bg-slate-100 flex flex-col">
-                <GraphSelector onSelect={(id) => setGraphId(id)} />
-            </div>
-        );
-    }
-
     return (
         <div className="flex flex-col h-full min-h-0 bg-slate-100">
             <TopBar
                 projectName={projectName || ''}
                 graphId={graphId}
-                setGraphId={setGraphId}
+                setGraphId={handleSetGraphId}
                 onSaveDraft={handleSaveDraft}
                 onPublish={handlePublish}
                 isSavingDraft={isSavingDraft}
@@ -364,6 +392,25 @@ export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName, initialGr
             />
 
             <div className="relative flex flex-1 min-h-0 min-w-0 overflow-hidden">
+                {/* Non-blocking Graph ID callout */}
+                {!graphId && (
+                    <div className="absolute top-3 left-3 right-3 z-20 pointer-events-none">
+                        <div className="max-w-3xl mx-auto bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-4 py-3 shadow-sm flex items-center justify-between gap-3 pointer-events-auto">
+                            <div className="text-xs sm:text-sm">
+                                <span className="font-bold">No Graph selected.</span>{' '}
+                                You can still add nodes and relationships. Set a Graph ID (Top bar) to enable search/save/publish.
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setIsGraphSelectorOpen(true)}
+                                className="shrink-0 text-xs font-bold px-3 py-1.5 rounded-lg bg-white border border-amber-200 hover:bg-amber-100 transition-colors"
+                            >
+                                Pick Graph
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 {/* Desktop layout: fixed side panels + canvas */}
                 {isDesktop && (
                     <div className="w-72 shrink-0 h-full">
@@ -371,7 +418,8 @@ export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName, initialGr
                     </div>
                 )}
 
-                <div className="flex-1 min-w-0 min-h-0">
+                {/* Center: Canvas must have an explicit height via a flex container (otherwise it can collapse to 0) */}
+                <div className="flex-1 min-w-0 min-h-0 flex">
                     <Canvas
                         nodes={state.nodes}
                         edges={state.edges}
@@ -383,7 +431,13 @@ export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName, initialGr
                             setState(prev => ({ ...prev, nodes: newNodes }));
                             setHasUnsavedChanges(true); // Dragging changes position, consider unsaved
                         }}
+                        onEdgeUpdate={handleUpdateEdge}
                         onEdgeCreate={handleCreateEdge}
+                        pan={state.pan}
+                        zoom={state.zoom}
+                        onPanZoomChange={({ pan, zoom }) => {
+                            setState(prev => ({ ...prev, pan, zoom }));
+                        }}
                     />
                 </div>
 
@@ -431,6 +485,24 @@ export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName, initialGr
                                 onDeleteNode={handleDeleteNode}
                                 onUpdateEdge={handleUpdateEdge}
                                 onDeleteEdge={handleDeleteEdge}
+                            />
+                        </div>
+                    </div>
+                )}
+
+                {/* Graph selector overlay (optional, does not block the editor permanently) */}
+                {isGraphSelectorOpen && (
+                    <div className="absolute inset-0 z-50">
+                        <div
+                            className="absolute inset-0 bg-slate-900/30 backdrop-blur-[1px]"
+                            onClick={() => setIsGraphSelectorOpen(false)}
+                        />
+                        <div className="absolute inset-0">
+                            <GraphSelector
+                                onSelect={(id) => {
+                                    setGraphId(id);
+                                    setIsGraphSelectorOpen(false);
+                                }}
                             />
                         </div>
                     </div>

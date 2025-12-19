@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Bot, ChevronRight, Database, Loader2, RefreshCw, User, X } from 'lucide-react';
+import { ArrowLeft, Bot, ChevronRight, Database, Loader2, RefreshCw, Settings2, User, X } from 'lucide-react';
 import { agentApi, authApi, mindsdbApi } from '../../services/api';
 import type { Agent, AgentDetails, MindsDbDatabase } from '../../services/api';
+import { consumeNextSettingsTab } from '../../utils/settingsDeeplink';
+import { ConfigTab } from '../settings/ConfigTab';
 
 interface SettingsModuleProps {
     isDarkMode: boolean;
@@ -11,21 +13,18 @@ interface SettingsModuleProps {
     agents?: Agent[];
 }
 
-const navItems: Array<{ key: 'Profile' | 'Agents' | 'Data'; label: string; icon: React.ReactNode }> = [
+const navItems: Array<{ key: 'Profile' | 'Agents' | 'Data' | 'Config'; label: string; icon: React.ReactNode }> = [
     { key: 'Profile', label: 'Profile', icon: <User className="w-4 h-4" /> },
     { key: 'Agents', label: 'Agents', icon: <Bot className="w-4 h-4" /> },
     { key: 'Data', label: 'Data', icon: <Database className="w-4 h-4" /> },
+    { key: 'Config', label: 'Config', icon: <Settings2 className="w-4 h-4" /> },
 ];
 
 export const SettingsModule: React.FC<SettingsModuleProps> = ({ isDarkMode, onToggleDarkMode, onLogout, onClose, agents = [] }) => {
-    const [activeItem, setActiveItem] = useState<'Profile' | 'Agents' | 'Data'>(() => {
-        // Allow other screens to deep-link into a specific Settings tab (e.g. Data -> "New connection").
-        try {
-            const v = localStorage.getItem('settings_active_tab');
-            if (v === 'Profile' || v === 'Agents' || v === 'Data') return v;
-        } catch {
-            // ignore
-        }
+    const [activeItem, setActiveItem] = useState<'Profile' | 'Agents' | 'Data' | 'Config'>(() => {
+        // Allow other screens to deep-link into a specific Settings tab (one-time, non-persistent).
+        const v = consumeNextSettingsTab();
+        if (v === 'Profile' || v === 'Agents' || v === 'Data' || v === 'Config') return v;
         return 'Profile';
     });
     const [name, setName] = useState('');
@@ -52,14 +51,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ isDarkMode, onTo
         return () => clearTimeout(t);
     }, []);
 
-    // Clear deep-link marker after mount so future Settings opens default to Profile.
-    useEffect(() => {
-        try {
-            localStorage.removeItem('settings_active_tab');
-        } catch {
-            // ignore
-        }
-    }, []);
+    // No persistent deep-link marker to clear (we use an in-memory one-time hint).
 
     useEffect(() => {
         const first = localStorage.getItem('user_first_name') || '';
@@ -543,6 +535,10 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ isDarkMode, onTo
                                     )}
                                 </div>
                             </div>
+                        )}
+
+                        {activeItem === 'Config' && (
+                            <ConfigTab />
                         )}
                     </div>
                 </div>

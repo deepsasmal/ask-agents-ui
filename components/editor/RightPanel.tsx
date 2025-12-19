@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Trash2, Network, Hash, Tag, X, ArrowRightLeft, Plus, Save } from 'lucide-react';
+import { Trash2, Network, Hash, Tag, X, ArrowRightLeft, Plus, Save, Info } from 'lucide-react';
 import { Button, Input } from '../ui/Common';
 import { EditorNode, EditorEdge } from '../../types';
 import { EDITOR_CONFIG, getConstraint } from './editorConfig';
@@ -212,6 +212,18 @@ export const RightPanel: React.FC<RightPanelProps> = ({
                 <div className="flex items-center justify-between mb-2 px-1">
                     <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
                         <Hash className="w-3 h-3" /> Properties
+                        <span className="relative group inline-flex">
+                            <button
+                                type="button"
+                                className="inline-flex items-center justify-center w-4 h-4 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                                aria-label="Properties info"
+                            >
+                                <Info className="w-3 h-3" />
+                            </button>
+                            <span className="pointer-events-none absolute left-1/2 top-full mt-2 -translate-x-1/2 w-[220px] whitespace-normal rounded-md border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-medium text-slate-600 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-20 normal-case leading-snug">
+                                LLMs may use these properties as context when this entity is retrieved via search.
+                            </span>
+                        </span>
                     </span>
                     <button 
                         onClick={handleAddProperty}

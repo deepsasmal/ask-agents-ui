@@ -352,7 +352,31 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
         }, 1500);
     };
 
+    // Validation: require descriptions for all selected tables + their columns before enabling Next
+    const selectedTables = data.tables.filter(t => t.selected);
+    const tablesNotLoadedCount = selectedTables.filter(t => !t.loaded).length;
+    const tablesMissingDescCount = selectedTables.filter(t => !t.description || !t.description.trim()).length;
+    const columnsMissingDescCount = selectedTables.reduce((acc, t) => {
+        if (!t.loaded) return acc;
+        return acc + t.columns.filter(c => !c.description || !c.description.trim()).length;
+    }, 0);
+
+    const canProceed =
+        selectedTables.length > 0 &&
+        tablesNotLoadedCount === 0 &&
+        tablesMissingDescCount === 0 &&
+        columnsMissingDescCount === 0;
+
     const handleNext = async () => {
+        if (!canProceed) {
+            const msgParts: string[] = [];
+            if (selectedTables.length === 0) msgParts.push('Select at least one table.');
+            if (tablesNotLoadedCount > 0) msgParts.push('Expand each selected table to load columns.');
+            if (tablesMissingDescCount > 0) msgParts.push('Add descriptions for all selected tables.');
+            if (columnsMissingDescCount > 0) msgParts.push('Add descriptions for all columns in selected tables.');
+            toast.error(msgParts.join(' '));
+            return;
+        }
         setIsSaving(true);
         try {
             const selectedTables = data.tables.filter(t => t.selected);
@@ -401,8 +425,17 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
     const selectedCount = data.tables.filter(t => t.selected).length;
     const isTableLoading = (id: string) => loadingColumns.has(id);
 
+    const validationHint = (() => {
+        if (canProceed) return null;
+        if (selectedTables.length === 0) return 'Select at least one table to continue.';
+        if (tablesNotLoadedCount > 0) return 'Expand each selected table to load columns before continuing.';
+        if (tablesMissingDescCount > 0) return 'Add descriptions for all selected tables to continue.';
+        if (columnsMissingDescCount > 0) return 'Add descriptions for all columns in selected tables to continue.';
+        return 'Complete required fields to continue.';
+    })();
+
     return (
-        <div className="h-full flex flex-col animate-fade-in pb-1">
+        <div className="h-full min-h-0 w-full flex flex-col animate-fade-in pb-1">
             <div className="mb-2 flex items-center justify-between shrink-0 px-1">
                 <div>
                     <h2 className="text-lg font-bold text-slate-900">Schema Selection</h2>
@@ -414,7 +447,7 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
                 </div>
             </div>
 
-            <div className="flex flex-col lg:flex-row gap-3 items-stretch flex-1 min-h-0 overflow-hidden">
+            <div className="flex flex-col lg:flex-row gap-3 items-stretch flex-1 min-h-0 overflow-hidden pb-3">
                 {/* Left Sidebar: Table List */}
                 <div className="lg:w-[280px] flex-shrink-0 min-h-0 flex flex-col">
                     <Card className="shadow-supreme border-0 flex flex-col flex-1 min-h-0" noPadding>
@@ -687,13 +720,28 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
                 </div>
             </div>
 
-            <div className="flex justify-between pt-2 pb-1 shrink-0">
+            <div className="flex items-center justify-between gap-3 pt-3 pb-2 shrink-0">
                 <Button variant="ghost" onClick={onBack} leftIcon={<ArrowLeft className="w-3.5 h-3.5" />}>
                     Back
                 </Button>
-                <Button onClick={handleNext} isLoading={isSaving} rightIcon={<ArrowRight className="w-3.5 h-3.5" />} size="md" className="px-6 shadow-brand-600/30">
-                    {isSaving ? 'Saving...' : 'Next Step'}
-                </Button>
+                <div className="flex items-center gap-3">
+                    {validationHint && (
+                        <div className="hidden sm:block text-[11px] font-semibold text-slate-500 max-w-[420px] text-right">
+                            {validationHint}
+                        </div>
+                    )}
+                    <Button
+                        onClick={handleNext}
+                        isLoading={isSaving}
+                        disabled={!canProceed || isSaving}
+                        rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
+                        size="md"
+                        className="px-6 shadow-brand-600/30"
+                        title={validationHint || undefined}
+                    >
+                        {isSaving ? 'Saving...' : 'Next Step'}
+                    </Button>
+                </div>
             </div>
         </div>
     );
