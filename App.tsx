@@ -9,6 +9,7 @@ import { SettingsModule } from './components/modules/SettingsModule';
 import { DataModule } from './components/modules/DataModule';
 import { LoginPage } from './components/auth/LoginPage';
 import { ChatListSkeleton } from './components/ui/ChatSkeletons';
+import { LeaveConfirmModal } from './components/modals/LeaveConfirmModal';
 import { authApi, sessionApi, configApi, Session, Agent } from './services/api';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -34,6 +35,9 @@ interface DbConfig {
 const App: React.FC = () => {
     const [isAuthenticated, setIsAuthenticated] = useState<boolean>(authApi.isAuthenticated());
     const [activeModule, setActiveModule] = useState<Module>('LANDING');
+    const [dataInsightsHasChanges, setDataInsightsHasChanges] = useState(false);
+    const [leaveModalOpen, setLeaveModalOpen] = useState(false);
+    const [pendingModule, setPendingModule] = useState<Module | null>(null);
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [isDarkMode, setIsDarkMode] = useState(() => {
         if (typeof window !== 'undefined') {
@@ -67,6 +71,28 @@ const App: React.FC = () => {
     const profileMenuRef = useRef<HTMLDivElement>(null);
 
     const toggleSidebar = () => setIsSidebarCollapsed(!isSidebarCollapsed);
+
+    const clearDataInsightsDraft = () => {
+        try {
+            const prefix = 'data_insights_draft_v1:';
+            for (let i = localStorage.length - 1; i >= 0; i--) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith(prefix)) localStorage.removeItem(key);
+            }
+        } catch {
+            // ignore
+        }
+    };
+
+    const requestNavigate = (next: Module) => {
+        if (next === activeModule) return;
+        if (activeModule === 'DATA_INSIGHTS' && dataInsightsHasChanges) {
+            setPendingModule(next);
+            setLeaveModalOpen(true);
+            return;
+        }
+        setActiveModule(next);
+    };
 
     // Handle click outside profile menu
     useEffect(() => {
@@ -269,7 +295,7 @@ const App: React.FC = () => {
                             label="Home"
                             isActive={activeModule === 'LANDING'}
                             collapsed={isSidebarCollapsed}
-                            onClick={() => setActiveModule('LANDING')}
+                            onClick={() => requestNavigate('LANDING')}
                         />
 
                         <div className={`my-3 border-t border-slate-100 mx-2 dark:border-slate-700/50 ${isSidebarCollapsed ? 'opacity-0' : 'opacity-100'}`}></div>
@@ -279,35 +305,35 @@ const App: React.FC = () => {
                             label="Chat"
                             isActive={activeModule === 'CHAT'}
                             collapsed={isSidebarCollapsed}
-                            onClick={() => setActiveModule('CHAT')}
+                            onClick={() => requestNavigate('CHAT')}
                         />
                         <SidebarItem
                             icon={<ChartNetwork className="w-4 h-4" />}
                             label="Graph Builder"
                             isActive={activeModule === 'GRAPH_BUILDER'}
                             collapsed={isSidebarCollapsed}
-                            onClick={() => setActiveModule('GRAPH_BUILDER')}
+                            onClick={() => requestNavigate('GRAPH_BUILDER')}
                         />
                         <SidebarItem
                             icon={<PieChart className="w-4 h-4" />}
                             label="Data Insights"
                             isActive={activeModule === 'DATA_INSIGHTS'}
                             collapsed={isSidebarCollapsed}
-                            onClick={() => setActiveModule('DATA_INSIGHTS')}
+                            onClick={() => requestNavigate('DATA_INSIGHTS')}
                         />
                         <SidebarItem
                             icon={<BookOpen className="w-4 h-4" />}
                             label="Knowledge"
                             isActive={activeModule === 'KNOWLEDGE'}
                             collapsed={isSidebarCollapsed}
-                            onClick={() => setActiveModule('KNOWLEDGE')}
+                            onClick={() => requestNavigate('KNOWLEDGE')}
                         />
                         <SidebarItem
                             icon={<Database className="w-4 h-4" />}
                             label="Data"
                             isActive={activeModule === 'DATA'}
                             collapsed={isSidebarCollapsed}
-                            onClick={() => setActiveModule('DATA')}
+                            onClick={() => requestNavigate('DATA')}
                         />
 
                         <SidebarItem
@@ -315,7 +341,7 @@ const App: React.FC = () => {
                             label="Settings"
                             isActive={activeModule === 'SETTINGS'}
                             collapsed={isSidebarCollapsed}
-                            onClick={() => setActiveModule('SETTINGS')}
+                            onClick={() => requestNavigate('SETTINGS')}
                         />
 
                         <div className={`my-3 border-t border-slate-100 mx-2 dark:border-slate-700/50 ${isSidebarCollapsed ? 'opacity-0' : 'opacity-100'}`}></div>
@@ -429,7 +455,7 @@ const App: React.FC = () => {
                                             <button
                                                 type="button"
                                                 onClick={() => {
-                                                    setActiveModule('SETTINGS');
+                                                    requestNavigate('SETTINGS');
                                                     setIsProfileMenuOpen(false);
                                                 }}
                                                 className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-colors"
@@ -479,7 +505,7 @@ const App: React.FC = () => {
 
                     <div key={activeModule} className="flex-1 h-full w-full animate-page-enter">
                         {activeModule === 'LANDING' && (
-                            <LandingPageModule onNavigate={(module) => setActiveModule(module)} />
+                            <LandingPageModule onNavigate={(module) => requestNavigate(module)} />
                         )}
                         {activeModule === 'GRAPH_BUILDER' && <GraphBuilderModule />}
                         {activeModule === 'CHAT' && (
@@ -489,7 +515,9 @@ const App: React.FC = () => {
                                 onNewChat={handleNewChat}
                             />
                         )}
-                        {activeModule === 'DATA_INSIGHTS' && <DataInsightsModule />}
+                        {activeModule === 'DATA_INSIGHTS' && (
+                            <DataInsightsModule onUnsavedChangesChange={setDataInsightsHasChanges} />
+                        )}
                         {activeModule === 'KNOWLEDGE' && <KnowledgeModule />}
                         {activeModule === 'DATA' && <DataModule />}
                         {activeModule === 'SETTINGS' && (
@@ -502,6 +530,28 @@ const App: React.FC = () => {
                             />
                         )}
                     </div>
+
+                    <LeaveConfirmModal
+                        isOpen={leaveModalOpen}
+                        onStay={() => {
+                            setLeaveModalOpen(false);
+                            setPendingModule(null);
+                        }}
+                        onLeave={() => {
+                            const next = pendingModule;
+                            setLeaveModalOpen(false);
+                            setPendingModule(null);
+                            if (next) setActiveModule(next);
+                        }}
+                        onDiscard={() => {
+                            clearDataInsightsDraft();
+                            setDataInsightsHasChanges(false);
+                            const next = pendingModule;
+                            setLeaveModalOpen(false);
+                            setPendingModule(null);
+                            if (next) setActiveModule(next);
+                        }}
+                    />
                 </main>
 
             </div>

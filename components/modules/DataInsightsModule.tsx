@@ -1,12 +1,26 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { BarChart2, Database, Loader2, Plus, ChevronDown, ChevronRight, Wand2, RefreshCw, Sparkles, Table2, Info, Square, CheckSquare, KeyRound, Link as LinkIcon } from 'lucide-react';
+import { BarChart2, Database, Loader2, Plus, ChevronDown, ChevronRight, Wand2, RefreshCw, Sparkles, Table2, Info, Square, CheckSquare, Check, KeyRound, Link as LinkIcon, ChartLine, ChartNoAxesColumn, ChartScatter, ChartArea, ChartPie, Grid3X3, Columns3, Lightbulb, PenLine, ArrowRight } from 'lucide-react';
 import { Button, Card } from '../ui/Common';
 import { llmApi, mindsdbApi } from '../../services/api';
 import type { MindsDbDatabase, MindsDbSchemaTable, SchemaDescriptionsV2Request, SchemaDescriptionsV2Response } from '../../services/api';
 import { normalizeMindsDbSchemaTables } from '../../utils/mindsdbSchema';
 import { CenteredPanelSkeleton } from '../ui/ModuleSkeletons';
 
-type View = 'EMPTY' | 'BUILDER';
+type View = 'EMPTY' | 'BUILDER' | 'CONFIG' | 'SUMMARY';
+
+interface DataInsightsModuleProps {
+  onUnsavedChangesChange?: (hasChanges: boolean) => void;
+}
+
+// Chart type options with lucide-react icons
+const CHART_TYPES = [
+  { id: 'bar', label: 'Bar Chart', Icon: ChartNoAxesColumn },
+  { id: 'line', label: 'Line Chart', Icon: ChartLine },
+  { id: 'pie', label: 'Pie Chart', Icon: ChartPie },
+  { id: 'area', label: 'Area Chart', Icon: ChartArea },
+  { id: 'scatter', label: 'Scatter Plot', Icon: ChartScatter },
+  { id: 'heatmap', label: 'Heatmap', Icon: Grid3X3 },
+] as const;
 
 interface InsightColumn {
   name: string;
@@ -26,8 +40,9 @@ interface InsightTable {
 }
 
 const LS_SELECTED_DB = 'data_insights_selected_db';
+const LS_DRAFT_PREFIX = 'data_insights_draft_v1:';
 
-export const DataInsightsModule: React.FC = () => {
+export const DataInsightsModule: React.FC<DataInsightsModuleProps> = ({ onUnsavedChangesChange }) => {
   const [dbsState, setDbsState] = useState<'loading' | 'success' | 'error'>('loading');
   const [dbsError, setDbsError] = useState<string>('');
   const [dbs, setDbs] = useState<MindsDbDatabase[]>([]);
@@ -53,10 +68,93 @@ export const DataInsightsModule: React.FC = () => {
   const [autofilling, setAutofilling] = useState<string | null>(null);
   const [batchFilling, setBatchFilling] = useState(false);
 
+  // Config step state
+  const [insightName, setInsightName] = useState('');
+  const [insightContext, setInsightContext] = useState('');
+  const [selectedChartTypes, setSelectedChartTypes] = useState<string[]>([]);
+
   const initializedRef = useRef(false);
+  const draftSaveTimerRef = useRef<number | null>(null);
+
+  type DraftTable = {
+    name: string;
+    selected?: boolean;
+    description?: string;
+    columns?: Array<{ name: string; description?: string }>;
+  };
+
+  type DataInsightsDraftV1 = {
+    version: 1;
+    db: string;
+    updatedAt: number;
+    view: View;
+    insightName: string;
+    insightContext: string;
+    selectedChartTypes: string[];
+    expandedTable: string | null;
+    isTablesPanelCollapsed: boolean;
+    tables: DraftTable[];
+  };
+
+  const draftKeyForDb = (dbName: string) => `${LS_DRAFT_PREFIX}${dbName}`;
+
+  const readDraft = (dbName: string): DataInsightsDraftV1 | null => {
+    if (!dbName) return null;
+    try {
+      const raw = localStorage.getItem(draftKeyForDb(dbName));
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as Partial<DataInsightsDraftV1>;
+      if (parsed.version !== 1 || parsed.db !== dbName) return null;
+      return parsed as DataInsightsDraftV1;
+    } catch {
+      return null;
+    }
+  };
+
+  const mergeDraftIntoTables = (fresh: InsightTable[], draftTables: DraftTable[] | undefined) => {
+    const draftByTable = new Map<string, DraftTable>();
+    (draftTables || []).forEach((t) => {
+      if (t?.name) draftByTable.set(t.name, t);
+    });
+
+    return fresh.map((t) => {
+      const dt = draftByTable.get(t.name);
+      if (!dt) return t;
+      const draftCols = new Map<string, string>();
+      (dt.columns || []).forEach((c) => {
+        if (c?.name) draftCols.set(c.name, String(c.description || ''));
+      });
+
+      return {
+        ...t,
+        selected: typeof dt.selected === 'boolean' ? dt.selected : t.selected,
+        description: typeof dt.description === 'string' ? dt.description : t.description,
+        columns: (t.columns || []).map((c) => ({
+          ...c,
+          description: draftCols.has(c.name) ? (draftCols.get(c.name) || '') : c.description,
+        }))
+      };
+    });
+  };
 
   const selectedCount = useMemo(() => tables.filter(t => t.selected).length, [tables]);
   const areAllSelected = tables.length > 0 && tables.every(t => t.selected);
+
+  const hasChanges = useMemo(() => {
+    if (insightName.trim()) return true;
+    if (insightContext.trim()) return true;
+    if (selectedChartTypes.length > 0) return true;
+    if (tables.some(t =>
+      !!t.selected ||
+      !!t.description?.trim() ||
+      (t.columns || []).some(c => !!c.description?.trim())
+    )) return true;
+    return false;
+  }, [insightName, insightContext, selectedChartTypes, tables]);
+
+  useEffect(() => {
+    onUnsavedChangesChange?.(hasChanges);
+  }, [hasChanges, onUnsavedChangesChange]);
 
   const validation = useMemo(() => {
     const selected = tables.filter(t => t.selected);
@@ -117,7 +215,6 @@ export const DataInsightsModule: React.FC = () => {
 
   // Reset view when DB changes
   useEffect(() => {
-    setView('EMPTY');
     setSchemaState('idle');
     setSchemaError('');
     setTables([]);
@@ -125,6 +222,21 @@ export const DataInsightsModule: React.FC = () => {
     setAutofilling(null);
     setBatchFilling(false);
     setIsTablesPanelCollapsed(false);
+    setInsightName('');
+    setInsightContext('');
+    setSelectedChartTypes([]);
+
+    const draft = readDraft(selectedDb);
+    if (draft) {
+      setView(draft.view || 'BUILDER');
+      setInsightName(draft.insightName || '');
+      setInsightContext(draft.insightContext || '');
+      setSelectedChartTypes(Array.isArray(draft.selectedChartTypes) ? draft.selectedChartTypes : []);
+      setExpandedTable(draft.expandedTable ?? null);
+      setIsTablesPanelCollapsed(!!draft.isTablesPanelCollapsed);
+    } else {
+      setView('EMPTY');
+    }
   }, [selectedDb]);
 
   const toInsightTables = (schemaTables: MindsDbSchemaTable[]): InsightTable[] => {
@@ -161,15 +273,77 @@ export const DataInsightsModule: React.FC = () => {
     try {
       const schemaTables = await mindsdbApi.getDbSchema(selectedDb, options);
       const mapped = toInsightTables(schemaTables);
-      setTables(mapped);
+      const draft = readDraft(selectedDb);
+      const merged = draft ? mergeDraftIntoTables(mapped, draft.tables) : mapped;
+      setTables(merged);
       setSchemaState('success');
-      setExpandedTable(mapped[0]?.name || null);
+      const nextExpanded =
+        draft?.expandedTable && merged.some(t => t.name === draft.expandedTable)
+          ? draft.expandedTable
+          : (merged[0]?.name || null);
+      setExpandedTable(nextExpanded);
     } catch (e: any) {
       setTables([]);
       setSchemaState('error');
       setSchemaError(e?.message || 'Failed to load schema.');
     }
   };
+
+  // If we have a draft that was in-progress, ensure schema is loaded when returning
+  useEffect(() => {
+    if (!selectedDb) return;
+    if (schemaState !== 'idle') return;
+    const draft = readDraft(selectedDb);
+    if (!draft) return;
+    if (draft.view === 'EMPTY') return;
+    void loadSchema();
+  }, [selectedDb, schemaState]);
+
+  // Persist draft (per DB) so manual/AI-filled descriptions survive module switches
+  useEffect(() => {
+    if (!selectedDb) return;
+
+    if (draftSaveTimerRef.current) {
+      window.clearTimeout(draftSaveTimerRef.current);
+      draftSaveTimerRef.current = null;
+    }
+
+    // Save only if there's meaningful progress
+    if (!hasChanges) return;
+
+    draftSaveTimerRef.current = window.setTimeout(() => {
+      const draft: DataInsightsDraftV1 = {
+        version: 1,
+        db: selectedDb,
+        updatedAt: Date.now(),
+        view,
+        insightName,
+        insightContext,
+        selectedChartTypes,
+        expandedTable,
+        isTablesPanelCollapsed,
+        tables: (tables || []).map((t) => ({
+          name: t.name,
+          selected: t.selected,
+          description: t.description,
+          columns: (t.columns || []).map((c) => ({ name: c.name, description: c.description }))
+        }))
+      };
+
+      try {
+        localStorage.setItem(draftKeyForDb(selectedDb), JSON.stringify(draft));
+      } catch {
+        // ignore
+      }
+    }, 250);
+
+    return () => {
+      if (draftSaveTimerRef.current) {
+        window.clearTimeout(draftSaveTimerRef.current);
+        draftSaveTimerRef.current = null;
+      }
+    };
+  }, [selectedDb, view, insightName, insightContext, selectedChartTypes, expandedTable, isTablesPanelCollapsed, tables, hasChanges]);
 
   const reloadSchema = () => {
     void loadSchema({ force: true });
@@ -347,6 +521,71 @@ export const DataInsightsModule: React.FC = () => {
     }
   };
 
+  const isInWizard = view === 'CONFIG' || view === 'SUMMARY';
+
+  type WizardStep = 1 | 2 | 3;
+
+  const WizardStepper: React.FC<{ current: WizardStep }> = ({ current }) => {
+    const StepDot: React.FC<{
+      step: WizardStep;
+      label: string;
+      canClick?: boolean;
+      onClick?: () => void;
+    }> = ({ step, label, canClick = false, onClick }) => {
+      const isCompleted = step < current;
+      const isCurrent = step === current;
+      const baseDot = "w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-extrabold transition-all duration-300 motion-reduce:transition-none";
+      const dotClass = isCurrent
+        ? "bg-brand-600 text-white shadow-sm ring-4 ring-brand-100 dark:ring-brand-900/40"
+        : isCompleted
+          ? "bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-300 border border-brand-200 dark:border-brand-900/40"
+          : "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700";
+
+      const labelClass = isCurrent
+        ? "text-slate-900 dark:text-white"
+        : isCompleted
+          ? "text-slate-700 dark:text-slate-200"
+          : "text-slate-400 dark:text-slate-600";
+
+      return (
+        <button
+          type="button"
+          onClick={canClick ? onClick : undefined}
+          disabled={!canClick}
+          className={`group flex items-center gap-2 ${canClick ? 'cursor-pointer hover:-translate-y-0.5 motion-reduce:hover:translate-y-0' : 'cursor-default'} focus:outline-none`}
+          title={canClick ? `Go to ${label}` : label}
+        >
+          <span
+            className={`${baseDot} ${dotClass} ${canClick ? 'group-hover:shadow-md' : ''}`}
+          >
+            {isCompleted ? <Check className="w-4 h-4" /> : step}
+          </span>
+          <span className={`hidden sm:block text-[11px] font-bold uppercase tracking-wide transition-colors ${labelClass}`}>
+            {label}
+          </span>
+        </button>
+      );
+    };
+
+    const Connector: React.FC<{ active: boolean }> = ({ active }) => (
+      <div className="flex-1 h-px bg-slate-200 dark:bg-slate-800 mx-3 rounded-full overflow-hidden">
+        <div
+          className={`h-full bg-brand-500 transition-all duration-500 motion-reduce:transition-none ${active ? 'w-full' : 'w-0'}`}
+        />
+      </div>
+    );
+
+    return (
+      <div className="flex items-center w-fit">
+        <StepDot step={1} label="Schema" canClick={true} onClick={() => setView('BUILDER')} />
+        <Connector active={current > 1} />
+        <StepDot step={2} label="Configure" canClick={current > 2} onClick={() => setView('CONFIG')} />
+        <Connector active={current > 2} />
+        <StepDot step={3} label="Summary" />
+      </div>
+    );
+  };
+
   const header = (
     <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950">
       <div className="flex items-center gap-3">
@@ -355,16 +594,19 @@ export const DataInsightsModule: React.FC = () => {
         </div>
         <div className="flex flex-col">
           <h1 className="text-lg font-semibold text-slate-900 dark:text-white leading-tight">Data Insights</h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400">Pick a database to start building insights</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            {isInWizard ? 'Creating new insight' : 'Pick a database to start building insights'}
+          </p>
         </div>
       </div>
 
       <div className="flex items-center gap-3">
-        <div className="relative group">
+        {/* DB Selector - disabled when in wizard */}
+        <div className={`relative group ${isInWizard ? 'opacity-50 pointer-events-none' : ''}`}>
           <select
             value={selectedDb}
             onChange={(e) => setSelectedDb(e.target.value)}
-            disabled={dbsState !== 'success' || dbs.length === 0}
+            disabled={dbsState !== 'success' || dbs.length === 0 || isInWizard}
             className="appearance-none pl-10 pr-9 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm font-semibold text-slate-700 dark:text-slate-200 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition-all focus:outline-none focus:ring-2 focus:ring-brand-500/15 min-w-[220px]"
           >
             {dbs.length === 0 ? (
@@ -390,12 +632,22 @@ export const DataInsightsModule: React.FC = () => {
           >
             Create insights
           </Button>
-        ) : (
+        ) : view === 'BUILDER' ? (
           <Button
             onClick={() => setView('EMPTY')}
             variant="secondary"
           >
             Back
+          </Button>
+        ) : (
+          /* In CONFIG or SUMMARY - show Cancel button */
+          <Button
+            onClick={() => setView('BUILDER')}
+            variant="secondary"
+            disabled={true}
+            className="opacity-50 cursor-not-allowed"
+          >
+            Back to Schema
           </Button>
         )}
       </div>
@@ -458,7 +710,7 @@ export const DataInsightsModule: React.FC = () => {
             </Button>
           </div>
         </div>
-      ) : (
+      ) : view === 'BUILDER' ? (
         <div className="flex-1 min-h-0 overflow-hidden flex flex-col animate-fade-in">
           {/* Builder header strip */}
           <div className="px-4 py-2 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 flex items-start md:items-center justify-between gap-3">
@@ -526,7 +778,7 @@ export const DataInsightsModule: React.FC = () => {
 
               <Button
                 disabled={!validation.canProceed}
-                onClick={() => { /* no-op for now */ }}
+                onClick={() => setView('CONFIG')}
                 rightIcon={<ChevronRight className="w-4 h-4" />}
                 className="shadow-brand-600/20"
                 title={
@@ -546,78 +798,78 @@ export const DataInsightsModule: React.FC = () => {
             {/* Left panel */}
             {!isTablesPanelCollapsed ? (
               <div className="lg:w-[260px] flex-shrink-0 min-h-0 flex flex-col">
-              <Card className="shadow-supreme border-0 flex flex-col flex-1 min-h-0" noPadding>
-                <div className="p-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 shrink-0">
-                  <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Tables</div>
-                </div>
+                <Card className="shadow-supreme border-0 flex flex-col flex-1 min-h-0" noPadding>
+                  <div className="p-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 shrink-0">
+                    <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Tables</div>
+                  </div>
 
-                <div className="flex-1 overflow-y-auto custom-scrollbar divide-y divide-slate-100 dark:divide-slate-800 relative">
-                  {schemaState === 'loading' && (
-                    <div className="absolute inset-0 bg-white/80 dark:bg-slate-950/70 flex items-center justify-center z-10 backdrop-blur-sm">
-                      <Loader2 className="w-8 h-8 text-brand-600 animate-spin" />
-                    </div>
-                  )}
-
-                  {schemaState === 'error' && (
-                    <div className="p-6 text-center">
-                      <div className="text-sm font-semibold text-slate-900 dark:text-white">Failed to load schema</div>
-                      <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">{schemaError}</div>
-                      <div className="mt-4">
-                        <Button onClick={reloadSchema} size="sm" leftIcon={<RefreshCw className="w-4 h-4" />}>
-                          Retry
-                        </Button>
+                  <div className="flex-1 overflow-y-auto custom-scrollbar divide-y divide-slate-100 dark:divide-slate-800 relative">
+                    {schemaState === 'loading' && (
+                      <div className="absolute inset-0 bg-white/80 dark:bg-slate-950/70 flex items-center justify-center z-10 backdrop-blur-sm">
+                        <Loader2 className="w-8 h-8 text-brand-600 animate-spin" />
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {schemaState === 'success' && tables.length === 0 && (
-                    <div className="p-8 text-center text-slate-400 text-sm">
-                      No tables found in this database.
-                    </div>
-                  )}
-
-                  {schemaState === 'success' && tables.map((t) => (
-                    <div
-                      key={t.name}
-                      className={`group flex items-center justify-between p-2.5 cursor-pointer transition-all border-l-[3px] ${expandedTable === t.name ? 'bg-brand-50/30 dark:bg-brand-900/10 border-brand-600' : 'border-transparent hover:bg-slate-50 dark:hover:bg-slate-900/40'}`}
-                    >
-                      <div className="flex items-center gap-3 flex-1 overflow-hidden" onClick={() => setExpandedTable(t.name)}>
-                        <div className="relative flex items-center justify-center shrink-0" onClick={(e) => e.stopPropagation()}>
-                          <input
-                            type="checkbox"
-                            checked={t.selected}
-                            onChange={() => toggleTableSelection(t.name)}
-                            className="peer h-4 w-4 cursor-pointer appearance-none rounded border border-slate-300 dark:border-slate-600 transition-all checked:border-brand-600 checked:bg-brand-600 hover:border-brand-400 focus:ring-2 focus:ring-brand-500/20"
-                          />
-                          <svg
-                            className="pointer-events-none absolute h-3 w-3 text-white opacity-0 transition-opacity peer-checked:opacity-100"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            strokeWidth="3"
-                          >
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                        </div>
-
-                        <div className="flex flex-col min-w-0">
-                          <span className={`text-xs truncate ${t.selected ? 'font-bold text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-300'}`}>{t.name}</span>
-                          <span className="text-[10px] text-slate-400 font-medium">{t.columns.length} cols</span>
+                    {schemaState === 'error' && (
+                      <div className="p-6 text-center">
+                        <div className="text-sm font-semibold text-slate-900 dark:text-white">Failed to load schema</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">{schemaError}</div>
+                        <div className="mt-4">
+                          <Button onClick={reloadSchema} size="sm" leftIcon={<RefreshCw className="w-4 h-4" />}>
+                            Retry
+                          </Button>
                         </div>
                       </div>
+                    )}
 
-                      <button
-                        type="button"
-                        onClick={() => setExpandedTable(t.name)}
-                        className={`text-slate-400 hover:text-brand-600 p-1 rounded hover:bg-brand-50 dark:hover:bg-brand-900/15 transition-colors shrink-0 ${expandedTable === t.name ? 'text-brand-600 bg-brand-50 dark:bg-brand-900/15' : ''}`}
-                        title="View details"
+                    {schemaState === 'success' && tables.length === 0 && (
+                      <div className="p-8 text-center text-slate-400 text-sm">
+                        No tables found in this database.
+                      </div>
+                    )}
+
+                    {schemaState === 'success' && tables.map((t) => (
+                      <div
+                        key={t.name}
+                        className={`group flex items-center justify-between p-2.5 cursor-pointer transition-all border-l-[3px] ${expandedTable === t.name ? 'bg-brand-50/30 dark:bg-brand-900/10 border-brand-600' : 'border-transparent hover:bg-slate-50 dark:hover:bg-slate-900/40'}`}
                       >
-                        <ChevronRight className={`w-3.5 h-3.5 transition-transform ${expandedTable === t.name ? 'rotate-90' : ''}`} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </Card>
+                        <div className="flex items-center gap-3 flex-1 overflow-hidden" onClick={() => setExpandedTable(t.name)}>
+                          <div className="relative flex items-center justify-center shrink-0" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              checked={t.selected}
+                              onChange={() => toggleTableSelection(t.name)}
+                              className="peer h-4 w-4 cursor-pointer appearance-none rounded border border-slate-300 dark:border-slate-600 transition-all checked:border-brand-600 checked:bg-brand-600 hover:border-brand-400 focus:ring-2 focus:ring-brand-500/20"
+                            />
+                            <svg
+                              className="pointer-events-none absolute h-3 w-3 text-white opacity-0 transition-opacity peer-checked:opacity-100"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              strokeWidth="3"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+
+                          <div className="flex flex-col min-w-0">
+                            <span className={`text-xs truncate ${t.selected ? 'font-bold text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-300'}`}>{t.name}</span>
+                            <span className="text-[10px] text-slate-400 font-medium">{t.columns.length} cols</span>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => setExpandedTable(t.name)}
+                          className={`text-slate-400 hover:text-brand-600 p-1 rounded hover:bg-brand-50 dark:hover:bg-brand-900/15 transition-colors shrink-0 ${expandedTable === t.name ? 'text-brand-600 bg-brand-50 dark:bg-brand-900/15' : ''}`}
+                          title="View details"
+                        >
+                          <ChevronRight className={`w-3.5 h-3.5 transition-transform ${expandedTable === t.name ? 'rotate-90' : ''}`} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
               </div>
             ) : null}
 
@@ -747,7 +999,312 @@ export const DataInsightsModule: React.FC = () => {
             </div>
           </div>
         </div>
-      )}
+      ) : view === 'CONFIG' ? (
+        /* CONFIG STEP - Name, Context & Chart Preferences */
+        <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar bg-[#f8fafc] dark:bg-slate-950 relative">
+          {/* Background Visuals (match Graph Builder vibe, subtle) */}
+          <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+            <div
+              className="absolute inset-0 opacity-[0.03] dark:opacity-[0.06]"
+              style={{
+                backgroundImage: 'radial-gradient(#0f172a 1px, transparent 1px)',
+                backgroundSize: '24px 24px'
+              }}
+            />
+            <div className="absolute -top-[10%] -left-[10%] w-[50vw] h-[50vw] bg-brand-200/20 rounded-full blur-[100px] animate-pulse-slow motion-reduce:animate-none" />
+            <div className="absolute bottom-0 right-0 w-[40vw] h-[40vw] bg-blue-100/30 dark:bg-slate-800/30 rounded-full blur-[90px]" />
+          </div>
+
+          <div className="relative z-10 p-4 sm:p-6 animate-fade-in motion-reduce:animate-none" style={{ animationDuration: '0.35s' }}>
+            <div className="max-w-5xl mx-auto w-full">
+              {/* Title + Step Pills */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                <div>
+                  <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">Configure Insight</h1>
+                  <p className="text-slate-500 dark:text-slate-400 mt-1 text-sm">
+                    Add a name, context, and visualization preferences.
+                  </p>
+                </div>
+
+                <WizardStepper current={2} />
+              </div>
+
+              <Card
+                noPadding
+                className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 motion-reduce:transition-none motion-reduce:hover:translate-y-0 overflow-hidden focus-within:ring-2 focus-within:ring-brand-500/20"
+              >
+                {/* Header */}
+                <div className="p-6 border-b border-slate-100 dark:border-slate-800 bg-white/70 dark:bg-slate-950/40 backdrop-blur-xl">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-xl bg-brand-50 dark:bg-brand-900/15 border border-brand-100 dark:border-brand-900/40 flex items-center justify-center text-brand-700 dark:text-brand-300">
+                      <Lightbulb className="w-6 h-6" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-base font-extrabold text-slate-900 dark:text-white">Insight details</div>
+                      <div className="text-sm text-slate-500 dark:text-slate-400">
+                        These fields help generate better insights and charts.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Content */}
+                <div className="p-6 space-y-5">
+                  <div className="group">
+                    <label className="flex items-center gap-2 text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wide mb-2">
+                      <span className="w-5 h-5 rounded-md bg-brand-50 dark:bg-brand-900/20 border border-brand-100 dark:border-brand-900/40 flex items-center justify-center">
+                        <PenLine className="w-3 h-3 text-brand-600 dark:text-brand-300" />
+                      </span>
+                      Insight Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={insightName}
+                      onChange={(e) => setInsightName(e.target.value)}
+                      placeholder="e.g. Monthly Sales Performance"
+                      className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-semibold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all shadow-sm hover:border-brand-300"
+                    />
+                    <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                      Use a short, descriptive name that will appear in your insights list.
+                    </p>
+                  </div>
+
+                  <div className="group">
+                    <label className="flex items-center gap-2 text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wide mb-2">
+                      <span className="w-5 h-5 rounded-md bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center">
+                        <Info className="w-3 h-3 text-slate-500" />
+                      </span>
+                      Context & Instructions
+                    </label>
+                    <textarea
+                      value={insightContext}
+                      onChange={(e) => setInsightContext(e.target.value)}
+                      placeholder="Describe what you want to learn. Examples:
+- Focus on monthly revenue trends
+- Compare performance across regions
+- Highlight top products"
+                      rows={5}
+                      className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all shadow-sm hover:border-brand-300 resize-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="flex items-center gap-2 text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wide mb-2">
+                      <span className="w-5 h-5 rounded-md bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center">
+                        <BarChart2 className="w-3 h-3 text-slate-500" />
+                      </span>
+                      Preferred Visualizations
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {CHART_TYPES.map((chart) => {
+                        const isSelected = selectedChartTypes.includes(chart.id);
+                        return (
+                          <button
+                            key={chart.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedChartTypes(prev =>
+                                isSelected ? prev.filter(id => id !== chart.id) : [...prev, chart.id]
+                              );
+                            }}
+                            className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl text-[11px] font-bold transition-all duration-300 motion-reduce:transition-none border hover:-translate-y-0.5 motion-reduce:hover:translate-y-0 ${isSelected
+                              ? 'bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-300 border-brand-200 dark:border-brand-900/40 shadow-sm'
+                              : 'bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-sm'
+                              }`}
+                          >
+                            <chart.Icon className={`w-4 h-4 ${isSelected ? 'text-brand-600 dark:text-brand-300' : 'text-slate-500 dark:text-slate-400'}`} />
+                            {chart.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="p-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30 flex items-center justify-between gap-3">
+                  <Button
+                    variant="secondary"
+                    onClick={() => setView('BUILDER')}
+                    className="text-slate-700 dark:text-slate-200"
+                  >
+                    Back to Schema
+                  </Button>
+                  <Button
+                    onClick={() => setView('SUMMARY')}
+                    disabled={!insightName.trim()}
+                    rightIcon={<ChevronRight className="w-4 h-4" />}
+                    className="shadow-brand-600/20"
+                  >
+                    Continue
+                  </Button>
+                </div>
+              </Card>
+            </div>
+          </div>
+        </div>
+      ) : view === 'SUMMARY' ? (
+        /* SUMMARY STEP - Review before creation */
+        <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar bg-[#f8fafc] dark:bg-slate-950 relative">
+          {/* Background Visuals (match Graph Builder vibe, subtle) */}
+          <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+            <div
+              className="absolute inset-0 opacity-[0.03] dark:opacity-[0.06]"
+              style={{
+                backgroundImage: 'radial-gradient(#0f172a 1px, transparent 1px)',
+                backgroundSize: '24px 24px'
+              }}
+            />
+            <div className="absolute -top-[10%] -left-[10%] w-[50vw] h-[50vw] bg-brand-200/20 rounded-full blur-[100px] animate-pulse-slow motion-reduce:animate-none" />
+            <div className="absolute bottom-0 right-0 w-[40vw] h-[40vw] bg-blue-100/30 dark:bg-slate-800/30 rounded-full blur-[90px]" />
+          </div>
+
+          <div className="relative z-10 p-4 sm:p-6 animate-fade-in motion-reduce:animate-none" style={{ animationDuration: '0.35s' }}>
+            <div className="max-w-5xl mx-auto w-full">
+              {/* Title + Step Pills */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                <div>
+                  <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">Review & Create</h1>
+                  <p className="text-slate-500 dark:text-slate-400 mt-1 text-sm">
+                    Confirm your configuration before creating the insight.
+                  </p>
+                </div>
+
+                <WizardStepper current={3} />
+              </div>
+
+              <Card
+                noPadding
+                className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 motion-reduce:transition-none motion-reduce:hover:translate-y-0 overflow-hidden focus-within:ring-2 focus-within:ring-brand-500/20"
+              >
+                {/* Header */}
+                <div className="p-6 border-b border-slate-100 dark:border-slate-800 bg-white/70 dark:bg-slate-950/40 backdrop-blur-xl">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-xl bg-brand-50 dark:bg-brand-900/15 border border-brand-100 dark:border-brand-900/40 flex items-center justify-center text-brand-700 dark:text-brand-300">
+                      <BarChart2 className="w-6 h-6" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-base font-extrabold text-slate-900 dark:text-white">Summary</div>
+                      <div className="text-sm text-slate-500 dark:text-slate-400">
+                        Review your inputs and selected schema scope.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Content */}
+                <div className="p-6 space-y-4">
+                  {/* Insight Name */}
+                  <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-950/30 p-5">
+                    <div className="flex items-start gap-4">
+                      <div className="w-12 h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-center shadow-sm">
+                        <Lightbulb className="w-6 h-6 text-brand-600 dark:text-brand-300" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Insight Name</div>
+                        <div className="text-lg font-extrabold text-slate-900 dark:text-white mt-0.5 truncate" title={insightName}>
+                          {insightName}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Stats */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 motion-reduce:transition-none motion-reduce:hover:translate-y-0 p-5 text-center">
+                      <div className="w-10 h-10 rounded-xl bg-brand-50 dark:bg-brand-900/20 border border-brand-100 dark:border-brand-900/40 flex items-center justify-center mx-auto mb-3">
+                        <Table2 className="w-5 h-5 text-brand-700 dark:text-brand-300" />
+                      </div>
+                      <div className="text-3xl font-extrabold text-slate-900 dark:text-white">{selectedCount}</div>
+                      <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1">Tables</div>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 motion-reduce:transition-none motion-reduce:hover:translate-y-0 p-5 text-center">
+                      <div className="w-10 h-10 rounded-xl bg-brand-50 dark:bg-brand-900/20 border border-brand-100 dark:border-brand-900/40 flex items-center justify-center mx-auto mb-3">
+                        <Columns3 className="w-5 h-5 text-brand-700 dark:text-brand-300" />
+                      </div>
+                      <div className="text-3xl font-extrabold text-slate-900 dark:text-white">
+                        {tables.filter(t => t.selected).reduce((acc, t) => acc + t.columns.length, 0)}
+                      </div>
+                      <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1">Columns</div>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 motion-reduce:transition-none motion-reduce:hover:translate-y-0 p-5 text-center">
+                      <div className="w-10 h-10 rounded-xl bg-brand-50 dark:bg-brand-900/20 border border-brand-100 dark:border-brand-900/40 flex items-center justify-center mx-auto mb-3">
+                        <BarChart2 className="w-5 h-5 text-brand-700 dark:text-brand-300" />
+                      </div>
+                      <div className="text-3xl font-extrabold text-slate-900 dark:text-white">{selectedChartTypes.length}</div>
+                      <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1">Chart Types</div>
+                    </div>
+                  </div>
+
+                  {/* Context */}
+                  {insightContext.trim() && (
+                    <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-5">
+                      <div className="flex items-center gap-2 text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wide mb-2">
+                        <Info className="w-4 h-4 text-slate-500" />
+                        Context
+                      </div>
+                      <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed line-clamp-4">
+                        {insightContext}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Selected charts */}
+                  {selectedChartTypes.length > 0 && (
+                    <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-5">
+                      <div className="flex items-center gap-2 text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wide mb-3">
+                        <BarChart2 className="w-4 h-4 text-slate-500" />
+                        Visualizations
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedChartTypes.map(chartId => {
+                          const chart = CHART_TYPES.find(c => c.id === chartId);
+                          if (!chart) return null;
+                          return (
+                            <span
+                              key={chartId}
+                              className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-700 dark:text-slate-200"
+                            >
+                              <chart.Icon className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                              {chart.label}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Footer */}
+                <div className="p-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30 flex items-center justify-between gap-3">
+                  <Button
+                    variant="secondary"
+                    onClick={() => setView('CONFIG')}
+                    className="text-slate-700 dark:text-slate-200"
+                  >
+                    Back
+                  </Button>
+                  <Button
+                    disabled={true}
+                    variant="secondary"
+                    rightIcon={<ArrowRight className="w-4 h-4" />}
+                    className="px-6 bg-slate-900 hover:bg-slate-800 text-white border border-transparent shadow-sm opacity-60 cursor-not-allowed disabled:bg-slate-900 disabled:hover:bg-slate-900"
+                    title="Create Insight is coming soon"
+                  >
+                    Create Insight
+                  </Button>
+                </div>
+              </Card>
+
+              <div className="mt-3 text-center">
+                <p className="text-xs text-slate-400 dark:text-slate-500">
+                  Create Insight is coming soon.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };
