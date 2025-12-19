@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { Bot, MoreHorizontal, Loader2, Sparkles, Copy, BarChart2, Hammer, X, Terminal, Code, Paperclip, ArrowUp, Check, User, Square } from 'lucide-react';
+import { Bot, MoreHorizontal, Loader2, Sparkles, Copy, BarChart2, Hammer, X, Terminal, Code, Paperclip, ArrowUp, Check, User, Square, PenLine, Mic, MicOff } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ToolVisualization, ToolCall } from '../chat/ToolVisualization';
@@ -35,6 +35,7 @@ const generateUUID = () => {
 interface ChatModuleProps {
     sessionId: string;
     onSessionUpdate: () => void;
+    onNewChat?: () => void;
 }
 
 interface DbConfig {
@@ -43,7 +44,7 @@ interface DbConfig {
     componentId?: string; // agent_id/team_id/workflow_id
 }
 
-export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpdate }) => {
+export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpdate, onNewChat }) => {
     const [messages, setMessages] = useState<Message[]>([]);
     const [inputValue, setInputValue] = useState('');
     const [isTyping, setIsTyping] = useState(false);
@@ -73,6 +74,121 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
     // UI States
     const [showAgentMenu, setShowAgentMenu] = useState(false);
     const [isInputFocused, setIsInputFocused] = useState(false);
+
+    // --- Dictation (Speech-to-Text) ---
+    const [isDictating, setIsDictating] = useState(false);
+    const recognitionRef = useRef<any>(null);
+    const dictationCommittedRef = useRef<string>('');
+
+    const speechRecognitionCtor = useMemo(() => {
+        if (typeof window === 'undefined') return null;
+        const w = window as any;
+        return w.SpeechRecognition || w.webkitSpeechRecognition || null;
+    }, []);
+
+    const isDictationSupported = !!speechRecognitionCtor;
+
+    const appendWithSpace = useCallback((base: string, chunk: string) => {
+        const b = String(base || '');
+        const c = String(chunk || '');
+        if (!c.trim()) return b;
+        if (!b.trim()) return c.trim();
+        const needsSpace = !/\s$/.test(b);
+        return `${b}${needsSpace ? ' ' : ''}${c.trim()}`;
+    }, []);
+
+    const stopDictation = useCallback(() => {
+        try {
+            recognitionRef.current?.stop?.();
+        } catch {
+            // ignore
+        }
+        recognitionRef.current = null;
+        setIsDictating(false);
+    }, []);
+
+    const startDictation = useCallback(() => {
+        if (!speechRecognitionCtor) {
+            toast.error('Voice dictation is not supported in this browser.');
+            return;
+        }
+        if (isDictating) return;
+        if (isTyping) return; // avoid dictating while a response is streaming
+
+        // Create a new recognition instance each time (avoids stale event handlers).
+        const recognition = new speechRecognitionCtor();
+        recognitionRef.current = recognition;
+
+        dictationCommittedRef.current = inputValue || '';
+        setIsDictating(true);
+
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        try {
+            recognition.lang = navigator.language || 'en-US';
+        } catch {
+            // ignore
+        }
+
+        recognition.onresult = (event: any) => {
+            let interim = '';
+            let finalChunk = '';
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                const res = event.results[i];
+                const txt = res?.[0]?.transcript ?? '';
+                if (res?.isFinal) finalChunk += txt;
+                else interim += txt;
+            }
+
+            if (finalChunk.trim()) {
+                dictationCommittedRef.current = appendWithSpace(dictationCommittedRef.current, finalChunk);
+            }
+
+            const draft = interim.trim()
+                ? appendWithSpace(dictationCommittedRef.current, interim)
+                : dictationCommittedRef.current;
+
+            setInputValue(draft);
+        };
+
+        recognition.onerror = (event: any) => {
+            const code = event?.error || 'unknown';
+            if (code === 'not-allowed' || code === 'service-not-allowed') {
+                toast.error('Microphone permission was denied.');
+            } else if (code === 'no-speech') {
+                toast.info('No speech detected.');
+            } else {
+                toast.error(`Dictation error: ${code}`);
+            }
+            stopDictation();
+        };
+
+        recognition.onend = () => {
+            recognitionRef.current = null;
+            setIsDictating(false);
+        };
+
+        try {
+            recognition.start();
+            // Ensure the input is focused so user sees live text.
+            setTimeout(() => textareaRef.current?.focus?.(), 0);
+        } catch {
+            toast.error('Failed to start dictation.');
+            stopDictation();
+        }
+    }, [appendWithSpace, inputValue, isDictating, isTyping, speechRecognitionCtor, stopDictation]);
+
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            try {
+                recognitionRef.current?.stop?.();
+            } catch {
+                // ignore
+            }
+            recognitionRef.current = null;
+        };
+    }, []);
 
     // Streaming status (rotates every ~3s while assistant is streaming)
     const STREAMING_VERBS = useMemo(
@@ -464,6 +580,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
     };
 
     const handleSend = async (overrideText?: unknown) => {
+        if (isDictating) stopDictation();
         const userId = authApi.getCurrentUser();
         const override =
             typeof overrideText === 'string'
@@ -752,9 +869,24 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
                         <span className="font-bold text-slate-900 text-sm">Chat</span>
                     </div>
 
-                    <button className="absolute right-4 text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
-                        <MoreHorizontal className="w-4 h-4" />
-                    </button>
+                    <div className="absolute right-4 flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={() => onNewChat?.()}
+                            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors text-xs font-semibold"
+                            title="New chat"
+                        >
+                            <PenLine className="w-3.5 h-3.5" />
+                            New chat
+                        </button>
+                        <button
+                            type="button"
+                            className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+                            title="More"
+                        >
+                            <MoreHorizontal className="w-4 h-4" />
+                        </button>
+                    </div>
                 </div>
 
                 {/* Messages */}
@@ -1066,7 +1198,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
                                 <div className={`relative ${isInputFocused ? 'flex items-center gap-2 px-3 py-2' : 'flex items-center justify-center px-3 py-2'}`}>
                                     <textarea
                                         ref={textareaRef}
-                                        className={`bg-transparent border-none ring-0 focus:ring-0 focus:outline-none outline-none shadow-none focus:shadow-none resize-none text-sm text-slate-900 placeholder:text-slate-400 overflow-y-auto custom-scrollbar transition-all duration-300 leading-[36px] ${isInputFocused ? 'flex-1 min-h-[40px] max-h-[120px] text-left placeholder:text-left pr-0 leading-normal' : 'w-full min-h-[36px] max-h-[36px] text-center placeholder:text-center pr-12'}`}
+                                        className={`bg-transparent border-none ring-0 focus:ring-0 focus:outline-none outline-none shadow-none focus:shadow-none resize-none text-sm text-slate-900 placeholder:text-slate-400 overflow-y-auto custom-scrollbar transition-all duration-300 leading-[36px] ${isInputFocused ? 'flex-1 min-h-[40px] max-h-[120px] text-left placeholder:text-left pr-0 leading-normal' : 'w-full min-h-[36px] max-h-[36px] text-center placeholder:text-center pr-24'}`}
                                         placeholder={isLoadingAgents ? "Loading..." : "Ask anything..."}
                                         value={inputValue}
                                         onChange={handleInputChange}
@@ -1081,6 +1213,34 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
                                         disabled={isLoadingAgents || !selectedAgentId}
                                         rows={1}
                                     />
+
+                                    {/* Voice (Dictation) Button */}
+                                    <button
+                                        type="button"
+                                        className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-200 shrink-0 ${isInputFocused ? '' : 'absolute right-12 top-1/2 -translate-y-1/2'}`}
+                                        onClick={() => (isDictating ? stopDictation() : startDictation())}
+                                        disabled={!isDictationSupported || isLoadingAgents || !selectedAgentId || isTyping}
+                                        title={
+                                            !isDictationSupported
+                                                ? 'Voice dictation is not supported in this browser'
+                                                : isTyping
+                                                    ? 'Wait for the current response to finish'
+                                                    : isDictating
+                                                        ? 'Stop dictation'
+                                                        : 'Start dictation'
+                                        }
+                                    >
+                                        <div
+                                            className={`w-full h-full rounded-xl flex items-center justify-center transition-colors ${(!isDictationSupported || isLoadingAgents || !selectedAgentId || isTyping)
+                                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                                : isDictating
+                                                    ? 'bg-red-600 text-white hover:bg-red-700 shadow-md'
+                                                    : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+                                                }`}
+                                        >
+                                            {isDictating ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                                        </div>
+                                    </button>
 
                                     {/* Send Button */}
                                     <button

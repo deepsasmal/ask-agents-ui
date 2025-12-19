@@ -495,6 +495,7 @@ const App: React.FC = () => {
                             <ChatModule
                                 sessionId={currentSessionId}
                                 onSessionUpdate={refreshSessions}
+                                onNewChat={handleNewChat}
                             />
                         )}
                         {activeModule === 'DATA_INSIGHTS' && <DataInsightsModule />}
