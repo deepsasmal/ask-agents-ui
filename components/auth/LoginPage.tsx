@@ -1,11 +1,333 @@
-import React, { useState } from 'react';
-import { Network, Eye, EyeOff, Mail, Lock, Sparkles, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Network, Eye, EyeOff, Mail, Lock, AlertCircle } from 'lucide-react';
 import { Button } from '../ui/Common';
 import { authApi, ApiError } from '../../services/api';
 
 interface LoginPageProps {
     onLogin: () => void;
 }
+
+// Node type for graph animation
+interface GraphNode {
+    id: number;
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    radius: number;
+    pulsePhase: number;
+    type: 'primary' | 'secondary' | 'tertiary';
+}
+
+// Animated Graph Background Component
+const AnimatedGraph: React.FC = () => {
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const animationRef = useRef<number>();
+    const nodesRef = useRef<GraphNode[]>([]);
+    const mouseRef = useRef({ x: 0, y: 0, active: false });
+    const lastSpawnRef = useRef<number>(0);
+
+    const initNodes = useCallback((width: number, height: number) => {
+        const nodes: GraphNode[] = [];
+        const nodeCount = Math.floor((width * height) / 15000); // Density based on area
+        
+        for (let i = 0; i < Math.min(nodeCount, 60); i++) {
+            const type = i < 5 ? 'primary' : i < 20 ? 'secondary' : 'tertiary';
+            nodes.push({
+                id: i,
+                x: Math.random() * width,
+                y: Math.random() * height,
+                vx: (Math.random() - 0.5) * 0.3,
+                vy: (Math.random() - 0.5) * 0.3,
+                radius: type === 'primary' ? 6 : type === 'secondary' ? 4 : 2.5,
+                pulsePhase: Math.random() * Math.PI * 2,
+                type,
+            });
+        }
+        return nodes;
+    }, []);
+
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        const resizeCanvas = () => {
+            const rect = canvas.parentElement?.getBoundingClientRect();
+            if (rect) {
+                canvas.width = rect.width;
+                canvas.height = rect.height;
+                nodesRef.current = initNodes(canvas.width, canvas.height);
+            }
+        };
+
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        const handleMouseMove = (e: MouseEvent) => {
+            const rect = canvas.getBoundingClientRect();
+            mouseRef.current = {
+                x: e.clientX - rect.left,
+                y: e.clientY - rect.top,
+                active: true
+            };
+        };
+
+        const handleMouseLeave = () => {
+            mouseRef.current.active = false;
+        };
+
+        canvas.addEventListener('mousemove', handleMouseMove);
+        canvas.addEventListener('mouseleave', handleMouseLeave);
+
+        let time = 0;
+
+        const animate = () => {
+            if (!ctx || !canvas) return;
+            
+            time += 0.016;
+            const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const nodes = nodesRef.current;
+            const baseConnectionDistance = Math.min(canvas.width, canvas.height) * 0.2;
+            const connectionDistance = mouseRef.current.active ? baseConnectionDistance * 1.35 : baseConnectionDistance;
+
+            // Mouse-reactive growth: spawn new nodes near the cursor as you hover/move.
+            // Capped for performance (feels "alive" without runaway node counts).
+            if (mouseRef.current.active && now - lastSpawnRef.current > 120) {
+                lastSpawnRef.current = now;
+                const maxNodes = 90;
+                const spawnCount = nodes.length < 45 ? 2 : 1;
+                for (let s = 0; s < spawnCount; s++) {
+                    if (nodesRef.current.length >= maxNodes) break;
+                    const id = nodesRef.current.length > 0 ? nodesRef.current[nodesRef.current.length - 1].id + 1 : 0;
+                    const jitter = 36;
+                    const x = mouseRef.current.x + (Math.random() - 0.5) * jitter;
+                    const y = mouseRef.current.y + (Math.random() - 0.5) * jitter;
+                    const type: GraphNode['type'] = nodesRef.current.length % 8 === 0 ? 'secondary' : 'tertiary';
+                    nodesRef.current.push({
+                        id,
+                        x: Math.max(20, Math.min(canvas.width - 20, x)),
+                        y: Math.max(20, Math.min(canvas.height - 20, y)),
+                        vx: (Math.random() - 0.5) * 0.55,
+                        vy: (Math.random() - 0.5) * 0.55,
+                        radius: type === 'secondary' ? 4 : 2.5,
+                        pulsePhase: Math.random() * Math.PI * 2,
+                        type,
+                    });
+                }
+            }
+
+            // Update node positions
+            nodes.forEach(node => {
+                node.x += node.vx;
+                node.y += node.vy;
+
+                // Boundary bounce with padding
+                const padding = 50;
+                if (node.x < padding || node.x > canvas.width - padding) {
+                    node.vx *= -1;
+                    node.x = Math.max(padding, Math.min(canvas.width - padding, node.x));
+                }
+                if (node.y < padding || node.y > canvas.height - padding) {
+                    node.vy *= -1;
+                    node.y = Math.max(padding, Math.min(canvas.height - padding, node.y));
+                }
+
+                // Mouse interaction - nodes attract slightly to cursor
+                if (mouseRef.current.active) {
+                    const dx = mouseRef.current.x - node.x;
+                    const dy = mouseRef.current.y - node.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < 200 && dist > 0) {
+                        const force = 0.0003 * (200 - dist);
+                        node.vx += (dx / dist) * force;
+                        node.vy += (dy / dist) * force;
+                    }
+                }
+
+                // Limit velocity
+                const maxVel = 0.5;
+                const vel = Math.sqrt(node.vx * node.vx + node.vy * node.vy);
+                if (vel > maxVel) {
+                    node.vx = (node.vx / vel) * maxVel;
+                    node.vy = (node.vy / vel) * maxVel;
+                }
+            });
+
+            // Draw connections
+            for (let i = 0; i < nodes.length; i++) {
+                for (let j = i + 1; j < nodes.length; j++) {
+                    const dx = nodes[j].x - nodes[i].x;
+                    const dy = nodes[j].y - nodes[i].y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+
+                    if (dist < connectionDistance) {
+                        const opacity = (1 - dist / connectionDistance) * 0.4;
+                        
+                        // Create gradient for connection lines
+                        const gradient = ctx.createLinearGradient(
+                            nodes[i].x, nodes[i].y,
+                            nodes[j].x, nodes[j].y
+                        );
+                        gradient.addColorStop(0, `rgba(52, 211, 153, ${opacity})`);
+                        gradient.addColorStop(0.5, `rgba(16, 185, 129, ${opacity * 1.2})`);
+                        gradient.addColorStop(1, `rgba(52, 211, 153, ${opacity})`);
+
+                        ctx.beginPath();
+                        ctx.strokeStyle = gradient;
+                        ctx.lineWidth = nodes[i].type === 'primary' || nodes[j].type === 'primary' ? 1.5 : 0.8;
+                        ctx.moveTo(nodes[i].x, nodes[i].y);
+                        ctx.lineTo(nodes[j].x, nodes[j].y);
+                        ctx.stroke();
+
+                        // Animated pulse along connection
+                        if (nodes[i].type === 'primary' || nodes[j].type === 'primary') {
+                            const pulsePos = (time * 0.5 + nodes[i].id * 0.1) % 1;
+                            const pulseX = nodes[i].x + dx * pulsePos;
+                            const pulseY = nodes[i].y + dy * pulsePos;
+                            
+                            const pulseGradient = ctx.createRadialGradient(
+                                pulseX, pulseY, 0,
+                                pulseX, pulseY, 4
+                            );
+                            pulseGradient.addColorStop(0, `rgba(52, 211, 153, ${opacity * 2})`);
+                            pulseGradient.addColorStop(1, 'rgba(52, 211, 153, 0)');
+                            
+                            ctx.beginPath();
+                            ctx.fillStyle = pulseGradient;
+                            ctx.arc(pulseX, pulseY, 4, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                    }
+                }
+            }
+
+            // Extra cursor-local edges for a stronger “listens to mouse” feel
+            if (mouseRef.current.active) {
+                // Connect cursor to nearest few nodes with a soft glow
+                const nearest = [...nodes]
+                    .map(n => ({ n, d: Math.hypot(n.x - mouseRef.current.x, n.y - mouseRef.current.y) }))
+                    .sort((a, b) => a.d - b.d)
+                    .slice(0, 6);
+                nearest.forEach(({ n, d }, idx) => {
+                    const maxD = 220;
+                    if (d > maxD) return;
+                    const opacity = (1 - d / maxD) * 0.35;
+                    const grad = ctx.createLinearGradient(mouseRef.current.x, mouseRef.current.y, n.x, n.y);
+                    grad.addColorStop(0, `rgba(110, 231, 183, ${opacity})`);
+                    grad.addColorStop(1, `rgba(16, 185, 129, ${opacity * 0.9})`);
+                    ctx.beginPath();
+                    ctx.strokeStyle = grad;
+                    ctx.lineWidth = idx < 2 ? 1.6 : 1.0;
+                    ctx.moveTo(mouseRef.current.x, mouseRef.current.y);
+                    ctx.lineTo(n.x, n.y);
+                    ctx.stroke();
+                });
+
+                // Cursor glow point
+                const glow = ctx.createRadialGradient(mouseRef.current.x, mouseRef.current.y, 0, mouseRef.current.x, mouseRef.current.y, 28);
+                glow.addColorStop(0, 'rgba(52, 211, 153, 0.22)');
+                glow.addColorStop(1, 'rgba(52, 211, 153, 0)');
+                ctx.beginPath();
+                ctx.fillStyle = glow;
+                ctx.arc(mouseRef.current.x, mouseRef.current.y, 28, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Draw nodes
+            nodes.forEach(node => {
+                const pulse = Math.sin(time * 2 + node.pulsePhase) * 0.3 + 1;
+                const currentRadius = node.radius * pulse;
+
+                // Outer glow
+                const glowRadius = currentRadius * 3;
+                const glowGradient = ctx.createRadialGradient(
+                    node.x, node.y, 0,
+                    node.x, node.y, glowRadius
+                );
+                
+                if (node.type === 'primary') {
+                    glowGradient.addColorStop(0, 'rgba(52, 211, 153, 0.4)');
+                    glowGradient.addColorStop(0.5, 'rgba(16, 185, 129, 0.15)');
+                    glowGradient.addColorStop(1, 'rgba(16, 185, 129, 0)');
+                } else if (node.type === 'secondary') {
+                    glowGradient.addColorStop(0, 'rgba(110, 231, 183, 0.3)');
+                    glowGradient.addColorStop(1, 'rgba(110, 231, 183, 0)');
+                } else {
+                    glowGradient.addColorStop(0, 'rgba(167, 243, 208, 0.2)');
+                    glowGradient.addColorStop(1, 'rgba(167, 243, 208, 0)');
+                }
+
+                ctx.beginPath();
+                ctx.fillStyle = glowGradient;
+                ctx.arc(node.x, node.y, glowRadius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Core node
+                const coreGradient = ctx.createRadialGradient(
+                    node.x - currentRadius * 0.3, node.y - currentRadius * 0.3, 0,
+                    node.x, node.y, currentRadius
+                );
+
+                if (node.type === 'primary') {
+                    coreGradient.addColorStop(0, '#6ee7b7');
+                    coreGradient.addColorStop(0.6, '#34d399');
+                    coreGradient.addColorStop(1, '#10b981');
+                } else if (node.type === 'secondary') {
+                    coreGradient.addColorStop(0, '#a7f3d0');
+                    coreGradient.addColorStop(1, '#6ee7b7');
+                } else {
+                    coreGradient.addColorStop(0, '#d1fae5');
+                    coreGradient.addColorStop(1, '#a7f3d0');
+                }
+
+                ctx.beginPath();
+                ctx.fillStyle = coreGradient;
+                ctx.arc(node.x, node.y, currentRadius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Highlight
+                if (node.type === 'primary') {
+                    ctx.beginPath();
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                    ctx.arc(
+                        node.x - currentRadius * 0.25,
+                        node.y - currentRadius * 0.25,
+                        currentRadius * 0.25,
+                        0,
+                        Math.PI * 2
+                    );
+                    ctx.fill();
+                }
+            });
+
+            animationRef.current = requestAnimationFrame(animate);
+        };
+
+        animate();
+
+        return () => {
+            window.removeEventListener('resize', resizeCanvas);
+            canvas.removeEventListener('mousemove', handleMouseMove);
+            canvas.removeEventListener('mouseleave', handleMouseLeave);
+            if (animationRef.current) {
+                cancelAnimationFrame(animationRef.current);
+            }
+        };
+    }, [initNodes]);
+
+    return (
+        <canvas
+            ref={canvasRef}
+            className="absolute inset-0 w-full h-full"
+            style={{ opacity: 0.9 }}
+        />
+    );
+};
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
     const [activeTab, setActiveTab] = useState<'signin' | 'signup'>('signin');
@@ -45,10 +367,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
     };
 
     return (
-        <div className="flex h-screen w-full bg-white overflow-hidden font-sans">
+        <div className="flex h-[100svh] w-full bg-white font-sans overflow-hidden lg:overflow-hidden">
             {/* Left Panel - Form */}
-            <div className="w-full lg:w-[45%] xl:w-[40%] flex flex-col justify-center p-4 md:p-8 lg:p-10 h-full overflow-y-auto [&::-webkit-scrollbar]:hidden relative bg-white z-10">
-
+            <div className="login-shell w-full lg:w-1/2 xl:w-[45%] flex flex-col justify-center px-6 py-6 sm:px-8 sm:py-8 md:px-12 lg:px-16 xl:px-20 h-full overflow-hidden relative bg-white z-10">
+                
                 {/* Developer Bypass Button */}
                 <button
                     onClick={() => {
@@ -63,171 +385,212 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                     [DEV: BYPASS AUTH]
                 </button>
 
-                <div className="max-w-sm w-full mx-auto flex flex-col h-full justify-center">
+                <div className="login-content w-full max-w-md mx-auto">
                     {/* Logo */}
-                    <div className="flex items-center gap-2.5 mb-3 shrink-0">
-                        <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-white shadow-lg shadow-slate-200">
-                            <Network className="w-5 h-5" />
+                    <div className="flex items-center gap-3 mb-[clamp(0.75rem,3vh,2rem)]">
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center text-white shadow-xl shadow-slate-200/50">
+                            <Network className="w-6 h-6" />
                         </div>
-                        <span className="font-bold text-2xl tracking-tight text-slate-900 leading-none">Ask<span className="text-brand-600">Agents</span></span>
+                        <span className="font-bold text-2xl tracking-tight text-slate-900">Ask<span className="text-brand-600">Agents</span></span>
                     </div>
 
                     <div className="animate-fade-in-up">
-                        <h1 className="text-2xl md:text-3xl font-bold text-slate-900 mb-1">Welcome Back!</h1>
-                        <p className="text-sm text-slate-500 mb-3 leading-relaxed">We are happy to see you again. Sign in to access your knowledge graphs.</p>
+                        <h1 className="text-[clamp(1.5rem,4.2vw,2.25rem)] font-bold text-slate-900 mb-1.5 leading-tight">Welcome Back!</h1>
+                        <p className="text-[clamp(0.875rem,2.4vw,1rem)] text-slate-500 mb-[clamp(0.75rem,2.8vh,2rem)] leading-relaxed">
+                            Sign in to access your knowledge graphs and AI agents.
+                        </p>
 
                         {/* Tabs */}
-                        <div className="flex bg-slate-100 p-1 rounded-xl mb-4">
+                        <div className="flex bg-slate-100 p-1.5 rounded-2xl mb-6">
                             <button
                                 onClick={() => { setActiveTab('signin'); setError(null); }}
-                                className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${activeTab === 'signin' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all duration-200 ${activeTab === 'signin' ? 'bg-white text-slate-900 shadow-md' : 'text-slate-500 hover:text-slate-700'}`}
                             >
                                 Sign In
                             </button>
                             <button
                                 onClick={() => { setActiveTab('signup'); setError(null); }}
-                                className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${activeTab === 'signup' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all duration-200 ${activeTab === 'signup' ? 'bg-white text-slate-900 shadow-md' : 'text-slate-500 hover:text-slate-700'}`}
                             >
                                 Sign Up
                             </button>
                         </div>
 
-                        <form onSubmit={handleSubmit} className="space-y-3">
+                        <form onSubmit={handleSubmit} className="space-y-5">
                             {error && (
-                                <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 text-red-600 text-xs border border-red-100 animate-fade-in">
-                                    <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                                <div className="flex items-start gap-3 p-4 rounded-xl bg-red-50 text-red-600 text-sm border border-red-100 animate-fade-in">
+                                    <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
                                     <span>{error}</span>
                                 </div>
                             )}
 
-                            <div className="space-y-1">
-                                <label className="text-xs font-bold text-slate-700 ml-1">Email Address / Username</label>
+                            <div className="space-y-2">
+                                <label className="text-sm font-semibold text-slate-700 ml-1">Email Address / Username</label>
                                 <div className="relative group">
-                                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-brand-500 transition-colors" />
+                                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-brand-500 transition-colors" />
                                     <input
                                         type="text"
                                         required
                                         placeholder="Enter your email"
-                                        className={`w-full pl-10 pr-4 py-2 bg-white border rounded-xl text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 transition-all shadow-sm ${error ? 'border-red-300 focus:border-red-500' : 'border-slate-200 focus:border-brand-500 hover:border-brand-300'}`}
+                                        className={`w-full pl-12 pr-4 py-3.5 bg-white border-2 rounded-xl text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none transition-all duration-200 ${error ? 'border-red-300 focus:border-red-500' : 'border-slate-200 focus:border-brand-500 hover:border-slate-300'}`}
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
                                     />
                                 </div>
                             </div>
 
-                            <div className="space-y-1">
-                                <label className="text-xs font-bold text-slate-700 ml-1">Password</label>
+                            <div className="space-y-2">
+                                <label className="text-sm font-semibold text-slate-700 ml-1">Password</label>
                                 <div className="relative group">
-                                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-brand-500 transition-colors" />
+                                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-brand-500 transition-colors" />
                                     <input
                                         type={showPassword ? "text" : "password"}
                                         required
                                         placeholder="Enter your password"
-                                        className={`w-full pl-10 pr-10 py-2 bg-white border rounded-xl text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 transition-all shadow-sm ${error ? 'border-red-300 focus:border-red-500' : 'border-slate-200 focus:border-brand-500 hover:border-brand-300'}`}
+                                        className={`w-full pl-12 pr-12 py-3.5 bg-white border-2 rounded-xl text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none transition-all duration-200 ${error ? 'border-red-300 focus:border-red-500' : 'border-slate-200 focus:border-brand-500 hover:border-slate-300'}`}
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
                                     />
                                     <button
                                         type="button"
                                         onClick={() => setShowPassword(!showPassword)}
-                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-1"
+                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-1"
                                     >
-                                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                                     </button>
                                 </div>
                             </div>
 
-                            <div className="flex items-center justify-between pt-1">
-                                <label className="flex items-center gap-2 cursor-pointer">
-                                    <input type="checkbox" className="w-3.5 h-3.5 rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
-                                    <span className="text-xs font-medium text-slate-500">Remember me</span>
+                            <div className="flex items-center justify-between">
+                                <label className="flex items-center gap-2.5 cursor-pointer">
+                                    <input type="checkbox" className="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 focus:ring-offset-0" />
+                                    <span className="text-sm font-medium text-slate-600">Remember me</span>
                                 </label>
-                                <a href="#" className="text-xs font-bold text-brand-600 hover:text-brand-700">Forgot Password?</a>
+                                <a href="#" className="text-sm font-bold text-brand-600 hover:text-brand-700 transition-colors">Forgot Password?</a>
                             </div>
 
                             <Button
                                 type="submit"
                                 size="md"
                                 isLoading={isLoading}
-                                className="w-full py-2.5 shadow-brand-600/30 hover:shadow-brand-600/50 hover:-translate-y-0.5 text-sm mt-2"
+                                className="w-full py-4 shadow-lg shadow-brand-600/25 hover:shadow-brand-600/40 hover:-translate-y-0.5 text-sm font-bold transition-all duration-200"
                             >
                                 {activeTab === 'signin' ? 'Sign In' : 'Create Account'}
                             </Button>
                         </form>
 
-                        <div className="relative my-4">
+                        <div className="login-alt relative my-[clamp(0.75rem,2.5vh,2rem)]">
                             <div className="absolute inset-0 flex items-center">
                                 <div className="w-full border-t border-slate-200"></div>
                             </div>
-                            <div className="relative flex justify-center text-xs">
+                            <div className="relative flex justify-center text-sm">
                                 <span className="px-4 bg-white text-slate-400 font-medium">OR</span>
                             </div>
                         </div>
 
-                        <div className="space-y-2.5">
-                            <button className="w-full flex items-center justify-center gap-3 px-4 py-2.5 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-200 hover:-translate-y-0.5 text-xs">
-                                <svg className="w-4 h-4 fill-white" viewBox="0 0 24 24"><path d="M12.001 2C6.47598 2 2.00098 6.475 2.00098 12C2.00098 16.425 4.90098 20.165 8.86598 21.49C8.98939 21.5298 9.12053 21.5284 9.24328 21.4861C9.36603 21.4437 9.4753 21.3621 9.55798 21.251C9.64065 21.1399 9.69335 21.0039 9.70998 20.859C9.72661 20.7141 9.70648 20.5663 9.65198 20.433C9.40098 19.809 9.17698 18.286 9.17698 16.711C9.17698 14.155 10.632 12.35 12.001 12.35C13.369 12.35 14.825 14.155 14.825 16.711C14.825 18.286 14.601 19.809 14.35 20.433C14.2955 20.5663 14.2754 20.7141 14.292 20.859C14.3086 21.0039 14.3613 21.1399 14.444 21.251C14.5267 21.3621 14.6359 21.4437 14.7587 21.4861C14.8814 21.5284 15.0126 21.5298 15.136 21.49C19.101 20.165 22.001 16.425 22.001 12C22.001 6.475 17.526 2 12.001 2Z"></path></svg>
+                        <div className="login-alt space-y-3">
+                            <button className="w-full flex items-center justify-center gap-3 px-4 py-3.5 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all duration-200 shadow-lg shadow-slate-900/20 hover:-translate-y-0.5 text-sm">
+                                <svg className="w-5 h-5 fill-white" viewBox="0 0 24 24"><path d="M12.001 2C6.47598 2 2.00098 6.475 2.00098 12C2.00098 16.425 4.90098 20.165 8.86598 21.49C8.98939 21.5298 9.12053 21.5284 9.24328 21.4861C9.36603 21.4437 9.4753 21.3621 9.55798 21.251C9.64065 21.1399 9.69335 21.0039 9.70998 20.859C9.72661 20.7141 9.70648 20.5663 9.65198 20.433C9.40098 19.809 9.17698 18.286 9.17698 16.711C9.17698 14.155 10.632 12.35 12.001 12.35C13.369 12.35 14.825 14.155 14.825 16.711C14.825 18.286 14.601 19.809 14.35 20.433C14.2955 20.5663 14.2754 20.7141 14.292 20.859C14.3086 21.0039 14.3613 21.1399 14.444 21.251C14.5267 21.3621 14.6359 21.4437 14.7587 21.4861C14.8814 21.5284 15.0126 21.5298 15.136 21.49C19.101 20.165 22.001 16.425 22.001 12C22.001 6.475 17.526 2 12.001 2Z"></path></svg>
                                 Log in with Apple
                             </button>
-                            <button className="w-full flex items-center justify-center gap-3 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl font-bold hover:bg-slate-50 transition-all shadow-sm hover:border-slate-300 hover:-translate-y-0.5 text-xs">
-                                <svg className="w-4 h-4" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" /><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" /><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" /><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" /></svg>
+                            <button className="w-full flex items-center justify-center gap-3 px-4 py-3.5 bg-white border-2 border-slate-200 text-slate-700 rounded-xl font-bold hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 hover:-translate-y-0.5 text-sm">
+                                <svg className="w-5 h-5" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" /><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" /><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" /><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" /></svg>
                                 Log in with Google
                             </button>
                         </div>
 
-                        <div className="mt-4 text-center text-[10px] text-slate-400 leading-tight">
-                            &copy; 2025 AskAgents. All rights reserved. <br />
-                            <span className="hover:text-slate-600 cursor-pointer transition-colors">Privacy Policy</span> &bull; <span className="hover:text-slate-600 cursor-pointer transition-colors">Terms of Service</span>
+                        <div className="login-footer mt-[clamp(0.75rem,2.5vh,2rem)] text-center text-xs text-slate-400">
+                            &copy; 2025 AskAgents. All rights reserved. <br className="sm:hidden" />
+                            <span className="hidden sm:inline">&bull; </span>
+                            <a href="#" className="hover:text-slate-600 transition-colors">Privacy Policy</a> &bull; <a href="#" className="hover:text-slate-600 transition-colors">Terms of Service</a>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Right Panel - Pure Green Gradient */}
-            <div className="hidden lg:flex w-[55%] xl:w-[60%] relative bg-brand-950 overflow-hidden items-center justify-center">
-                {/* Smooth Green Gradient Background */}
-                <div className="absolute inset-0 bg-gradient-to-br from-brand-950 via-brand-900 to-brand-800"></div>
+            {/* Right Panel - Animated Graph */}
+            <div className="hidden lg:flex lg:w-1/2 xl:w-[55%] relative overflow-hidden items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950">
+                {/* Soft vignette to add depth (no hard-edged overlays) */}
+                <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(1200px 900px at 50% 35%, rgba(16,185,129,0.10) 0%, rgba(16,185,129,0.00) 55%)' }} />
 
-                {/* Minimal Deep Aurora Effect */}
-                <div className="absolute top-[-20%] right-[-10%] w-[90vw] h-[90vw] rounded-full bg-emerald-600/5 blur-[120px] animate-pulse-slow"></div>
+                {/* Animated Graph Canvas */}
+                <AnimatedGraph />
 
-                {/* Subtle Texture */}
-                <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.05) 1px, transparent 1px)', backgroundSize: '60px 60px' }}></div>
-
-                {/* Content */}
-                <div className="relative z-10 p-10 lg:p-16 max-w-2xl flex flex-col gap-6 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
-                    <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center backdrop-blur-md border border-white/10 shadow-2xl">
-                        <Sparkles className="w-7 h-7 text-brand-300" />
-                    </div>
-
-                    <div className="space-y-4">
-                        <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white leading-tight tracking-tight">
-                            Transform your data into <br />
-                            <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-200 to-emerald-200">intelligent insights.</span>
-                        </h2>
-                        <p className="text-brand-100/70 text-base md:text-lg leading-relaxed max-w-lg font-light">
-                            Unified platform to build knowledge graphs and interact with AI agents securely. Join 500+ data teams already building the future.
-                        </p>
-                    </div>
-
-                    <div className="flex items-center gap-4 mt-2 pt-6 border-t border-white/5">
-                        <div className="flex -space-x-3">
-                            <div className="w-8 h-8 rounded-full bg-emerald-100 border-[2px] border-brand-900 flex items-center justify-center text-[10px] font-bold text-emerald-800">JD</div>
-                            <div className="w-8 h-8 rounded-full bg-blue-100 border-[2px] border-brand-900 flex items-center justify-center text-[10px] font-bold text-blue-800">AS</div>
-                            <div className="w-8 h-8 rounded-full bg-purple-100 border-[2px] border-brand-900 flex items-center justify-center text-[10px] font-bold text-purple-800">MK</div>
-                            <div className="w-8 h-8 rounded-full bg-brand-800 border-[2px] border-brand-900 flex items-center justify-center text-[10px] font-bold text-white">+2k</div>
-                        </div>
-                        <div className="flex flex-col">
-                            <div className="flex text-emerald-400">
-                                {[1, 2, 3, 4, 5].map(i => (
-                                    <svg key={i} className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" /></svg>
-                                ))}
-                            </div>
-                            <span className="text-[10px] text-brand-200/50 font-medium">Trusted by Enterprise Teams</span>
-                        </div>
-                    </div>
+                {/* Floating label badges */}
+                <div className="absolute top-[15%] left-[15%] px-3 py-1.5 bg-white/5 backdrop-blur-md rounded-full border border-white/10 text-xs text-emerald-300/80 font-medium animate-float">
+                    Knowledge Graphs
+                </div>
+                <div className="absolute top-[25%] right-[20%] px-3 py-1.5 bg-white/5 backdrop-blur-md rounded-full border border-white/10 text-xs text-brand-300/80 font-medium animate-float-delayed">
+                    AI Agents
+                </div>
+                <div className="absolute bottom-[20%] right-[15%] px-3 py-1.5 bg-white/5 backdrop-blur-md rounded-full border border-white/10 text-xs text-violet-300/80 font-medium animate-float-delayed-slow">
+                    Data Insights
                 </div>
             </div>
+
+            {/* Custom styles */}
+            <style>{`
+                .scrollbar-hide::-webkit-scrollbar {
+                    display: none;
+                }
+                .scrollbar-hide {
+                    -ms-overflow-style: none;
+                    scrollbar-width: none;
+                }
+                @keyframes float {
+                    0%, 100% { transform: translateY(0px); }
+                    50% { transform: translateY(-10px); }
+                }
+                @keyframes float-slow {
+                    0%, 100% { transform: translateY(0px); }
+                    50% { transform: translateY(-8px); }
+                }
+                .animate-float {
+                    animation: float 4s ease-in-out infinite;
+                }
+                .animate-float-delayed {
+                    animation: float 4s ease-in-out infinite;
+                    animation-delay: 1s;
+                }
+                .animate-float-slow {
+                    animation: float-slow 5s ease-in-out infinite;
+                }
+                .animate-float-delayed-slow {
+                    animation: float-slow 5s ease-in-out infinite;
+                    animation-delay: 1.5s;
+                }
+                .bg-gradient-radial {
+                    background: radial-gradient(circle, var(--tw-gradient-from), var(--tw-gradient-to));
+                }
+
+                /* Height-responsive: guarantee NO SCROLL on small/short viewports */
+                @media (max-height: 740px) {
+                    .login-shell {
+                        padding-top: 1rem;
+                        padding-bottom: 1rem;
+                    }
+                    .login-content {
+                        transform: scale(0.96);
+                        transform-origin: top center;
+                    }
+                }
+                @media (max-height: 680px) {
+                    .login-content {
+                        transform: scale(0.92);
+                    }
+                }
+                @media (max-height: 620px) {
+                    .login-content {
+                        transform: scale(0.88);
+                    }
+                    .login-alt {
+                        display: none;
+                    }
+                    .login-footer {
+                        display: none;
+                    }
+                }
+            `}</style>
         </div>
     );
 };
