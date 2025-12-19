@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { BarChart2, Database, Loader2, Plus, ChevronDown, ChevronRight, Wand2, RefreshCw, Sparkles, Table2, Info, Square, CheckSquare, KeyRound, Link as LinkIcon } from 'lucide-react';
 import { Button, Card } from '../ui/Common';
-import { mindsdbApi } from '../../services/api';
-import type { MindsDbDatabase, MindsDbSchemaTable } from '../../services/api';
+import { llmApi, mindsdbApi } from '../../services/api';
+import type { MindsDbDatabase, MindsDbSchemaTable, SchemaDescriptionsV2Request, SchemaDescriptionsV2Response } from '../../services/api';
 import { normalizeMindsDbSchemaTables } from '../../utils/mindsdbSchema';
 import { CenteredPanelSkeleton } from '../ui/ModuleSkeletons';
 
@@ -22,17 +22,10 @@ interface InsightTable {
   selected: boolean;
   description: string;
   columns: InsightColumn[];
+  constraints?: any[];
 }
 
 const LS_SELECTED_DB = 'data_insights_selected_db';
-
-const safeString = (v: unknown) => (v === null || v === undefined ? '' : String(v));
-
-const generateMockDescription = (name: string, kind: 'table' | 'column') => {
-  const formatted = name.replace(/_/g, ' ').toLowerCase();
-  if (kind === 'table') return `Stores records for ${formatted}, including identifiers and key attributes.`;
-  return `Represents the ${formatted} value for this entity.`;
-};
 
 export const DataInsightsModule: React.FC = () => {
   const [dbsState, setDbsState] = useState<'loading' | 'success' | 'error'>('loading');
@@ -51,8 +44,10 @@ export const DataInsightsModule: React.FC = () => {
   // Builder state
   const [schemaState, setSchemaState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [schemaError, setSchemaError] = useState<string>('');
+  const [aiError, setAiError] = useState<string>('');
   const [tables, setTables] = useState<InsightTable[]>([]);
   const [expandedTable, setExpandedTable] = useState<string | null>(null);
+  const [isTablesPanelCollapsed, setIsTablesPanelCollapsed] = useState(false);
 
   // "AI" loading markers
   const [autofilling, setAutofilling] = useState<string | null>(null);
@@ -129,14 +124,25 @@ export const DataInsightsModule: React.FC = () => {
     setExpandedTable(null);
     setAutofilling(null);
     setBatchFilling(false);
+    setIsTablesPanelCollapsed(false);
   }, [selectedDb]);
 
   const toInsightTables = (schemaTables: MindsDbSchemaTable[]): InsightTable[] => {
+    const safeTrim = (v: unknown) => String(v ?? '').trim();
+    const rawConstraintsByName = new Map<string, any[]>();
+    (Array.isArray(schemaTables) ? schemaTables : []).forEach((t: any) => {
+      const name = safeTrim(t?.table_name);
+      if (!name) return;
+      const constraints = Array.isArray(t?.constraints) ? t.constraints : [];
+      rawConstraintsByName.set(name, constraints);
+    });
+
     const normalized = normalizeMindsDbSchemaTables(schemaTables);
     return normalized.map((t) => ({
       name: t.tableName,
       selected: false,
       description: '',
+      constraints: rawConstraintsByName.get(t.tableName) || [],
       columns: t.columns.map((c) => ({
         name: c.name,
         type: c.type,
@@ -148,12 +154,12 @@ export const DataInsightsModule: React.FC = () => {
     }));
   };
 
-  const loadSchema = async () => {
+  const loadSchema = async (options?: { force?: boolean }) => {
     if (!selectedDb) return;
     setSchemaState('loading');
     setSchemaError('');
     try {
-      const schemaTables = await mindsdbApi.getDbSchema(selectedDb);
+      const schemaTables = await mindsdbApi.getDbSchema(selectedDb, options);
       const mapped = toInsightTables(schemaTables);
       setTables(mapped);
       setSchemaState('success');
@@ -163,6 +169,10 @@ export const DataInsightsModule: React.FC = () => {
       setSchemaState('error');
       setSchemaError(e?.message || 'Failed to load schema.');
     }
+  };
+
+  const reloadSchema = () => {
+    void loadSchema({ force: true });
   };
 
   const handleCreateInsights = async () => {
@@ -191,42 +201,156 @@ export const DataInsightsModule: React.FC = () => {
     }));
   };
 
-  const aiFillTable = (tableName: string) => {
-    setAutofilling(`TABLE:${tableName}`);
-    setTimeout(() => {
-      updateTableDescription(tableName, generateMockDescription(tableName, 'table'));
-      setAutofilling(null);
-    }, 900);
+  type V2FillRequest = {
+    tableName: string;
+    fillTableDescription: boolean;
+    columnNames: string[]; // columns to fill/overwrite
+    onlyIfEmpty: boolean; // if true, do not overwrite existing descriptions
   };
 
-  const aiFillColumn = (tableName: string, colName: string) => {
-    setAutofilling(`COL:${tableName}:${colName}`);
-    setTimeout(() => {
-      updateColumnDescription(tableName, colName, generateMockDescription(colName, 'column'));
-      setAutofilling(null);
-    }, 700);
+  const callSchemaDescriptionsV2 = async (requests: V2FillRequest[]) => {
+    if (!selectedDb) throw new Error('No database selected');
+    const byTable = new Map<string, V2FillRequest>();
+    requests.forEach((r) => byTable.set(r.tableName, r));
+
+    const payloadTables: SchemaDescriptionsV2Request['tables'] = tables
+      .filter((t) => byTable.has(t.name))
+      .map((t) => {
+        const req = byTable.get(t.name)!;
+        const names = req.columnNames;
+        const wantedCols = names.length
+          ? t.columns.filter((c) => names.includes(c.name))
+          : t.columns.slice(0, Math.min(5, t.columns.length)); // provide minimal context if only table desc is requested
+
+        return {
+          table_name: t.name,
+          columns: wantedCols.map((c) => ({
+            name: c.name,
+            type: c.type,
+            is_primary_key: !!c.isPrimaryKey,
+            is_foreign_key: !!c.isForeignKey
+          })),
+          constraints: Array.isArray(t.constraints) ? t.constraints : []
+        };
+      });
+
+    const payload: SchemaDescriptionsV2Request = {
+      db: selectedDb,
+      tables: payloadTables
+    };
+
+    const resp = await llmApi.generateSchemaDescriptionsV2(payload);
+    applyV2Response(resp, requests);
   };
 
-  const aiFillAllSelected = () => {
+  const applyV2Response = (resp: SchemaDescriptionsV2Response, requests: V2FillRequest[]) => {
+    const reqByTable = new Map<string, V2FillRequest>();
+    requests.forEach((r) => reqByTable.set(r.tableName, r));
+
+    const respByTable = new Map<string, { description?: string; columns?: Array<{ name: string; description?: string }> }>();
+    (resp?.tables || []).forEach((t) => {
+      if (!t?.name) return;
+      respByTable.set(t.name, { description: t.description, columns: t.columns });
+    });
+
+    setTables((prev) =>
+      prev.map((t) => {
+        const req = reqByTable.get(t.name);
+        const rt = respByTable.get(t.name);
+        if (!req || !rt) return t;
+
+        const next: InsightTable = { ...t };
+
+        if (req.fillTableDescription && rt.description) {
+          if (!req.onlyIfEmpty || !next.description?.trim()) next.description = rt.description;
+        }
+
+        if (Array.isArray(req.columnNames) && req.columnNames.length > 0 && Array.isArray(rt.columns)) {
+          const colDescByName = new Map<string, string>();
+          rt.columns.forEach((c) => {
+            if (c?.name && c?.description) colDescByName.set(c.name, c.description);
+          });
+
+          next.columns = next.columns.map((c) => {
+            if (!req.columnNames.includes(c.name)) return c;
+            const newDesc = colDescByName.get(c.name);
+            if (!newDesc) return c;
+            if (req.onlyIfEmpty && c.description?.trim()) return c;
+            return { ...c, description: newDesc };
+          });
+        }
+
+        return next;
+      })
+    );
+  };
+
+  const aiFillTable = async (tableName: string) => {
     if (batchFilling) return;
+    setAiError('');
+    setAutofilling(`TABLE:${tableName}`);
+    try {
+      const t = tables.find((x) => x.name === tableName);
+      if (!t) return;
+      const missingCols = t.columns.filter((c) => !c.description?.trim()).map((c) => c.name);
+      await callSchemaDescriptionsV2([
+        { tableName, fillTableDescription: true, columnNames: missingCols, onlyIfEmpty: false }
+      ]);
+    } catch (e: any) {
+      console.error('AI fill table failed', e);
+      setAiError(e?.message || 'Smart fill failed. Please try again.');
+    } finally {
+      setAutofilling(null);
+    }
+  };
+
+  const aiFillColumn = async (tableName: string, colName: string) => {
+    if (batchFilling) return;
+    setAiError('');
+    setAutofilling(`COL:${tableName}:${colName}`);
+    try {
+      await callSchemaDescriptionsV2([
+        { tableName, fillTableDescription: false, columnNames: [colName], onlyIfEmpty: false }
+      ]);
+    } catch (e: any) {
+      console.error('AI fill column failed', e);
+      setAiError(e?.message || 'Smart fill failed. Please try again.');
+    } finally {
+      setAutofilling(null);
+    }
+  };
+
+  const aiFillAllSelected = async () => {
+    if (batchFilling || !!autofilling) return;
     const selected = tables.filter(t => t.selected);
     if (selected.length === 0) return;
+
+    const requests: V2FillRequest[] = selected
+      .map((t) => {
+        const fillTableDescription = !t.description?.trim();
+        const missingCols = t.columns.filter((c) => !c.description?.trim()).map((c) => c.name);
+        return { tableName: t.name, fillTableDescription, columnNames: missingCols, onlyIfEmpty: true };
+      })
+      .filter((r) => r.fillTableDescription || r.columnNames.length > 0);
+
+    if (requests.length === 0) return;
+
+    setAiError('');
     setBatchFilling(true);
-    setTimeout(() => {
-      setTables(prev => prev.map(t => {
-        if (!t.selected) return t;
-        const nextTableDesc = t.description || generateMockDescription(t.name, 'table');
-        const nextCols = t.columns.map(c => c.description ? c : ({ ...c, description: generateMockDescription(c.name, 'column') }));
-        return { ...t, description: nextTableDesc, columns: nextCols };
-      }));
+    try {
+      await callSchemaDescriptionsV2(requests);
+    } catch (e: any) {
+      console.error('AI batch fill failed', e);
+      setAiError(e?.message || 'Smart fill failed. Please try again.');
+    } finally {
       setBatchFilling(false);
-    }, 1200);
+    }
   };
 
   const header = (
-    <div className="flex items-center justify-between px-8 py-6 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950">
+    <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950">
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-brand-50 dark:bg-brand-900/15 border border-brand-100 dark:border-brand-900/40 flex items-center justify-center">
+        <div className="w-9 h-9 rounded-xl bg-brand-50 dark:bg-brand-900/15 border border-brand-100 dark:border-brand-900/40 flex items-center justify-center">
           <BarChart2 className="w-5 h-5 text-brand-700 dark:text-brand-300" />
         </div>
         <div className="flex flex-col">
@@ -337,16 +461,45 @@ export const DataInsightsModule: React.FC = () => {
       ) : (
         <div className="flex-1 min-h-0 overflow-hidden flex flex-col animate-fade-in">
           {/* Builder header strip */}
-          <div className="px-6 py-3 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 flex items-center justify-between">
-            <div className="flex items-center gap-2 text-xs font-bold text-brand-700 bg-brand-50 dark:bg-brand-900/20 px-2.5 py-1 rounded-lg border border-brand-200 dark:border-brand-900/40 shadow-sm">
-              <Table2 className="w-3 h-3" />
-              {selectedCount} Tables Selected
+          <div className="px-4 py-2 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 flex items-start md:items-center justify-between gap-3">
+            <div className="flex flex-col md:flex-row md:items-center gap-2 min-w-0">
+              <button
+                type="button"
+                onClick={() => setIsTablesPanelCollapsed(v => !v)}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-[11px] font-bold text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all w-fit"
+                title={isTablesPanelCollapsed ? 'Show tables panel' : 'Hide tables panel'}
+              >
+                <Table2 className="w-4 h-4" />
+                {isTablesPanelCollapsed ? 'Show tables' : 'Hide tables'}
+              </button>
+
+              <div className="flex items-center gap-2 text-[11px] font-bold text-brand-700 bg-brand-50 dark:bg-brand-900/20 px-2.5 py-1.5 rounded-lg border border-brand-200 dark:border-brand-900/40 shadow-sm w-fit">
+                <Table2 className="w-3.5 h-3.5" />
+                {selectedCount} selected
+              </div>
+
+              <div className="min-w-0 text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
+                <span className="font-semibold text-slate-700 dark:text-slate-200">Describe selected</span> tables/columns.
+                {selectedCount > 0 ? (
+                  <span className="ml-1">
+                    Remaining: <span className="font-semibold">{validation.missingTableDescriptions}</span> table,{' '}
+                    <span className="font-semibold">{validation.missingColumnDescriptions}</span> column.
+                  </span>
+                ) : (
+                  <span className="ml-1">Select one or more tables to begin.</span>
+                )}
+                {aiError ? (
+                  <span className="block mt-0.5 text-[11px] text-red-600 dark:text-red-400 font-medium">
+                    {aiError}
+                  </span>
+                ) : null}
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={toggleSelectAll}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-bold text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-[11px] font-bold text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
               >
                 {areAllSelected ? <Square className="w-4 h-4" /> : <CheckSquare className="w-4 h-4" />}
                 {areAllSelected ? 'Deselect all' : 'Select all'}
@@ -355,7 +508,7 @@ export const DataInsightsModule: React.FC = () => {
                 type="button"
                 onClick={aiFillAllSelected}
                 disabled={batchFilling || selectedCount === 0}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-brand-200 dark:border-brand-900/40 bg-white dark:bg-slate-900 text-xs font-bold text-brand-700 dark:text-brand-300 hover:bg-brand-50 dark:hover:bg-brand-900/20 transition-all disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-brand-200 dark:border-brand-900/40 bg-white dark:bg-slate-900 text-[11px] font-bold text-brand-700 dark:text-brand-300 hover:bg-brand-50 dark:hover:bg-brand-900/20 transition-all disabled:opacity-50"
                 title="AI fill descriptions for selected tables/columns"
               >
                 {batchFilling ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
@@ -363,8 +516,8 @@ export const DataInsightsModule: React.FC = () => {
               </button>
               <button
                 type="button"
-                onClick={loadSchema}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-bold text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
+                onClick={reloadSchema}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-[11px] font-bold text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
                 title="Reload schema"
               >
                 {schemaState === 'loading' ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
@@ -389,35 +542,10 @@ export const DataInsightsModule: React.FC = () => {
             </div>
           </div>
 
-          {/* Guidance */}
-          <div className="px-6 py-3 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950">
-            <div className="flex items-start gap-3 p-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/30">
-              <div className="w-9 h-9 rounded-xl bg-brand-50 dark:bg-brand-900/20 border border-brand-100 dark:border-brand-900/40 flex items-center justify-center shrink-0">
-                <Info className="w-4 h-4 text-brand-700 dark:text-brand-300" />
-              </div>
-              <div className="min-w-0">
-                <div className="text-sm font-semibold text-slate-900 dark:text-white">Describe what these tables/columns mean</div>
-                <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  Add short descriptions for the <span className="font-semibold">selected</span> tables and columns so it’s clear what insights you’re building.
-                  You can use <span className="font-semibold">Smart fill</span> to auto-generate.
-                </div>
-                {selectedCount > 0 ? (
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                    Remaining: <span className="font-semibold">{validation.missingTableDescriptions}</span> table description(s),{' '}
-                    <span className="font-semibold">{validation.missingColumnDescriptions}</span> column description(s)
-                  </div>
-                ) : (
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                    Start by selecting one or more tables from the left.
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="flex-1 min-h-0 overflow-hidden flex flex-col lg:flex-row gap-3 p-3 bg-slate-50/40 dark:bg-slate-950">
+          <div className="flex-1 min-h-0 overflow-hidden flex flex-col lg:flex-row gap-2 p-2 bg-slate-50/40 dark:bg-slate-950">
             {/* Left panel */}
-            <div className="lg:w-[300px] flex-shrink-0 min-h-0 flex flex-col">
+            {!isTablesPanelCollapsed ? (
+              <div className="lg:w-[260px] flex-shrink-0 min-h-0 flex flex-col">
               <Card className="shadow-supreme border-0 flex flex-col flex-1 min-h-0" noPadding>
                 <div className="p-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 shrink-0">
                   <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Tables</div>
@@ -435,7 +563,7 @@ export const DataInsightsModule: React.FC = () => {
                       <div className="text-sm font-semibold text-slate-900 dark:text-white">Failed to load schema</div>
                       <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">{schemaError}</div>
                       <div className="mt-4">
-                        <Button onClick={loadSchema} size="sm" leftIcon={<RefreshCw className="w-4 h-4" />}>
+                        <Button onClick={reloadSchema} size="sm" leftIcon={<RefreshCw className="w-4 h-4" />}>
                           Retry
                         </Button>
                       </div>
@@ -490,7 +618,8 @@ export const DataInsightsModule: React.FC = () => {
                   ))}
                 </div>
               </Card>
-            </div>
+              </div>
+            ) : null}
 
             {/* Right panel */}
             <div className="flex-1 min-w-0 min-h-0 flex flex-col">
@@ -510,8 +639,8 @@ export const DataInsightsModule: React.FC = () => {
                     return (
                       <div className="flex flex-col h-full animate-fade-in">
                         {/* Table header */}
-                        <div className="flex-none p-4 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 z-10">
-                          <div className="flex items-center gap-4 mb-4">
+                        <div className="flex-none p-3 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 z-10">
+                          <div className="flex items-center gap-3 mb-3">
                             <div className="w-10 h-10 rounded-xl bg-brand-50 dark:bg-brand-900/15 flex items-center justify-center ring-1 ring-brand-100 dark:ring-brand-900/40 shadow-sm shrink-0">
                               <Table2 className="w-5 h-5 text-brand-600" />
                             </div>
@@ -546,12 +675,12 @@ export const DataInsightsModule: React.FC = () => {
                           </div>
                         </div>
 
-                        <div className="flex-none px-4 py-2 bg-slate-50 dark:bg-slate-900/30 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                        <div className="flex-none px-3 py-2 bg-slate-50 dark:bg-slate-900/30 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
                           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Columns</span>
                           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{table.columns.length}</span>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar bg-white dark:bg-slate-950">
+                        <div className="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar bg-white dark:bg-slate-950">
                           {table.columns.map((c) => (
                             <div
                               key={c.name}

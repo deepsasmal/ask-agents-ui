@@ -73,6 +73,37 @@ interface AiGenerateResponse {
   tables: AiTableDesc[];
 }
 
+// --- Schema description generation V2 (MindsDB schema-shaped payload) ---
+export interface SchemaDescriptionsV2Column {
+  name: string;
+  type?: string;
+  is_primary_key?: boolean;
+  is_foreign_key?: boolean;
+}
+
+export interface SchemaDescriptionsV2Table {
+  table_name: string;
+  columns: SchemaDescriptionsV2Column[];
+  // Backend may accept arbitrary constraint objects; keep it permissive.
+  constraints?: any[];
+}
+
+export interface SchemaDescriptionsV2Request {
+  db: string;
+  tables: SchemaDescriptionsV2Table[];
+}
+
+export interface SchemaDescriptionsV2Response {
+  tables: Array<{
+    name: string;
+    description?: string;
+    columns?: Array<{
+      name: string;
+      description?: string;
+    }>;
+  }>;
+}
+
 // Agent Interface
 export interface Agent {
   id: string; // Corresponds to agent_id
@@ -1005,6 +1036,19 @@ export const llmApi = {
     });
     return handleResponse<AiGenerateResponse>(response);
   },
+
+  generateSchemaDescriptionsV2: async (payload: SchemaDescriptionsV2Request) => {
+    const response = await fetch(`${API_BASE_URL}/llm/generate_schema_descriptions_V2`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'accept': 'application/json',
+        ...getAuthHeaders()
+      },
+      body: JSON.stringify(payload)
+    });
+    return handleResponse<SchemaDescriptionsV2Response>(response);
+  }
 };
 
 export const agentApi = {
@@ -1323,12 +1367,24 @@ export const mindsdbApi = {
     cachedMindsDbDatabases = Array.isArray(data?.databases) ? data.databases : [];
     return cachedMindsDbDatabases;
   },
-  getDbSchema: async (dbName: string) => {
+  getDbSchema: async (dbName: string, options?: { force?: boolean }) => {
     const key = String(dbName || '').trim();
     if (!key) return [];
-    const cached = cachedMindsDbSchemas.get(key);
-    if (cached) return cached;
-    const response = await fetch(`${API_BASE_URL}/mindsdb/dbschema?db=${encodeURIComponent(key)}`, {
+    const force = !!options?.force;
+    if (!force) {
+      const cached = cachedMindsDbSchemas.get(key);
+      if (cached) return cached;
+    } else {
+      // Ensure a reload actually re-fetches from the backend.
+      cachedMindsDbSchemas.delete(key);
+    }
+
+    const params = new URLSearchParams({ db: key });
+    // Cache-bust any intermediate caches (browser/proxy) when forcing.
+    if (force) params.set('_ts', String(Date.now()));
+
+    const response = await fetch(`${API_BASE_URL}/mindsdb/dbschema?${params.toString()}`, {
+      cache: force ? 'no-store' : undefined,
       headers: { 'accept': 'application/json', ...getAuthHeaders() }
     });
     const data = await handleResponse<MindsDbDbSchemaResponse>(response);
