@@ -4,6 +4,7 @@ import { Button, Card } from '../ui/Common';
 import { mindsdbApi } from '../../services/api';
 import type { MindsDbDatabase, MindsDbSchemaTable } from '../../services/api';
 import { normalizeMindsDbSchemaTables } from '../../utils/mindsdbSchema';
+import { CenteredPanelSkeleton } from '../ui/ModuleSkeletons';
 
 type View = 'EMPTY' | 'BUILDER';
 
@@ -281,12 +282,7 @@ export const DataInsightsModule: React.FC = () => {
     return (
       <div className="flex-1 h-full flex flex-col bg-white dark:bg-slate-950">
         {header}
-        <div className="flex-1 flex items-center justify-center">
-          <div className="flex items-center gap-3 text-slate-500">
-            <Loader2 className="w-5 h-5 animate-spin text-brand-600" />
-            <span className="text-sm font-medium">Loading databases…</span>
-          </div>
-        </div>
+        <CenteredPanelSkeleton titleLines={1} bodyLines={3} />
       </div>
     );
   }

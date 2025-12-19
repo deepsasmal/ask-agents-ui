@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Bot, ChevronRight, Database, Loader2, RefreshCw, Settings2, User, X } from 'lucide-react';
+import { ArrowLeft, Bot, ChevronRight, Database, RefreshCw, Settings2, User, X } from 'lucide-react';
 import { agentApi, authApi, mindsdbApi } from '../../services/api';
 import type { Agent, AgentDetails, MindsDbDatabase } from '../../services/api';
 import { consumeNextSettingsTab } from '../../utils/settingsDeeplink';
 import { ConfigTab } from '../settings/ConfigTab';
+import { Skeleton } from '../ui/Skeleton';
 
 interface SettingsModuleProps {
     isDarkMode: boolean;
@@ -315,10 +316,18 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ isDarkMode, onTo
                                             {agentsScreen === 'DETAILS' && (
                                                 <div className="space-y-4">
                                                     {isLoadingAgentDetails && (
-                                                        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-950/30 p-6 flex items-center gap-3">
-                                                            <Loader2 className="w-4 h-4 animate-spin text-slate-500" />
-                                                            <div className="text-sm text-slate-600 dark:text-slate-300">
-                                                                Loading agent details…
+                                                        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-950/30 p-6 space-y-4">
+                                                            <div className="flex items-center gap-3">
+                                                                <Skeleton className="w-10 h-10 rounded-xl" rounded="rounded-xl" />
+                                                                <div className="flex-1 min-w-0 space-y-2">
+                                                                    <Skeleton className="h-3 w-1/3" rounded="rounded-md" />
+                                                                    <Skeleton className="h-3 w-2/3" rounded="rounded-md" />
+                                                                </div>
+                                                            </div>
+                                                            <div className="space-y-2">
+                                                                <Skeleton className="h-3 w-11/12" rounded="rounded-md" />
+                                                                <Skeleton className="h-3 w-9/12" rounded="rounded-md" />
+                                                                <Skeleton className="h-3 w-10/12" rounded="rounded-md" />
                                                             </div>
                                                         </div>
                                                     )}
@@ -449,9 +458,17 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ isDarkMode, onTo
                                     )}
 
                                     {isLoadingMindsDb && mindsDbDatabases.length === 0 && (
-                                        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-950/30 p-6 flex items-center gap-3">
-                                            <Loader2 className="w-4 h-4 animate-spin text-slate-500" />
-                                            <div className="text-sm text-slate-600 dark:text-slate-300">Loading databases…</div>
+                                        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-950/30 p-4 space-y-3">
+                                            {Array.from({ length: 6 }).map((_, idx) => (
+                                                <div key={idx} className="flex items-center gap-3 px-2 py-2">
+                                                    <Skeleton className="w-9 h-9 rounded-xl" rounded="rounded-xl" />
+                                                    <div className="flex-1 min-w-0 space-y-2">
+                                                        <Skeleton className={`h-3 ${idx % 3 === 0 ? 'w-1/3' : idx % 3 === 1 ? 'w-1/2' : 'w-2/5'}`} rounded="rounded-md" />
+                                                        <Skeleton className="h-3 w-10/12" rounded="rounded-md" />
+                                                    </div>
+                                                    <Skeleton className="h-7 w-16 rounded-full" rounded="rounded-full" />
+                                                </div>
+                                            ))}
                                         </div>
                                     )}
 

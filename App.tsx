@@ -8,6 +8,7 @@ import { KnowledgeModule } from './components/modules/KnowledgeModule';
 import { SettingsModule } from './components/modules/SettingsModule';
 import { DataModule } from './components/modules/DataModule';
 import { LoginPage } from './components/auth/LoginPage';
+import { ChatListSkeleton } from './components/ui/ChatSkeletons';
 import { authApi, sessionApi, configApi, Session, Agent } from './services/api';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -333,20 +334,10 @@ const App: React.FC = () => {
 
                                 {!isChatsCollapsed && (
                                     <div className="mt-2 space-y-1">
-                                        {/* New Chat Button */}
-                                        <button
-                                            type="button"
-                                            onClick={handleNewChat}
-                                            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-colors group dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800"
-                                        >
-                                            <PenLine className="w-3.5 h-3.5 shrink-0" />
-                                            <span className="font-medium">New Chat</span>
-                                        </button>
-
                                         {/* Chat List */}
                                         {isLoadingSessions ? (
-                                            <div className="p-4 flex justify-center">
-                                                <Loader2 className="w-4 h-4 text-brand-600 animate-spin" />
+                                            <div className="px-1 py-2">
+                                                <ChatListSkeleton rows={7} />
                                             </div>
                                         ) : !Array.isArray(sessions) || sessions.length === 0 ? (
                                             <div className="px-3 py-2 text-xs text-slate-400 italic">

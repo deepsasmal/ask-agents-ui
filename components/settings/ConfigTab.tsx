@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Check, Copy, Eye, EyeOff, Loader2, RefreshCw, Save, X } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { appConfigApi, type AppConfigMetrics, type AppConfigRefreshResponse } from '../../services/api';
+import { KeyValueListSkeleton } from '../ui/ModuleSkeletons';
 
 type ValueKind = 'string' | 'number' | 'boolean' | 'null' | 'array' | 'object' | 'unknown';
 
@@ -344,10 +345,7 @@ export const ConfigTab: React.FC = () => {
         )}
 
         {isLoading && rows.length === 0 ? (
-          <div className="p-8 flex items-center gap-3 text-slate-600 dark:text-slate-300">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            Loading config…
-          </div>
+          <KeyValueListSkeleton rows={10} />
         ) : rows.length === 0 ? (
           <div className="p-10 text-sm text-slate-600 dark:text-slate-300">
             No config keys found.

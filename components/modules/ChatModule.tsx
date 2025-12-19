@@ -10,6 +10,7 @@ import { ChartModal } from '../modals/ChartModal';
 // NOTE: `assets/` is configured as Vite `publicDir`, so assets are served from the root path.
 const chatbotLogo = '/chatbot_logo.png';
 import { toast } from 'react-toastify';
+import { ChatThreadSkeleton } from '../ui/ChatSkeletons';
 
 interface Message {
     id: string;
@@ -51,6 +52,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
     const [agents, setAgents] = useState<Agent[]>([]);
     const [selectedAgentId, setSelectedAgentId] = useState<string>('');
     const [isLoadingAgents, setIsLoadingAgents] = useState(true);
+    const [isLoadingSession, setIsLoadingSession] = useState(false);
     const [fetchError, setFetchError] = useState<string | null>(null);
     const [expandedMetricsId, setExpandedMetricsId] = useState<string | null>(null);
     const [selectedToolCall, setSelectedToolCall] = useState<ToolCall | null>(null);
@@ -353,6 +355,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
             if (!userId || !dbConfig) return;
 
             try {
+                setIsLoadingSession(true);
                 const sessionData = await sessionApi.getSession(sessionId, userId, dbConfig.dbId, dbConfig.table, dbConfig.componentId);
 
                 if (sessionData && sessionData.chat_history && sessionData.chat_history.length > 0) {
@@ -422,6 +425,8 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
                 console.error("Failed to load session", err);
                 // New session - show welcome message
                 setMessages([]);
+            } finally {
+                setIsLoadingSession(false);
             }
         };
 
@@ -891,8 +896,13 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
 
                 {/* Messages */}
                 <div className="flex-1 overflow-y-auto p-4 space-y-6 scroll-smooth pb-6">
+                    {/* Loading skeleton (agents/session history) */}
+                    {(isLoadingAgents || isLoadingSession) && (
+                        <ChatThreadSkeleton rows={7} />
+                    )}
+
                     {/* New Session Hero */}
-                    {messages.length === 0 && !isLoadingAgents && !fetchError && (
+                    {messages.length === 0 && !isLoadingAgents && !isLoadingSession && !fetchError && (
                         <div className="h-full w-full flex items-center justify-center">
                             <div className="w-full max-w-4xl mx-auto flex flex-col items-center justify-center py-16">
                                 <div className="w-full max-w-2xl mx-auto text-center mb-8">
@@ -924,7 +934,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
                         </div>
                     )}
 
-                    {messages.map((msg) => (
+                    {!isLoadingAgents && !isLoadingSession && messages.map((msg) => (
                         <div
                             key={msg.id}
                             id={`message-${msg.id}`}

@@ -107,6 +107,11 @@ export const LandingPageModule: React.FC<LandingPageProps> = ({ onNavigate }) =>
                         onClick={() => onNavigate('DATA_INSIGHTS')}
                         className="group relative bg-white rounded-2xl p-6 border border-slate-200 shadow-xl shadow-slate-200/50 hover:shadow-2xl hover:shadow-brand-900/5 transition-all duration-300 cursor-pointer overflow-hidden min-h-[240px] md:col-span-2"
                     >
+                        <div className="absolute top-5 right-5 z-20">
+                            <span className="inline-flex items-center rounded-full bg-red-50 text-red-700 border border-red-200 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider shadow-sm">
+                                Beta / Experimental
+                            </span>
+                        </div>
                         <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 duration-500">
                             <PieChart className="w-48 h-48 text-brand-600" />
                         </div>

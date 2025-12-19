@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { BookOpen, Plus, ExternalLink, X, FileText, Globe, Type, Info, ChevronDown, ChevronUp, Trash2, Settings, Save, Check, AlertTriangle } from 'lucide-react';
 import { configApi, ConfigResponse, knowledgeApi, KnowledgeItem } from '../../services/api';
+import { KnowledgeTableSkeleton } from '../ui/ModuleSkeletons';
 
 interface FileSettings {
     id: string;
@@ -1101,8 +1102,14 @@ export const KnowledgeModule: React.FC = () => {
 
     if (loading) {
         return (
-            <div className="flex-1 h-full flex items-center justify-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600"></div>
+            <div className="flex-1 h-full flex flex-col bg-white dark:bg-slate-950 relative">
+                <div className="flex items-center justify-between px-8 py-6 border-b border-slate-200 dark:border-slate-800">
+                    <div className="flex flex-col gap-2 w-full max-w-xl">
+                        <div className="aa-skeleton bg-slate-200/80 dark:bg-slate-700/40 rounded-md h-3 w-24" aria-hidden="true" />
+                        <div className="aa-skeleton bg-slate-200/80 dark:bg-slate-700/40 rounded-md h-5 w-56" aria-hidden="true" />
+                    </div>
+                </div>
+                <KnowledgeTableSkeleton rows={8} />
             </div>
         );
     }
@@ -1181,9 +1188,7 @@ export const KnowledgeModule: React.FC = () => {
 
             {/* Content Area */}
             {isContentLoading ? (
-                <div className="flex-1 flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600"></div>
-                </div>
+                <KnowledgeTableSkeleton rows={8} />
             ) : knowledgeContent.length > 0 ? (
                 <div className="flex-1 overflow-hidden flex bg-white dark:bg-slate-950">
                     {/* Main Table Area */}

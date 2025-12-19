@@ -3,6 +3,7 @@ import { Database, Loader2, RefreshCw, Search, ChevronDown, ChevronUp, AlertTria
 import { mindsdbApi, MindsDbDatabase, MindsDbSchemaTable, MindsDbShowTableResponse } from '../../services/api';
 import { normalizeMindsDbSchemaTables } from '../../utils/mindsdbSchema';
 import { setNextSettingsTab } from '../../utils/settingsDeeplink';
+import { CardListSkeleton } from '../ui/ModuleSkeletons';
 
 type LoadState = 'idle' | 'loading' | 'success' | 'error';
 
@@ -774,12 +775,7 @@ export const DataModule: React.FC = () => {
 
       {/* Content */}
       {state === 'loading' ? (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="flex items-center gap-3 text-slate-500">
-            <Loader2 className="w-5 h-5 animate-spin text-brand-600" />
-            <span className="text-sm font-medium">Loading databases…</span>
-          </div>
-        </div>
+        <CardListSkeleton rows={7} />
       ) : state === 'error' ? (
         <div className="flex-1 flex items-center justify-center p-6 bg-slate-50/50 dark:bg-slate-900/20">
           <div className="bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 max-w-lg w-full animate-fade-in">
