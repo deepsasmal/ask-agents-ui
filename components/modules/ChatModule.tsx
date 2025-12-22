@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { Bot, MoreHorizontal, Loader2, Sparkles, Copy, BarChart2, Hammer, X, Terminal, Code, Paperclip, ArrowUp, Check, User, Square, PenLine, Mic, MicOff } from 'lucide-react';
+import { Bot, MoreHorizontal, Loader2, Sparkles, Copy, BarChart2, Hammer, X, Terminal, Code, Paperclip, ArrowUp, Check, User, Square, PenLine, Mic, MicOff, FileText } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ToolVisualization, ToolCall } from '../chat/ToolVisualization';
@@ -12,6 +12,13 @@ const chatbotLogo = '/chatbot_logo.png';
 import { toast } from 'react-toastify';
 import { ChatThreadSkeleton } from '../ui/ChatSkeletons';
 
+interface MessageFile {
+    name: string;
+    size: number;
+    type: string;
+    url?: string;
+}
+
 interface Message {
     id: string;
     role: 'user' | 'assistant';
@@ -21,6 +28,7 @@ interface Message {
     error?: boolean;
     metrics?: RunMetrics;
     toolCalls?: ToolCall[];
+    attachments?: MessageFile[];
 }
 
 const generateUUID = () => {
@@ -328,7 +336,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
                 if (configData.session?.dbs?.length > 0 && configData.session.dbs[0].tables.length > 0) {
                     // Extract component_id from config (prioritize db-level, fallback to session-level)
                     const componentId = configData.session.dbs[0].component_id || configData.session.component_id;
-                    
+
                     const config = {
                         dbId: configData.session.dbs[0].db_id,
                         table: configData.session.dbs[0].tables[0],
@@ -600,7 +608,13 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
         const currentFiles = files;
 
         setInputValue('');
+        files.forEach((_, idx) => {
+            if (filePreviews[idx]?.startsWith('blob:')) {
+                URL.revokeObjectURL(filePreviews[idx]);
+            }
+        });
         setFiles([]);
+        setFilePreviews([]);
         setShowMentionPopup(false);
 
         if (fileInputRef.current) fileInputRef.current.value = '';
@@ -612,8 +626,14 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
         const newUserMsg: Message = {
             id: Date.now().toString(),
             role: 'user',
-            content: userText + (currentFiles.length > 0 ? `\n[Attached ${currentFiles.length} file(s)]` : ''),
-            timestamp: new Date()
+            content: userText,
+            timestamp: new Date(),
+            attachments: currentFiles.map((file, idx) => ({
+                name: file.name,
+                size: file.size,
+                type: file.type,
+                url: filePreviews[idx]?.startsWith('blob:') ? filePreviews[idx] : undefined
+            }))
         };
 
         const botMsgId = (Date.now() + 1).toString();
@@ -789,15 +809,42 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
         }
     };
 
+    const [filePreviews, setFilePreviews] = useState<string[]>([]);
+
+    // Cleanup object URLs to avoid memory leaks
+    useEffect(() => {
+        return () => {
+            filePreviews.forEach(url => {
+                if (url.startsWith('blob:')) URL.revokeObjectURL(url);
+            });
+        };
+    }, [filePreviews]);
+
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
-            setFiles(prev => [...prev, ...Array.from(e.target.files!)]);
+            const newFiles = Array.from(e.target.files);
+            setFiles(prev => [...prev, ...newFiles]);
+
+            const newPreviews = newFiles.map(file => {
+                if (file.type.startsWith('image/')) {
+                    return URL.createObjectURL(file);
+                }
+                return 'document';
+            });
+            setFilePreviews(prev => [...prev, ...newPreviews]);
         }
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
     const removeFile = (index: number) => {
         setFiles(prev => prev.filter((_, i) => i !== index));
+        setFilePreviews(prev => {
+            const previewToRemove = prev[index];
+            if (previewToRemove && previewToRemove.startsWith('blob:')) {
+                URL.revokeObjectURL(previewToRemove);
+            }
+            return prev.filter((_, i) => i !== index);
+        });
     };
 
     const handleOpenGraph = (toolResult: string) => {
@@ -943,10 +990,44 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
                             {msg.role === 'user' ? (
                                 // User Message
                                 <div className="flex gap-4 flex-row-reverse animate-fade-in group">
-                                    <div className="max-w-[85%]">
-                                        <div className="px-4 py-3 bg-brand-50 text-slate-900 rounded-2xl rounded-tr-sm border border-brand-100 text-sm leading-relaxed whitespace-pre-wrap shadow-sm">
-                                            {msg.content}
-                                        </div>
+                                    <div className="flex flex-col gap-2">
+                                        {msg.attachments && msg.attachments.length > 0 && (
+                                            <div className="flex flex-col gap-3 mb-1">
+                                                {msg.attachments.map((file, idx) => {
+                                                    const isImage = file.type.startsWith('image/') && file.url;
+                                                    return (
+                                                        <div key={idx} className="flex justify-end">
+                                                            {isImage ? (
+                                                                <div className="max-w-full sm:max-w-md rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 shadow-md bg-white dark:bg-slate-900">
+                                                                    <img
+                                                                        src={file.url}
+                                                                        alt={file.name}
+                                                                        className="w-full h-auto object-contain max-h-[400px]"
+                                                                    />
+                                                                </div>
+                                                            ) : (
+                                                                <div className="flex items-center gap-3 pl-3 pr-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm max-w-sm">
+                                                                    <div className="w-10 h-10 rounded-lg bg-brand-500 flex items-center justify-center text-white shrink-0">
+                                                                        <FileText className="w-5 h-5 text-white" />
+                                                                    </div>
+                                                                    <div className="flex flex-col min-w-0">
+                                                                        <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200 truncate" title={file.name}>{file.name}</span>
+                                                                        <span className="text-[10px] text-slate-500 font-medium">
+                                                                            {file.type.split('/')[1]?.toUpperCase() || 'File'} • {(file.size / 1024).toFixed(0)}KB
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                        {msg.content && (
+                                            <div className="px-4 py-3 bg-brand-50 text-slate-900 rounded-2xl rounded-tr-sm border border-brand-100 text-sm leading-relaxed whitespace-pre-wrap shadow-sm">
+                                                {msg.content}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             ) : (
@@ -1020,7 +1101,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
                                                 console.log('🥧 msg.toolCalls:', msg.toolCalls);
                                                 const hasPieChart = msg.toolCalls && msg.toolCalls.some(tc => tc.name === 'create_pie_chart' && tc.status === 'completed' && tc.result);
                                                 console.log('🥧 Has pie chart?', hasPieChart);
-                                                
+
                                                 if (hasPieChart) {
                                                     const chartToolCall = msg.toolCalls.find(tc => tc.name === 'create_pie_chart' && tc.status === 'completed' && tc.result);
                                                     console.log('🥧 Chart tool call:', chartToolCall);
@@ -1147,8 +1228,8 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
                     <div className={`transition-all duration-300 ease-out ${isInputFocused ? 'w-full max-w-4xl' : 'w-full max-w-md'}`}>
                         <div
                             className={`
-                                relative bg-white rounded-2xl transition-all duration-300 ease-out
-                                ${isInputFocused ? 'shadow-lg shadow-brand-100/50 ring-2 ring-brand-200 border border-transparent' : 'shadow-md border border-slate-200/60'}
+                                relative bg-white dark:bg-slate-900 rounded-2xl transition-all duration-300 ease-out
+                                ${isInputFocused ? 'shadow-lg shadow-brand-100/50 dark:shadow-brand-900/20 ring-2 ring-brand-200 dark:ring-brand-500/50 border border-transparent' : 'shadow-md border border-slate-200/60 dark:border-slate-800'}
                                 ${isTyping ? 'opacity-80' : ''}
                             `}
                         >
@@ -1185,30 +1266,53 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
 
                             <div className="flex flex-col">
                                 {/* File Previews - Only when focused and has files */}
-                                <div className={`overflow-hidden transition-all duration-300 ease-out ${isInputFocused && files.length > 0 ? 'max-h-24 opacity-100' : 'max-h-0 opacity-0'}`}>
-                                    <div className="flex flex-wrap gap-2 px-3 pt-3">
-                                        {files.map((file, idx) => (
-                                            <div key={idx} className="flex items-center gap-2 pl-3 pr-2 py-1 bg-slate-50 border border-slate-200 rounded-lg group transition-all hover:bg-slate-100 hover:border-slate-300">
-                                                <div className="flex flex-col max-w-[150px]">
-                                                    <span className="text-[10px] font-semibold text-slate-700 truncate" title={file.name}>{file.name}</span>
-                                                    <span className="text-[9px] text-slate-400 font-mono">{(file.size / 1024).toFixed(0)}KB</span>
+                                {files.length > 0 && (
+                                    <div className="flex flex-wrap gap-3 px-4 pt-4 mb-2">
+                                        {files.map((file, idx) => {
+                                            const isImage = file.type.startsWith('image/');
+                                            const preview = filePreviews[idx];
+
+                                            return (
+                                                <div key={idx} className="relative group animate-fade-in-up">
+                                                    {isImage ? (
+                                                        <div className="w-16 h-16 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm bg-slate-50 dark:bg-slate-800">
+                                                            <img
+                                                                src={preview}
+                                                                alt={file.name}
+                                                                className="w-full h-full object-cover"
+                                                            />
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex items-center gap-3 pl-3 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-xl group transition-all hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600 shadow-sm">
+                                                            <div className="w-10 h-10 rounded-lg bg-brand-500 flex items-center justify-center text-white shadow-sm">
+                                                                <FileText className="w-5 h-5 text-white" />
+                                                            </div>
+                                                            <div className="flex flex-col min-w-0 max-w-[140px]">
+                                                                <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200 truncate" title={file.name}>{file.name}</span>
+                                                                <span className="text-[10px] text-slate-500 font-medium">
+                                                                    {file.type.split('/')[1]?.toUpperCase() || 'File'} • {(file.size / 1024).toFixed(0)}KB
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    <button
+                                                        onClick={() => removeFile(idx)}
+                                                        className="absolute -top-1.5 -right-1.5 p-0.5 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 rounded-full shadow-md border border-white/20 dark:border-black/10 transition-transform hover:scale-110 z-10"
+                                                        title="Remove file"
+                                                    >
+                                                        <X className="w-3.5 h-3.5" />
+                                                    </button>
                                                 </div>
-                                                <button
-                                                    onClick={() => removeFile(idx)}
-                                                    className="p-0.5 rounded-md text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-                                                >
-                                                    <X className="w-3 h-3" />
-                                                </button>
-                                            </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
-                                </div>
+                                )}
 
                                 {/* Main Input Row - Always visible */}
                                 <div className={`relative ${isInputFocused ? 'flex items-center gap-2 px-3 py-2' : 'flex items-center justify-center px-3 py-2'}`}>
                                     <textarea
                                         ref={textareaRef}
-                                        className={`bg-transparent border-none ring-0 focus:ring-0 focus:outline-none outline-none shadow-none focus:shadow-none resize-none text-sm text-slate-900 placeholder:text-slate-400 overflow-y-auto custom-scrollbar transition-all duration-300 leading-[36px] ${isInputFocused ? 'flex-1 min-h-[40px] max-h-[120px] text-left placeholder:text-left pr-0 leading-normal' : 'w-full min-h-[36px] max-h-[36px] text-center placeholder:text-center pr-24'}`}
+                                        className={`bg-transparent border-none ring-0 focus:ring-0 focus:outline-none outline-none shadow-none focus:shadow-none resize-none text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 overflow-y-auto custom-scrollbar transition-all duration-300 leading-[36px] ${isInputFocused ? 'flex-1 min-h-[40px] max-h-[120px] text-left placeholder:text-left pr-0 leading-normal' : 'w-full min-h-[36px] max-h-[36px] text-center placeholder:text-center pr-24'}`}
                                         placeholder={isLoadingAgents ? "Loading..." : "Ask anything..."}
                                         value={inputValue}
                                         onChange={handleInputChange}

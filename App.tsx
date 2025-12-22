@@ -289,7 +289,7 @@ const App: React.FC = () => {
                     </div>
 
                     {/* Nav Items */}
-                    <div className="flex-1 px-3 py-4 flex flex-col min-h-0">
+                    <div className="flex-1 px-3 py-4 flex flex-col min-h-0 overflow-y-auto custom-scrollbar">
                         <div className="shrink-0 space-y-1">
                             <SidebarItem
                                 icon={<Home className="w-4 h-4" />}
@@ -351,7 +351,7 @@ const App: React.FC = () => {
 
                         {/* Your Chats Section - Collapsible */}
                         {!isSidebarCollapsed && (
-                            <div className="flex-1 flex flex-col min-h-0 mt-4 overflow-hidden">
+                            <div className="flex flex-col min-h-0 mt-4">
                                 <button
                                     type="button"
                                     onClick={() => setIsChatsCollapsed(!isChatsCollapsed)}
@@ -362,7 +362,7 @@ const App: React.FC = () => {
                                 </button>
 
                                 {!isChatsCollapsed && (
-                                    <div className="mt-2 space-y-1 overflow-y-auto custom-scrollbar flex-1 pr-1">
+                                    <div className="mt-2 space-y-1 pr-1">
                                         {/* Chat List */}
                                         {isLoadingSessions ? (
                                             <div className="px-1 py-2">

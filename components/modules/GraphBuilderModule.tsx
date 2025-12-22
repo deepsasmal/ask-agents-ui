@@ -171,7 +171,7 @@ export const GraphBuilderModule: React.FC = () => {
       </div>
 
       {entryMode === 'CHOOSER' ? (
-        <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-4 z-10 relative">
+        <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-4 z-10 relative flex flex-col justify-center">
           <div className="max-w-5xl mx-auto w-full">
             <div className="mb-6">
               <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">How would you like to build your graph?</h1>
