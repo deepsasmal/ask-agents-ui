@@ -17,31 +17,43 @@ interface GraphNode {
     radius: number;
     pulsePhase: number;
     type: 'primary' | 'secondary' | 'tertiary';
+    createdAt: number;
+    isEphemeral?: boolean;
+    opacity: number;
 }
 
 // Animated Graph Background Component
 const AnimatedGraph: React.FC = () => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
-    const animationRef = useRef<number>();
+    const animationRef = useRef<number>(0);
     const nodesRef = useRef<GraphNode[]>([]);
     const mouseRef = useRef({ x: 0, y: 0, active: false });
     const lastSpawnRef = useRef<number>(0);
 
     const initNodes = useCallback((width: number, height: number) => {
         const nodes: GraphNode[] = [];
-        const nodeCount = Math.floor((width * height) / 15000); // Density based on area
-        
-        for (let i = 0; i < Math.min(nodeCount, 60); i++) {
-            const type = i < 5 ? 'primary' : i < 20 ? 'secondary' : 'tertiary';
+        const nodeCount = Math.floor((width * height) / 6000); // Higher density (was 15000)
+
+        for (let i = 0; i < Math.min(nodeCount, 180); i++) { // Higher cap (was 60)
+            const type = i < 8 ? 'primary' : i < 30 ? 'secondary' : 'tertiary';
+            // Variable sizes: Primary 5-7, Secondary 3-4.5, Tertiary 1.5-3
+            let radius;
+            if (type === 'primary') radius = 5 + Math.random() * 2.5;
+            else if (type === 'secondary') radius = 3 + Math.random() * 2;
+            else radius = 1.5 + Math.random() * 2;
+
             nodes.push({
                 id: i,
                 x: Math.random() * width,
                 y: Math.random() * height,
                 vx: (Math.random() - 0.5) * 0.3,
                 vy: (Math.random() - 0.5) * 0.3,
-                radius: type === 'primary' ? 6 : type === 'secondary' ? 4 : 2.5,
+                radius,
                 pulsePhase: Math.random() * Math.PI * 2,
                 type,
+                createdAt: Date.now(),
+                isEphemeral: false,
+                opacity: 1,
             });
         }
         return nodes;
@@ -66,6 +78,47 @@ const AnimatedGraph: React.FC = () => {
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
 
+        const handleMouseDown = (e: MouseEvent) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            const maxNodes = 200;
+            const nodes = nodesRef.current;
+
+            if (nodes.length < maxNodes) {
+                const id = nodes.length > 0 ? nodes[nodes.length - 1].id + 1 : 0;
+                const jitter = 40;
+                const spawnCount = 3;
+
+                for (let s = 0; s < spawnCount; s++) {
+                    if (nodes.length >= maxNodes) break;
+
+                    const spawnX = x + (Math.random() - 0.5) * jitter;
+                    const spawnY = y + (Math.random() - 0.5) * jitter;
+                    const type: GraphNode['type'] = Math.random() > 0.8 ? 'secondary' : 'tertiary';
+
+                    let radius;
+                    if (type === 'secondary') radius = 3 + Math.random() * 2;
+                    else radius = 1.5 + Math.random() * 2;
+
+                    nodes.push({
+                        id: id + s,
+                        x: Math.max(20, Math.min(canvas.width - 20, spawnX)),
+                        y: Math.max(20, Math.min(canvas.height - 20, spawnY)),
+                        vx: (Math.random() - 0.5) * 0.8,
+                        vy: (Math.random() - 0.5) * 0.8,
+                        radius,
+                        pulsePhase: Math.random() * Math.PI * 2,
+                        type,
+                        createdAt: performance.now(),
+                        isEphemeral: true,
+                        opacity: 1,
+                    });
+                }
+            }
+        };
+
         const handleMouseMove = (e: MouseEvent) => {
             const rect = canvas.getBoundingClientRect();
             mouseRef.current = {
@@ -79,6 +132,7 @@ const AnimatedGraph: React.FC = () => {
             mouseRef.current.active = false;
         };
 
+        canvas.addEventListener('mousedown', handleMouseDown);
         canvas.addEventListener('mousemove', handleMouseMove);
         canvas.addEventListener('mouseleave', handleMouseLeave);
 
@@ -86,40 +140,20 @@ const AnimatedGraph: React.FC = () => {
 
         const animate = () => {
             if (!ctx || !canvas) return;
-            
+
             time += 0.016;
             const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            const nodes = nodesRef.current;
-            const baseConnectionDistance = Math.min(canvas.width, canvas.height) * 0.2;
-            const connectionDistance = mouseRef.current.active ? baseConnectionDistance * 1.35 : baseConnectionDistance;
-
-            // Mouse-reactive growth: spawn new nodes near the cursor as you hover/move.
-            // Capped for performance (feels "alive" without runaway node counts).
-            if (mouseRef.current.active && now - lastSpawnRef.current > 120) {
-                lastSpawnRef.current = now;
-                const maxNodes = 90;
-                const spawnCount = nodes.length < 45 ? 2 : 1;
-                for (let s = 0; s < spawnCount; s++) {
-                    if (nodesRef.current.length >= maxNodes) break;
-                    const id = nodesRef.current.length > 0 ? nodesRef.current[nodesRef.current.length - 1].id + 1 : 0;
-                    const jitter = 36;
-                    const x = mouseRef.current.x + (Math.random() - 0.5) * jitter;
-                    const y = mouseRef.current.y + (Math.random() - 0.5) * jitter;
-                    const type: GraphNode['type'] = nodesRef.current.length % 8 === 0 ? 'secondary' : 'tertiary';
-                    nodesRef.current.push({
-                        id,
-                        x: Math.max(20, Math.min(canvas.width - 20, x)),
-                        y: Math.max(20, Math.min(canvas.height - 20, y)),
-                        vx: (Math.random() - 0.5) * 0.55,
-                        vy: (Math.random() - 0.5) * 0.55,
-                        radius: type === 'secondary' ? 4 : 2.5,
-                        pulsePhase: Math.random() * Math.PI * 2,
-                        type,
-                    });
+            // Nodes fade out and positions update
+            nodesRef.current = nodesRef.current.filter(node => {
+                if (node.isEphemeral) {
+                    node.opacity -= 0.005; // Fade out slowly
                 }
-            }
+                return node.opacity > 0;
+            });
+
+            const nodes = nodesRef.current;
 
             // Update node positions
             nodes.forEach(node => {
@@ -137,26 +171,48 @@ const AnimatedGraph: React.FC = () => {
                     node.y = Math.max(padding, Math.min(canvas.height - padding, node.y));
                 }
 
-                // Mouse interaction - nodes attract slightly to cursor
+                // Mouse interaction - nodes repel from cursor (Smooth bouncy effect)
                 if (mouseRef.current.active) {
-                    const dx = mouseRef.current.x - node.x;
-                    const dy = mouseRef.current.y - node.y;
+                    const dx = node.x - mouseRef.current.x;
+                    const dy = node.y - mouseRef.current.y;
                     const dist = Math.sqrt(dx * dx + dy * dy);
-                    if (dist < 200 && dist > 0) {
-                        const force = 0.0003 * (200 - dist);
+                    const repelRadius = 110;
+                    if (dist < repelRadius && dist > 0) {
+                        const force = 0.006 * (repelRadius - dist);
                         node.vx += (dx / dist) * force;
                         node.vy += (dy / dist) * force;
                     }
                 }
 
-                // Limit velocity
-                const maxVel = 0.5;
+                // Gentle centering force to keep the graph cohesive
+                const centerX = canvas.width / 2;
+                const centerY = canvas.height / 2;
+                const dxCenter = centerX - node.x;
+                const dyCenter = centerY - node.y;
+                node.vx += dxCenter * 0.00002;
+                node.vy += dyCenter * 0.00002;
+
+                // Higher friction for a more "viscous" and controlled feel
+                node.vx *= 0.95;
+                node.vy *= 0.95;
+
+                // Limit velocity for a smooth experience
+                const maxVel = 2.5;
                 const vel = Math.sqrt(node.vx * node.vx + node.vy * node.vy);
                 if (vel > maxVel) {
                     node.vx = (node.vx / vel) * maxVel;
                     node.vy = (node.vy / vel) * maxVel;
                 }
+
+                // Ensure a minimum movement for non-ephemeral nodes so the graph doesn't go static
+                if (!node.isEphemeral && vel < 0.1) {
+                    node.vx += (Math.random() - 0.5) * 0.1;
+                    node.vy += (Math.random() - 0.5) * 0.1;
+                }
             });
+
+            const baseConnectionDistance = Math.min(canvas.width, canvas.height) * 0.2;
+            const connectionDistance = mouseRef.current.active ? baseConnectionDistance * 1.35 : baseConnectionDistance;
 
             // Draw connections
             for (let i = 0; i < nodes.length; i++) {
@@ -166,8 +222,9 @@ const AnimatedGraph: React.FC = () => {
                     const dist = Math.sqrt(dx * dx + dy * dy);
 
                     if (dist < connectionDistance) {
-                        const opacity = (1 - dist / connectionDistance) * 0.4;
-                        
+                        const nodeOpacity = Math.min(nodes[i].opacity, nodes[j].opacity);
+                        const opacity = (1 - dist / connectionDistance) * 0.4 * nodeOpacity;
+
                         // Create gradient for connection lines
                         const gradient = ctx.createLinearGradient(
                             nodes[i].x, nodes[i].y,
@@ -189,14 +246,14 @@ const AnimatedGraph: React.FC = () => {
                             const pulsePos = (time * 0.5 + nodes[i].id * 0.1) % 1;
                             const pulseX = nodes[i].x + dx * pulsePos;
                             const pulseY = nodes[i].y + dy * pulsePos;
-                            
+
                             const pulseGradient = ctx.createRadialGradient(
                                 pulseX, pulseY, 0,
                                 pulseX, pulseY, 4
                             );
                             pulseGradient.addColorStop(0, `rgba(52, 211, 153, ${opacity * 2})`);
                             pulseGradient.addColorStop(1, 'rgba(52, 211, 153, 0)');
-                            
+
                             ctx.beginPath();
                             ctx.fillStyle = pulseGradient;
                             ctx.arc(pulseX, pulseY, 4, 0, Math.PI * 2);
@@ -249,17 +306,17 @@ const AnimatedGraph: React.FC = () => {
                     node.x, node.y, 0,
                     node.x, node.y, glowRadius
                 );
-                
+
                 if (node.type === 'primary') {
-                    glowGradient.addColorStop(0, 'rgba(52, 211, 153, 0.4)');
-                    glowGradient.addColorStop(0.5, 'rgba(16, 185, 129, 0.15)');
-                    glowGradient.addColorStop(1, 'rgba(16, 185, 129, 0)');
+                    glowGradient.addColorStop(0, `rgba(52, 211, 153, ${0.4 * node.opacity})`);
+                    glowGradient.addColorStop(0.5, `rgba(16, 185, 129, ${0.15 * node.opacity})`);
+                    glowGradient.addColorStop(1, `rgba(16, 185, 129, 0)`);
                 } else if (node.type === 'secondary') {
-                    glowGradient.addColorStop(0, 'rgba(110, 231, 183, 0.3)');
-                    glowGradient.addColorStop(1, 'rgba(110, 231, 183, 0)');
+                    glowGradient.addColorStop(0, `rgba(110, 231, 183, ${0.3 * node.opacity})`);
+                    glowGradient.addColorStop(1, `rgba(110, 231, 183, 0)`);
                 } else {
-                    glowGradient.addColorStop(0, 'rgba(167, 243, 208, 0.2)');
-                    glowGradient.addColorStop(1, 'rgba(167, 243, 208, 0)');
+                    glowGradient.addColorStop(0, `rgba(167, 243, 208, ${0.2 * node.opacity})`);
+                    glowGradient.addColorStop(1, `rgba(167, 243, 208, 0)`);
                 }
 
                 ctx.beginPath();
@@ -268,6 +325,7 @@ const AnimatedGraph: React.FC = () => {
                 ctx.fill();
 
                 // Core node
+                ctx.globalAlpha = node.opacity;
                 const coreGradient = ctx.createRadialGradient(
                     node.x - currentRadius * 0.3, node.y - currentRadius * 0.3, 0,
                     node.x, node.y, currentRadius
@@ -293,7 +351,7 @@ const AnimatedGraph: React.FC = () => {
                 // Highlight
                 if (node.type === 'primary') {
                     ctx.beginPath();
-                    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                    ctx.fillStyle = `rgba(255, 255, 255, ${0.8 * node.opacity})`;
                     ctx.arc(
                         node.x - currentRadius * 0.25,
                         node.y - currentRadius * 0.25,
@@ -303,6 +361,7 @@ const AnimatedGraph: React.FC = () => {
                     );
                     ctx.fill();
                 }
+                ctx.globalAlpha = 1.0;
             });
 
             animationRef.current = requestAnimationFrame(animate);
@@ -312,6 +371,7 @@ const AnimatedGraph: React.FC = () => {
 
         return () => {
             window.removeEventListener('resize', resizeCanvas);
+            canvas.removeEventListener('mousedown', handleMouseDown);
             canvas.removeEventListener('mousemove', handleMouseMove);
             canvas.removeEventListener('mouseleave', handleMouseLeave);
             if (animationRef.current) {
@@ -370,7 +430,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
         <div className="flex h-[100svh] w-full bg-white font-sans overflow-hidden lg:overflow-hidden">
             {/* Left Panel - Form */}
             <div className="login-shell w-full lg:w-1/2 xl:w-[45%] flex flex-col justify-center px-6 py-6 sm:px-8 sm:py-8 md:px-12 lg:px-16 xl:px-20 h-full overflow-hidden relative bg-white z-10">
-                
+
                 {/* Developer Bypass Button */}
                 <button
                     onClick={() => {
@@ -516,16 +576,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                 {/* Animated Graph Canvas */}
                 <AnimatedGraph />
 
-                {/* Floating label badges */}
-                <div className="absolute top-[15%] left-[15%] px-3 py-1.5 bg-white/5 backdrop-blur-md rounded-full border border-white/10 text-xs text-emerald-300/80 font-medium animate-float">
-                    Knowledge Graphs
-                </div>
-                <div className="absolute top-[25%] right-[20%] px-3 py-1.5 bg-white/5 backdrop-blur-md rounded-full border border-white/10 text-xs text-brand-300/80 font-medium animate-float-delayed">
-                    AI Agents
-                </div>
-                <div className="absolute bottom-[20%] right-[15%] px-3 py-1.5 bg-white/5 backdrop-blur-md rounded-full border border-white/10 text-xs text-violet-300/80 font-medium animate-float-delayed-slow">
-                    Data Insights
-                </div>
+
             </div>
 
             {/* Custom styles */}

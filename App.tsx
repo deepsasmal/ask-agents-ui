@@ -289,66 +289,69 @@ const App: React.FC = () => {
                     </div>
 
                     {/* Nav Items */}
-                    <div className="flex-1 px-3 py-4 space-y-1 overflow-y-auto custom-scrollbar">
-                        <SidebarItem
-                            icon={<Home className="w-4 h-4" />}
-                            label="Home"
-                            isActive={activeModule === 'LANDING'}
-                            collapsed={isSidebarCollapsed}
-                            onClick={() => requestNavigate('LANDING')}
-                        />
+                    <div className="flex-1 px-3 py-4 flex flex-col min-h-0">
+                        <div className="shrink-0 space-y-1">
+                            <SidebarItem
+                                icon={<Home className="w-4 h-4" />}
+                                label="Home"
+                                isActive={activeModule === 'LANDING'}
+                                collapsed={isSidebarCollapsed}
+                                onClick={() => requestNavigate('LANDING')}
+                            />
 
-                        <div className={`my-3 border-t border-slate-100 mx-2 dark:border-slate-700/50 ${isSidebarCollapsed ? 'opacity-0' : 'opacity-100'}`}></div>
+                            <div className={`my-3 border-t border-slate-100 mx-2 dark:border-slate-700/50 ${isSidebarCollapsed ? 'opacity-0' : 'opacity-100'}`}></div>
 
-                        <SidebarItem
-                            icon={<MessageSquareText className="w-4 h-4" />}
-                            label="Chat"
-                            isActive={activeModule === 'CHAT'}
-                            collapsed={isSidebarCollapsed}
-                            onClick={() => requestNavigate('CHAT')}
-                        />
-                        <SidebarItem
-                            icon={<ChartNetwork className="w-4 h-4" />}
-                            label="Graph Builder"
-                            isActive={activeModule === 'GRAPH_BUILDER'}
-                            collapsed={isSidebarCollapsed}
-                            onClick={() => requestNavigate('GRAPH_BUILDER')}
-                        />
-                        <SidebarItem
-                            icon={<PieChart className="w-4 h-4" />}
-                            label="Data Insights"
-                            isActive={activeModule === 'DATA_INSIGHTS'}
-                            collapsed={isSidebarCollapsed}
-                            onClick={() => requestNavigate('DATA_INSIGHTS')}
-                        />
-                        <SidebarItem
-                            icon={<BookOpen className="w-4 h-4" />}
-                            label="Knowledge"
-                            isActive={activeModule === 'KNOWLEDGE'}
-                            collapsed={isSidebarCollapsed}
-                            onClick={() => requestNavigate('KNOWLEDGE')}
-                        />
-                        <SidebarItem
-                            icon={<Database className="w-4 h-4" />}
-                            label="Data"
-                            isActive={activeModule === 'DATA'}
-                            collapsed={isSidebarCollapsed}
-                            onClick={() => requestNavigate('DATA')}
-                        />
+                            <SidebarItem
+                                icon={<MessageSquareText className="w-4 h-4" />}
+                                label="Chat"
+                                isActive={activeModule === 'CHAT'}
+                                collapsed={isSidebarCollapsed}
+                                onClick={() => requestNavigate('CHAT')}
+                            />
+                            <SidebarItem
+                                icon={<ChartNetwork className="w-4 h-4" />}
+                                label="Graph Builder"
+                                isActive={activeModule === 'GRAPH_BUILDER'}
+                                collapsed={isSidebarCollapsed}
+                                onClick={() => requestNavigate('GRAPH_BUILDER')}
+                            />
+                            <SidebarItem
+                                icon={<PieChart className="w-4 h-4" />}
+                                label="Data Insights"
+                                isActive={activeModule === 'DATA_INSIGHTS'}
+                                collapsed={isSidebarCollapsed}
+                                onClick={() => requestNavigate('DATA_INSIGHTS')}
+                            />
+                            <SidebarItem
+                                icon={<BookOpen className="w-4 h-4" />}
+                                label="Knowledge"
+                                isActive={activeModule === 'KNOWLEDGE'}
+                                collapsed={isSidebarCollapsed}
+                                onClick={() => requestNavigate('KNOWLEDGE')}
+                            />
+                            <SidebarItem
+                                icon={<Database className="w-4 h-4" />}
+                                label="Data"
+                                isActive={activeModule === 'DATA'}
+                                collapsed={isSidebarCollapsed}
+                                onClick={() => requestNavigate('DATA')}
+                            />
 
-                        <SidebarItem
-                            icon={<Settings className="w-4 h-4" />}
-                            label="Settings"
-                            isActive={activeModule === 'SETTINGS'}
-                            collapsed={isSidebarCollapsed}
-                            onClick={() => requestNavigate('SETTINGS')}
-                        />
+                            <SidebarItem
+                                icon={<Settings className="w-4 h-4" />}
+                                label="Settings"
+                                isActive={activeModule === 'SETTINGS'}
+                                collapsed={isSidebarCollapsed}
+                                onClick={() => requestNavigate('SETTINGS')}
+                            />
 
-                        <div className={`my-3 border-t border-slate-100 mx-2 dark:border-slate-700/50 ${isSidebarCollapsed ? 'opacity-0' : 'opacity-100'}`}></div>
+                            <div className={`my-3 border-t border-slate-100 mx-2 dark:border-slate-700/50 ${isSidebarCollapsed ? 'opacity-0' : 'opacity-100'}`}></div>
+
+                        </div>
 
                         {/* Your Chats Section - Collapsible */}
                         {!isSidebarCollapsed && (
-                            <div className="mb-4">
+                            <div className="flex-1 flex flex-col min-h-0 mt-4 overflow-hidden">
                                 <button
                                     type="button"
                                     onClick={() => setIsChatsCollapsed(!isChatsCollapsed)}
@@ -359,7 +362,7 @@ const App: React.FC = () => {
                                 </button>
 
                                 {!isChatsCollapsed && (
-                                    <div className="mt-2 space-y-1">
+                                    <div className="mt-2 space-y-1 overflow-y-auto custom-scrollbar flex-1 pr-1">
                                         {/* Chat List */}
                                         {isLoadingSessions ? (
                                             <div className="px-1 py-2">
