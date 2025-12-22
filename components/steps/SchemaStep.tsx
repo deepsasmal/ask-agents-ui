@@ -435,7 +435,7 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
     })();
 
     return (
-        <div className="h-full min-h-0 w-full flex flex-col animate-fade-in pb-1">
+        <div className="h-full min-h-[600px] w-full flex flex-col animate-fade-in pb-1">
             <div className="mb-2 flex items-center justify-between shrink-0 px-1">
                 <div>
                     <h2 className="text-lg font-bold text-slate-900">Schema Selection</h2>

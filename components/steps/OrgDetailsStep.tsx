@@ -48,18 +48,18 @@ export const OrgDetailsStep: React.FC<OrgDetailsStepProps> = ({ data, updateData
   };
 
   return (
-    <div className="h-full min-h-0 w-full flex flex-col animate-fade-in">
+    <div className="w-full flex flex-col animate-fade-in">
       {/* Header Section */}
       <div className="mb-4 shrink-0">
         <h2 className="text-xl font-bold text-slate-900 mb-1">Organization Details</h2>
         <p className="text-slate-500 text-sm">Tell us about your organization to personalize your knowledge graph ontology.</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1 min-h-0">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Left Form Section */}
-        <div className="lg:col-span-7 min-h-0 flex flex-col">
-          <Card className="shadow-supreme border-0 flex-1 min-h-0 flex flex-col" noPadding>
-            <div className="p-4 space-y-4 flex-1 min-h-0">
+        <div className="lg:col-span-7 flex flex-col">
+          <Card className="shadow-supreme border-0 flex flex-col" noPadding>
+            <div className="p-4 space-y-4">
               <div className="grid grid-cols-1 gap-5">
                 <Input
                   label="Organization Name"
@@ -136,14 +136,14 @@ export const OrgDetailsStep: React.FC<OrgDetailsStepProps> = ({ data, updateData
         </div>
 
         {/* Right Sidebar Section */}
-        <div className="lg:col-span-5 min-h-0 flex flex-col">
+        <div className="lg:col-span-5 flex flex-col">
           <div className="flex-1 min-h-[280px] lg:min-h-0 relative group">
             {/* Decorative Background Effects */}
             <div className="absolute -inset-1 bg-gradient-to-r from-brand-200 to-brand-100 rounded-[2rem] blur opacity-40 group-hover:opacity-60 transition duration-1000 group-hover:duration-200" />
             <div className="absolute top-10 -right-10 w-40 h-40 bg-brand-300/30 rounded-full blur-3xl" />
             <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-blue-300/30 rounded-full blur-3xl" />
 
-            <Card className="relative border-0 shadow-supreme ring-1 ring-white/50 backdrop-blur-md bg-white/90 overflow-hidden h-full flex flex-col" noPadding>
+            <Card className="relative border-0 shadow-supreme ring-1 ring-white/50 backdrop-blur-md bg-white/90 overflow-hidden flex flex-col" noPadding>
               {/* Visual Illustration Header */}
               <div className="h-32 shrink-0 bg-gradient-to-br from-slate-50 to-brand-50/50 relative overflow-hidden flex items-center justify-center border-b border-slate-100">
                 {/* CSS Node Network Illustration */}
@@ -172,7 +172,7 @@ export const OrgDetailsStep: React.FC<OrgDetailsStepProps> = ({ data, updateData
                 </div>
               </div>
 
-              <div className="p-4 sm:p-6 space-y-5 flex-1 min-h-0">
+              <div className="p-4 sm:p-6 space-y-5">
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Project Preview</h3>

@@ -180,8 +180,8 @@ export const GraphBuilderModule: React.FC = () => {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {/* Card A — Structured Data */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Card A — Structured Data (Active) */}
               <button
                 type="button"
                 onClick={() => {
@@ -189,105 +189,109 @@ export const GraphBuilderModule: React.FC = () => {
                   setViewMode('WIZARD');
                   setCurrentStep(Step.Welcome);
                 }}
-                className="text-left group rounded-2xl border border-slate-200 bg-white shadow-sm hover:shadow-md transition-all overflow-hidden focus:outline-none focus:ring-2 focus:ring-brand-500/20 cursor-default min-h-[320px]"
+                className="text-left group relative rounded-2xl border-2 border-brand-200 bg-white shadow-lg hover:shadow-xl hover:shadow-brand-500/10 hover:border-brand-400 transition-all duration-300 overflow-hidden focus:outline-none focus:ring-4 focus:ring-brand-500/20 min-h-[320px] hover:-translate-y-1"
               >
-                <div className="p-7">
+                {/* Active indicator glow */}
+                <div className="absolute inset-0 bg-gradient-to-br from-brand-50/50 via-transparent to-brand-50/30 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+                {/* Top accent bar */}
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-brand-400 via-brand-500 to-brand-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+                <div className="relative p-7">
                   <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-xl bg-brand-50 border border-brand-100 flex items-center justify-center text-brand-700">
-                        <Database className="w-6 h-6" />
+                    <div className="flex items-center gap-4">
+                      <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-brand-50 to-brand-100 border-2 border-brand-200 flex items-center justify-center text-brand-600 shadow-sm group-hover:shadow-md group-hover:border-brand-300 group-hover:scale-105 transition-all duration-300">
+                        <Database className="w-7 h-7" />
                       </div>
                       <div>
-                        <div className="text-base font-extrabold text-slate-900">Structured Data</div>
+                        <div className="text-lg font-extrabold text-slate-900 group-hover:text-brand-700 transition-colors">Structured Data</div>
                         <div className="text-sm text-slate-500">SQL tables, CSVs, warehouse data</div>
                       </div>
                     </div>
-                    <div className="text-[10px] font-bold uppercase tracking-wide text-brand-700 bg-brand-50 border border-brand-100 px-2 py-1 rounded-full">
+                    <div className="text-[10px] font-bold uppercase tracking-wide text-white bg-brand-500 px-3 py-1.5 rounded-full shadow-sm">
                       Recommended
                     </div>
                   </div>
 
-                  <ul className="mt-6 space-y-3 text-sm text-slate-600">
-                    <li className="flex items-center gap-3">
-                      <span className="w-8 h-8 rounded-lg bg-brand-50 border border-brand-100 flex items-center justify-center shrink-0">
-                        <Zap className="w-4 h-4 text-brand-700" />
+                  <ul className="mt-7 space-y-4 text-sm text-slate-700">
+                    <li className="flex items-center gap-4">
+                      <span className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-50 to-brand-100 border border-brand-200 flex items-center justify-center shrink-0 group-hover:border-brand-300 group-hover:shadow-sm transition-all">
+                        <Zap className="w-5 h-5 text-brand-600" />
                       </span>
-                      <span>Fast &amp; deterministic</span>
+                      <span className="font-medium">Fast &amp; deterministic</span>
                     </li>
-                    <li className="flex items-center gap-3">
-                      <span className="w-8 h-8 rounded-lg bg-brand-50 border border-brand-100 flex items-center justify-center shrink-0">
-                        <Database className="w-4 h-4 text-brand-700" />
+                    <li className="flex items-center gap-4">
+                      <span className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-50 to-brand-100 border border-brand-200 flex items-center justify-center shrink-0 group-hover:border-brand-300 group-hover:shadow-sm transition-all">
+                        <Database className="w-5 h-5 text-brand-600" />
                       </span>
-                      <span>Column-based graphing</span>
+                      <span className="font-medium">Column-based graphing</span>
                     </li>
                   </ul>
 
-                  <div className="mt-7 flex items-center justify-between">
-                    <div className="inline-flex items-center gap-2 text-xs font-bold text-slate-600">
+                  <div className="mt-8 flex items-center justify-between">
+                    <div className="inline-flex items-center gap-2 text-xs font-bold text-brand-600 bg-brand-50 px-3 py-1.5 rounded-full border border-brand-100">
                       <Sparkles className="w-4 h-4" />
                       Best for databases
                     </div>
-                    <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-bold shadow-sm group-hover:bg-slate-800 transition-colors">
+                    <div className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-brand-600 text-white text-sm font-bold shadow-md group-hover:bg-brand-700 group-hover:shadow-lg group-hover:shadow-brand-500/25 transition-all duration-300">
                       Build graph from tables
-                      <ArrowRight className="w-4 h-4" />
+                      <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
                     </div>
                   </div>
                 </div>
-                <div className="h-px bg-slate-100" />
               </button>
 
               {/* Card B — Documents (Coming Soon) */}
-              <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden opacity-60 min-h-[320px] cursor-default">
-                <div className="p-7">
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500">
-                        <FileText className="w-6 h-6" />
+              <div className="relative rounded-2xl border-2 border-slate-200 bg-gradient-to-br from-slate-50/80 to-white shadow-sm overflow-hidden min-h-[320px] cursor-not-allowed">
+                {/* Disabled overlay */}
+                <div className="absolute inset-0 bg-white/40 backdrop-blur-[1px] z-10" />
+
+                {/* Coming soon ribbon */}
+                <div className="absolute top-4 right-4 z-20">
+                  <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500 bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-full shadow-sm">
+                    Coming Soon
+                  </div>
+                </div>
+
+                <div className="p-7 relative">
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className="w-14 h-14 rounded-2xl bg-slate-100 border-2 border-slate-200 flex items-center justify-center text-slate-400 shadow-sm">
+                        <FileText className="w-7 h-7" />
                       </div>
                       <div>
-                        <div className="text-base font-extrabold text-slate-900 flex items-center gap-2">
-                          Documents (PDFs, Text)
-                        </div>
-                        <div className="text-xs text-slate-500">Reports, contracts, invoices</div>
+                        <div className="text-lg font-extrabold text-slate-600">Documents (PDFs, Text)</div>
+                        <div className="text-sm text-slate-400">Reports, contracts, invoices</div>
                       </div>
-                    </div>
-                    <div className="text-[10px] font-bold uppercase tracking-wide text-slate-600 bg-slate-100 border border-slate-200 px-2 py-1 rounded-full">
-                      Coming soon
                     </div>
                   </div>
 
-                  <ul className="mt-6 space-y-3 text-sm text-slate-600">
-                    <li className="flex items-center gap-3">
-                      <span className="w-8 h-8 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
-                        <BrainCircuit className="w-4 h-4 text-slate-500" />
+                  <ul className="mt-7 space-y-4 text-sm text-slate-500">
+                    <li className="flex items-center gap-4">
+                      <span className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
+                        <BrainCircuit className="w-5 h-5 text-slate-400" />
                       </span>
-                      <span>AI-powered extraction</span>
+                      <span className="font-medium">AI-powered extraction</span>
                     </li>
-                    <li className="flex items-center gap-3">
-                      <span className="w-8 h-8 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
-                        <ScanText className="w-4 h-4 text-slate-500" />
+                    <li className="flex items-center gap-4">
+                      <span className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
+                        <ScanText className="w-5 h-5 text-slate-400" />
                       </span>
-                      <span>Semantic interpretation</span>
+                      <span className="font-medium">Semantic interpretation</span>
                     </li>
                   </ul>
 
-                  <div className="mt-7 flex items-center justify-between">
-                    <div className="inline-flex items-center gap-2 text-xs font-bold text-slate-600">
+                  <div className="mt-8 flex items-center justify-between">
+                    <div className="inline-flex items-center gap-2 text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-full border border-slate-200">
                       <FileText className="w-4 h-4" />
                       Document ingestion
                     </div>
-                    <button
-                      type="button"
-                      disabled
-                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-100 text-slate-500 text-sm font-bold cursor-default border border-slate-200"
-                      title="Coming soon"
-                    >
+                    <div className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-slate-200 text-slate-400 text-sm font-bold border border-slate-300">
                       Build graph from documents
                       <ArrowRight className="w-4 h-4" />
-                    </button>
+                    </div>
                   </div>
                 </div>
-                <div className="h-px bg-slate-100" />
               </div>
             </div>
           </div>
@@ -299,7 +303,7 @@ export const GraphBuilderModule: React.FC = () => {
           </div>
 
           <div className="flex-1 overflow-y-auto custom-scrollbar p-3 flex justify-center">
-            <div className="w-full max-w-5xl h-full flex flex-col">
+            <div className="w-full max-w-5xl min-h-full flex flex-col">
               {renderWizardStep()}
             </div>
           </div>

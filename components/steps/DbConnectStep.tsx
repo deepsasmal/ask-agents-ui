@@ -59,16 +59,16 @@ export const DbConnectStep: React.FC<DbConnectStepProps> = ({ data, updateData, 
   };
 
   return (
-    <div className="h-full min-h-0 w-full flex flex-col animate-fade-in">
+    <div className="w-full flex flex-col animate-fade-in">
       <div className="mb-4 shrink-0 text-center lg:text-left">
         <h2 className="text-xl font-bold text-slate-900 mb-1">Connect Your Data</h2>
         <p className="text-slate-500 text-sm">Select your data source and configure the connection details.</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1 min-h-0">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Left: Connection Form */}
-        <div className="lg:col-span-7 min-h-0 flex flex-col">
-          <Card className="shadow-supreme border-0 flex-1 min-h-0 flex flex-col" noPadding>
+        <div className="lg:col-span-7 flex flex-col">
+          <Card className="shadow-supreme border-0 flex flex-col" noPadding>
             {/* Source Selection Dropdown */}
             <div className="p-4 border-b border-slate-100">
               <label className="text-xs font-semibold text-slate-700 ml-1 mb-1.5 block">Data Source Type</label>
@@ -107,7 +107,7 @@ export const DbConnectStep: React.FC<DbConnectStepProps> = ({ data, updateData, 
               </div>
             </div>
 
-            <div className="p-4 space-y-3 flex-1 min-h-0">
+            <div className="p-4 space-y-3">
               <div className="grid grid-cols-3 gap-3">
                 <div className="col-span-2">
                   <Input
@@ -187,8 +187,8 @@ export const DbConnectStep: React.FC<DbConnectStepProps> = ({ data, updateData, 
         </div>
 
         {/* Right: Preview / Status */}
-        <div className="lg:col-span-5 min-h-0 flex flex-col">
-          <Card className="shadow-supreme border-0 flex-1 min-h-0 flex flex-col bg-white/70" noPadding>
+        <div className="lg:col-span-5 flex flex-col">
+          <Card className="shadow-supreme border-0 flex flex-col bg-white/70" noPadding>
             <div className="p-4 border-b border-slate-100 flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">Connection Preview</h3>
@@ -215,7 +215,7 @@ export const DbConnectStep: React.FC<DbConnectStepProps> = ({ data, updateData, 
               </div>
             </div>
 
-            <div className="p-4 space-y-3 flex-1 min-h-0">
+            <div className="p-4 space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
                   <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Source</p>

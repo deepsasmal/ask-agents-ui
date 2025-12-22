@@ -411,11 +411,20 @@ const App: React.FC = () => {
                     {/* User / Footer */}
                     <div className="p-3 border-t border-slate-100 mb-1 dark:border-slate-800">
                         <div
-                            className={`flex items-center gap-2.5 p-2 rounded-lg transition-colors group ${isSidebarCollapsed ? 'flex-col justify-center' : ''}`}
+                            className={`flex items-center gap-2.5 p-2 rounded-lg transition-colors group relative ${isSidebarCollapsed ? 'flex-col justify-center hover:bg-slate-50 dark:hover:bg-slate-800' : ''}`}
                         >
                             <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-brand-100 to-slate-200 flex items-center justify-center text-slate-600 font-bold text-xs ring-2 ring-white shadow-sm shrink-0">
                                 {authApi.getUserInitials()}
                             </div>
+
+                            {/* Collapsed State Hover Name */}
+                            {isSidebarCollapsed && (
+                                <div className="absolute left-full ml-3 px-2 py-1 bg-slate-900 text-white text-xs font-bold rounded-md opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-[60] shadow-xl">
+                                    {authApi.getUserDisplayName().split(' ')[0]}
+                                    <div className="absolute top-1/2 -left-1 -translate-y-1/2 border-y-4 border-y-transparent border-r-4 border-r-slate-900"></div>
+                                </div>
+                            )}
+
                             <div className={`overflow-hidden transition-all duration-300 ${isSidebarCollapsed ? 'w-0 opacity-0 hidden' : 'w-auto opacity-100'}`}>
                                 <div className="text-xs font-bold text-slate-900 truncate transition-colors dark:text-slate-200">{authApi.getUserDisplayName()}</div>
                                 <div className="text-[10px] text-slate-500 truncate">{authApi.getUserEmail()}</div>

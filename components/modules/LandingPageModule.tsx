@@ -109,7 +109,7 @@ export const LandingPageModule: React.FC<LandingPageProps> = ({ onNavigate }) =>
                     >
                         <div className="absolute top-5 right-5 z-20">
                             <span className="inline-flex items-center rounded-full bg-red-50 text-red-700 border border-red-200 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider shadow-sm">
-                                Beta / Experimental
+                            ⚠️ Experimental 
                             </span>
                         </div>
                         <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 duration-500">
