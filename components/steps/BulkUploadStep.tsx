@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { ArrowRight, ArrowLeft, Upload, FileJson, FileCheck2, X, CloudUpload, AlertCircle, Sparkles } from 'lucide-react';
 import { Button, Card } from '../ui/Common';
+import { toast } from 'react-toastify';
 
 interface UploadedFileInfo {
     name: string;
@@ -270,72 +271,104 @@ export const BulkUploadStep: React.FC<BulkUploadStepProps> = ({
                 </div>
 
                 {/* Right Sidebar Section */}
-                <div className="lg:col-span-5 flex flex-col">
-                    <div className="flex-1 min-h-[280px] lg:min-h-0 relative group">
-                        {/* Decorative Background Effects */}
-                        <div className="absolute -inset-1 bg-gradient-to-r from-brand-200 to-brand-100 rounded-[2rem] blur opacity-40 group-hover:opacity-60 transition duration-1000 group-hover:duration-200" />
-                        <div className="absolute top-10 -right-10 w-40 h-40 bg-brand-300/30 rounded-full blur-3xl" />
-                        <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-blue-300/30 rounded-full blur-3xl" />
+                <div className="lg:col-span-5 flex flex-col min-w-0">
+                    <Card className="shadow-supreme border-0 flex flex-col flex-1" noPadding>
+                        <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <Sparkles className="w-4 h-4 text-brand-600" />
+                                <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Required JSON Structure</h3>
+                            </div>
+                            <button
+                                onClick={() => {
+                                    const sample = {
+                                        "database": "db_name",
+                                        "description": "General description",
+                                        "tables": [{
+                                            "name": "table_name",
+                                            "description": "Table description",
+                                            "columns": [{
+                                                "name": "id",
+                                                "description": "Primary key",
+                                                "properties": { "type": "integer", "is_primary_key": true }
+                                            }]
+                                        }]
+                                    };
+                                    navigator.clipboard.writeText(JSON.stringify(sample, null, 2));
+                                    toast.success('Sample copied to clipboard!');
+                                }}
+                                className="text-[10px] font-bold text-brand-600 hover:text-brand-700 uppercase flex items-center gap-1 transition-colors"
+                            >
+                                Copy Sample
+                            </button>
+                        </div>
 
-                        <Card className="relative border-0 shadow-supreme ring-1 ring-white/50 backdrop-blur-md bg-white/90 overflow-hidden flex flex-col" noPadding>
-                            {/* Visual Illustration Header */}
-                            <div className="h-32 shrink-0 bg-gradient-to-br from-slate-50 to-brand-50/50 relative overflow-hidden flex items-center justify-center border-b border-slate-100">
-                                {/* Animated pattern */}
-                                <div className="absolute inset-0">
-                                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[240px] h-[240px] border border-brand-100/50 rounded-full" />
-                                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[160px] h-[160px] border border-brand-200/60 rounded-full animate-pulse-slow" />
-                                </div>
+                        <div className="p-4 flex-1 overflow-hidden flex flex-col">
+                            <p className="text-xs text-slate-500 mb-4 leading-relaxed">
+                                Ensure your JSON file follows this structure for a successful import. Each table must define its columns and their metadata.
+                            </p>
 
-                                <div className="relative z-10 flex flex-col items-center">
-                                    <div className="w-12 h-12 bg-white rounded-xl shadow-xl shadow-brand-500/10 flex items-center justify-center ring-4 ring-white relative mb-2">
-                                        <Upload className="w-6 h-6 text-brand-600" />
-                                        <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-brand-500 rounded-full border-2 border-white" />
+                            <div className="relative flex-1 min-h-[300px] bg-slate-900 rounded-xl border border-slate-800 shadow-inner group overflow-hidden">
+                                {/* Code Header */}
+                                <div className="absolute top-0 inset-x-0 h-6 bg-slate-800/50 backdrop-blur-sm border-b border-white/5 flex items-center px-3 justify-between z-10">
+                                    <div className="flex gap-1.5">
+                                        <div className="w-2 h-2 rounded-full bg-red-500/50" />
+                                        <div className="w-2 h-2 rounded-full bg-amber-500/50" />
+                                        <div className="w-2 h-2 rounded-full bg-emerald-500/50" />
                                     </div>
+                                    <span className="text-[9px] font-mono text-slate-500 uppercase tracking-widest">schema.json</span>
                                 </div>
+
+                                <div className="absolute inset-x-0 top-6 bottom-0 p-4 font-mono text-[10px] sm:text-[11px] overflow-y-auto custom-scrollbar-dark leading-normal">
+                                    <pre className="text-slate-300">
+                                        {`{
+  "database": "my_db",
+  "description": "Source metadata",
+  "tables": [
+    {
+      "name": "products",
+      "description": "Catalog of items...",
+      "columns": [
+        {
+          "name": "id",
+          "description": "Main identifier",
+          "properties": {
+            "type": "integer",
+            "is_primary_key": true
+          }
+        },
+        {
+          "name": "name",
+          "description": "Item name",
+          "properties": {
+            "type": "varchar"
+          }
+        }
+      ]
+    }
+  ]
+}`}
+                                    </pre>
+                                </div>
+
+                                <div className="absolute bottom-0 inset-x-0 h-12 bg-gradient-to-t from-slate-900 to-transparent pointer-events-none" />
                             </div>
 
-                            <div className="p-4 sm:p-6 space-y-5">
-                                <div>
-                                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">JSON Schema Format</h3>
-                                    <p className="text-sm text-slate-600">
-                                        Your JSON file should contain the graph schema definition with nodes, edges, and their properties.
+                            <div className="mt-4 space-y-2">
+                                <div className="flex items-start gap-2">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-brand-500 mt-1.5 shrink-0" />
+                                    <p className="text-[11px] text-slate-600 font-medium leading-tight">
+                                        <span className="text-slate-900 font-bold uppercase text-[9px]">Properties:</span> Define data types, primary keys, and foreign keys.
                                     </p>
                                 </div>
-
-                                <div className="space-y-3">
-                                    <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100">
-                                        <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm text-brand-600">
-                                            <Sparkles className="w-4 h-4" />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wide">Nodes & Entities</p>
-                                            <p className="text-sm font-semibold text-slate-900 truncate">Define graph vertices</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100">
-                                        <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm text-brand-600">
-                                            <Sparkles className="w-4 h-4" />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wide">Relationships</p>
-                                            <p className="text-sm font-semibold text-slate-900 truncate">Define edge connections</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100">
-                                        <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm text-brand-600">
-                                            <Sparkles className="w-4 h-4" />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wide">Properties</p>
-                                            <p className="text-sm font-semibold text-slate-900 truncate">Metadata & attributes</p>
-                                        </div>
-                                    </div>
+                                <div className="flex items-start gap-2">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-brand-500 mt-1.5 shrink-0" />
+                                    <p className="text-[11px] text-slate-600 font-medium leading-tight">
+                                        <span className="text-slate-900 font-bold uppercase text-[9px]">Meta:</span> Accurate descriptions improve AI model performance.
+                                    </p>
                                 </div>
                             </div>
-                        </Card>
-                    </div>
+                        </div>
+                    </Card>
                 </div>
             </div>
         </div>
