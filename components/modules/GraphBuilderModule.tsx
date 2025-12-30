@@ -10,6 +10,7 @@ import { ReviewStep } from '../steps/ReviewStep';
 import { BulkUploadStep } from '../steps/BulkUploadStep';
 import { BulkReviewStep } from '../steps/BulkReviewStep';
 import { GraphEditor } from '../editor/GraphEditor';
+import { Button } from '../ui/Common';
 import { Wand2, Edit3, Database, FileText, ArrowRight, Sparkles, Zap, ScanText, BrainCircuit, Upload } from 'lucide-react';
 
 const INITIAL_STATE: WizardState = {
@@ -194,41 +195,69 @@ export const GraphBuilderModule: React.FC = () => {
       </div>
 
       {/* Module Header */}
-      <div className="h-12 bg-white/80 border-b border-slate-200/60 flex items-center justify-between px-4 sticky top-0 z-40 backdrop-blur-xl shrink-0">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200/60 bg-white/80 backdrop-blur-xl sticky top-0 z-40 shrink-0">
         <div className="flex items-center gap-4">
-          <h2 className="text-sm font-bold text-slate-900">Graph Builder</h2>
-          <div className="h-4 w-px bg-slate-200" />
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-brand-50 border border-brand-100 flex items-center justify-center shadow-sm">
+              <BrainCircuit className="w-5 h-5 text-brand-600" />
+            </div>
+            <div className="flex flex-col">
+              <div className="flex items-center gap-2">
+                <h1 className="text-lg font-bold text-slate-900 leading-tight tracking-tight">Graph Builder</h1>
+                <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-brand-50 border border-brand-100 text-brand-700">
+                  <Sparkles className="w-3 h-3" />
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider">AI Powered</span>
+                </div>
+              </div>
+              <p className="text-xs text-slate-500 font-medium">Design and build your knowledge graph schema</p>
+            </div>
+          </div>
 
-          {/* View Switcher Tabs */}
+          {/* View Switcher Tabs - only shown in Structured mode */}
           {entryMode === 'STRUCTURED' && (
-            <div className="flex bg-slate-100/80 p-0.5 rounded-lg border border-slate-200/60">
+            <div className="ml-2 flex bg-slate-100/80 p-0.5 rounded-xl border border-slate-200/60 shadow-inner">
               <button
                 onClick={() => setViewMode('WIZARD')}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${viewMode === 'WIZARD' ? 'bg-white text-brand-600 shadow-sm ring-1 ring-black/5' : 'text-slate-500 hover:text-slate-700'}`}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all duration-200 ${viewMode === 'WIZARD' ? 'bg-white text-brand-600 shadow-sm ring-1 ring-black/5' : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'}`}
               >
-                <Wand2 className="w-3 h-3" />
+                <Wand2 className="w-3.5 h-3.5" />
                 Wizard
               </button>
               <button
                 onClick={() => setViewMode('EDITOR')}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${viewMode === 'EDITOR' ? 'bg-white text-brand-600 shadow-sm ring-1 ring-black/5' : 'text-slate-500 hover:text-slate-700'}`}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all duration-200 ${viewMode === 'EDITOR' ? 'bg-white text-brand-600 shadow-sm ring-1 ring-black/5' : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'}`}
               >
-                <Edit3 className="w-3 h-3" />
+                <Edit3 className="w-3.5 h-3.5" />
                 Editor
               </button>
             </div>
           )}
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           {/* Status Indicator */}
-          <div className="hidden md:flex items-center gap-2 text-[10px] font-bold px-2.5 py-1 rounded-full bg-slate-50 text-slate-600 border border-slate-200/60 shadow-sm">
-            <span className="relative flex h-1.5 w-1.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-brand-500"></span>
+          <div className="hidden md:flex items-center gap-2.5 text-[10px] font-bold px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 shadow-sm">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
-            System Ready
+            System Online
           </div>
+
+          {entryMode !== 'CHOOSER' && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setEntryMode('CHOOSER');
+                setCurrentStep(Step.Welcome);
+                setBulkImportStep(BulkImportStep.Organization);
+              }}
+              className="text-[11px] font-bold uppercase tracking-wider px-4 py-2 rounded-xl"
+            >
+              Exit
+            </Button>
+          )}
         </div>
       </div>
 
