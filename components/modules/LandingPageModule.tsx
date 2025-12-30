@@ -91,7 +91,7 @@ export const LandingPageModule: React.FC<LandingPageProps> = ({ onNavigate }) =>
                                 <MessageSquareText className="w-6 h-6" />
                             </div>
 
-                            <h3 className="text-xl font-bold text-slate-900 mb-2">AI Agents</h3>
+                            <h3 className="text-xl font-bold text-slate-900 mb-2">Chat</h3>
                             <p className="text-slate-500 text-sm mb-6 max-w-xs leading-relaxed">
                                 Interact with your data using specialized AI agents. Run analysis, generate reports, and get answers.
                             </p>

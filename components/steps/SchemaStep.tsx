@@ -18,6 +18,13 @@ interface AiMetadata {
     columns: Record<string, string>;
 }
 
+interface V2FillRequest {
+    tableName: string;
+    fillTableDescription: boolean;
+    columnNames: string[]; // columns to fill/overwrite
+    onlyIfEmpty: boolean; // if true, do not overwrite existing descriptions
+}
+
 export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext, onBack }) => {
     const [expandedTableId, setExpandedTableId] = useState<string | null>(null);
     const [autofilling, setAutofilling] = useState<string | null>(null);
@@ -37,8 +44,23 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
 
     const connectionId = data.connectionId;
 
-    // Fetch Schemas on Mount
+    // Detect if this is a MindsDB connection (pre-loaded tables from DbConnectStep)
+    const isMindsDbConnection = connectionId?.startsWith('mindsdb:');
+    const mindsDbSourceName = isMindsDbConnection ? connectionId.replace('mindsdb:', '') : null;
+
+    // Fetch Schemas on Mount (skip for MindsDB - tables already loaded)
     useEffect(() => {
+        // For MindsDB connections, skip schema fetching - data is pre-loaded
+        if (isMindsDbConnection) {
+            setSchemas([mindsDbSourceName || 'mindsdb']);
+            setSelectedSchema(data.schemaName || mindsDbSourceName || 'mindsdb');
+            // Expand first table if available
+            if (data.tables.length > 0 && !expandedTableId) {
+                setExpandedTableId(data.tables[0].id);
+            }
+            return;
+        }
+
         const fetchSchemas = async () => {
             if (!connectionId) return;
             try {
@@ -72,10 +94,15 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
         };
 
         fetchSchemas();
-    }, [connectionId]);
+    }, [connectionId, isMindsDbConnection]);
 
-    // Fetch Tables when Schema changes
+    // Fetch Tables when Schema changes (skip for MindsDB - tables already loaded)
     useEffect(() => {
+        // For MindsDB connections, tables are already loaded from DbConnectStep
+        if (isMindsDbConnection) {
+            return;
+        }
+
         const fetchTables = async () => {
             if (!connectionId || !selectedSchema) return;
             try {
@@ -102,7 +129,7 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
         };
 
         fetchTables();
-    }, [connectionId, selectedSchema]);
+    }, [connectionId, selectedSchema, isMindsDbConnection]);
 
     const handleSchemaChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const newSchema = e.target.value;
@@ -111,11 +138,20 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
     };
 
     const fetchColumnsForTable = async (tableId: string) => {
-        if (!connectionId) return;
-
         // Check if already loaded
         const table = data.tables.find(t => t.id === tableId);
         if (table?.loaded) return;
+
+        // For MindsDB connections, columns are already loaded - just mark as loaded
+        if (isMindsDbConnection) {
+            const updatedTables = data.tables.map(t =>
+                t.id === tableId ? { ...t, loaded: true } : t
+            );
+            updateData({ tables: updatedTables });
+            return;
+        }
+
+        if (!connectionId) return;
 
         try {
             setLoadingColumns(prev => new Set(prev).add(tableId));
@@ -212,6 +248,82 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
         updateData({ tables: updatedTables });
     };
 
+    const applyV2Response = (resp: any, requests: V2FillRequest[]) => {
+        const respByTable = new Map<string, { description?: string; columns?: Array<{ name: string; description?: string }> }>();
+        (resp?.tables || []).forEach((t: any) => {
+            if (!t?.name) return;
+            respByTable.set(t.name, { description: t.description, columns: t.columns });
+        });
+
+        const updatedTables = data.tables.map((t) => {
+            const req = requests.find(r => r.tableName === t.name);
+            const rt = respByTable.get(t.name);
+            if (!req || !rt) return t;
+
+            let nextTable = { ...t };
+
+            if (req.fillTableDescription && rt.description) {
+                if (!req.onlyIfEmpty || !nextTable.description?.trim()) {
+                    nextTable.description = rt.description;
+                }
+            }
+
+            if (Array.isArray(req.columnNames) && req.columnNames.length > 0 && Array.isArray(rt.columns)) {
+                const colDescByName = new Map<string, string>();
+                rt.columns.forEach((c) => {
+                    if (c?.name && c?.description) colDescByName.set(c.name, c.description);
+                });
+
+                nextTable.columns = nextTable.columns.map((c) => {
+                    if (!req.columnNames.includes(c.name)) return c;
+                    const newDesc = colDescByName.get(c.name);
+                    if (!newDesc) return c;
+                    if (req.onlyIfEmpty && c.description?.trim()) return c;
+                    return { ...c, description: newDesc };
+                });
+            }
+
+            return nextTable;
+        });
+
+        updateData({ tables: updatedTables });
+    };
+
+    const callSchemaDescriptionsV2 = async (requests: V2FillRequest[]) => {
+        if (!mindsDbSourceName) throw new Error('No MindsDB source name found');
+
+        const payloadTables = data.tables
+            .filter((t) => requests.some(r => r.tableName === t.name))
+            .map((t) => {
+                const req = requests.find(r => r.tableName === t.name)!;
+                const names = req.columnNames;
+
+                // For V2 we provide some context columns if only table desc is requested
+                const contextCols = names.length
+                    ? t.columns.filter((c) => names.includes(c.name))
+                    : t.columns.slice(0, Math.min(5, t.columns.length));
+
+                return {
+                    table_name: t.name,
+                    columns: contextCols.map((c) => ({
+                        name: c.name,
+                        type: c.type,
+                        is_primary_key: !!c.isPrimaryKey,
+                        is_foreign_key: !!c.isForeignKey
+                    })),
+                    constraints: [] // We don't have constraints in WizardState yet
+                };
+            });
+
+        const payload = {
+            db: mindsDbSourceName,
+            tables: payloadTables
+        };
+
+        const resp = await llmApi.generateSchemaDescriptionsV2(payload);
+        applyV2Response(resp, requests);
+    };
+
     const generateMockDescription = (name: string, type: 'table' | 'column') => {
         const formattedName = name.replace(/_/g, ' ').toLowerCase();
         if (type === 'table') {
@@ -220,10 +332,28 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
         return `Represents the ${formattedName} of the entity.`;
     };
 
-    const handleTableAiAutofill = (tableId: string) => {
+    const handleTableAiAutofill = async (tableId: string) => {
+        const table = data.tables.find(t => t.id === tableId);
+        if (!table) return;
+
         setAutofilling(`TABLE-${tableId}`);
+
+        if (isMindsDbConnection) {
+            try {
+                const missingCols = table.columns.filter((c) => !c.description?.trim()).map((c) => c.name);
+                await callSchemaDescriptionsV2([
+                    { tableName: table.name, fillTableDescription: true, columnNames: missingCols, onlyIfEmpty: false }
+                ]);
+            } catch (err) {
+                console.error('MindsDB Table AI Autofill failed', err);
+                toast.error('Smart fill failed. Please try again.');
+            } finally {
+                setAutofilling(null);
+            }
+            return;
+        }
+
         setTimeout(() => {
-            const table = data.tables.find(t => t.id === tableId);
             const name = table?.name || '';
 
             // Check cache first
@@ -240,8 +370,26 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
         }, 1200);
     };
 
-    const handleAiAutofill = (tableId: string, column: Column) => {
+    const handleAiAutofill = async (tableId: string, column: Column) => {
         setAutofilling(`${tableId}-${column.name}`);
+
+        if (isMindsDbConnection) {
+            try {
+                const table = data.tables.find(t => t.id === tableId);
+                if (table) {
+                    await callSchemaDescriptionsV2([
+                        { tableName: table.name, fillTableDescription: false, columnNames: [column.name], onlyIfEmpty: false }
+                    ]);
+                }
+            } catch (err) {
+                console.error('MindsDB Column AI Autofill failed', err);
+                toast.error('Smart fill failed. Please try again.');
+            } finally {
+                setAutofilling(null);
+            }
+            return;
+        }
+
         setTimeout(() => {
             // Check cache first
             const cached = aiMetadataRef.current[tableId]?.columns[column.name];
@@ -261,16 +409,43 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
     };
 
     const handleBatchTableAutofill = async () => {
-        if (!connectionId || !selectedSchema) return;
-
         // Get selected tables
-        const selectedTableNames = data.tables.filter(t => t.selected).map(t => t.name);
+        const selectedTables = data.tables.filter(t => t.selected);
+        const selectedTableNames = selectedTables.map(t => t.name);
 
         if (selectedTableNames.length === 0) {
             return;
         }
 
         setIsBatchTableLoading(true);
+
+        if (isMindsDbConnection) {
+            try {
+                const requests: V2FillRequest[] = selectedTables
+                    .map((t) => {
+                        const fillTableDescription = !t.description?.trim();
+                        const missingCols = t.columns.filter((c) => !c.description?.trim()).map((c) => c.name);
+                        return { tableName: t.name, fillTableDescription, columnNames: missingCols, onlyIfEmpty: true };
+                    })
+                    .filter((r) => r.fillTableDescription || r.columnNames.length > 0);
+
+                if (requests.length > 0) {
+                    await callSchemaDescriptionsV2(requests);
+                }
+            } catch (err) {
+                console.error('MindsDB Batch AI Autofill failed', err);
+                toast.error('Batch smart fill failed. Please try again.');
+            } finally {
+                setIsBatchTableLoading(false);
+            }
+            return;
+        }
+
+        if (!connectionId || !selectedSchema) {
+            setIsBatchTableLoading(false);
+            return;
+        }
+
         try {
             const response = await llmApi.generateSchemaDescriptions(connectionId, selectedSchema, selectedTableNames);
 
@@ -325,8 +500,29 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
         }
     };
 
-    const handleBatchColumnAutofill = (tableId: string) => {
+    const handleBatchColumnAutofill = async (tableId: string) => {
+        const table = data.tables.find(t => t.id === tableId);
+        if (!table) return;
+
         setAutofilling(`BATCH-COL-${tableId}`);
+
+        if (isMindsDbConnection) {
+            try {
+                const missingCols = table.columns.filter((c) => !c.description?.trim()).map((c) => c.name);
+                if (missingCols.length > 0) {
+                    await callSchemaDescriptionsV2([
+                        { tableName: table.name, fillTableDescription: false, columnNames: missingCols, onlyIfEmpty: true }
+                    ]);
+                }
+            } catch (err) {
+                console.error('MindsDB Batch Column AI Autofill failed', err);
+                toast.error('Column smart fill failed. Please try again.');
+            } finally {
+                setAutofilling(null);
+            }
+            return;
+        }
+
         setTimeout(() => {
             const table = data.tables.find(t => t.id === tableId);
             if (table) {
