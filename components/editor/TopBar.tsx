@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Save, Share2, Undo2, Redo2, Search, Info, Loader2, X, Check, PanelLeft, PanelRight } from 'lucide-react';
+import { Save, Share2, Undo2, Redo2, Search, Info, Loader2, X, Check, PanelLeft, PanelRight, Pencil } from 'lucide-react';
 import { Button } from '../ui/Common';
 import { graphApi, SearchNodeResult } from '../../services/api';
 
@@ -18,6 +18,7 @@ interface TopBarProps {
   isRightPanelOpen?: boolean;
   onToggleLeftPanel?: () => void;
   onToggleRightPanel?: () => void;
+  onProjectNameChange?: (name: string) => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -33,15 +34,32 @@ export const TopBar: React.FC<TopBarProps> = ({
   isLeftPanelOpen = false,
   isRightPanelOpen = false,
   onToggleLeftPanel,
-  onToggleRightPanel
+  onToggleRightPanel,
+  onProjectNameChange
 }) => {
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<SearchNodeResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [localProjectName, setLocalProjectName] = useState(projectName || 'Untitled Graph');
 
   const searchRef = useRef<HTMLDivElement>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
+  // Sync local project name with prop changes
+  useEffect(() => {
+    setLocalProjectName(projectName || 'Untitled Graph');
+  }, [projectName]);
+
+  // Focus input when entering edit mode
+  useEffect(() => {
+    if (isEditingName && nameInputRef.current) {
+      nameInputRef.current.focus();
+      nameInputRef.current.select();
+    }
+  }, [isEditingName]);
 
   // Close search dropdown when clicking outside
   useEffect(() => {
@@ -82,6 +100,26 @@ export const TopBar: React.FC<TopBarProps> = ({
     setSearchTerm('');
   };
 
+  const handleProjectNameSave = () => {
+    const trimmedName = localProjectName.trim();
+    if (trimmedName && trimmedName !== projectName) {
+      onProjectNameChange?.(trimmedName);
+    } else if (!trimmedName) {
+      setLocalProjectName(projectName || 'Untitled Graph');
+    }
+    setIsEditingName(false);
+  };
+
+  const handleProjectNameKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleProjectNameSave();
+    } else if (e.key === 'Escape') {
+      setLocalProjectName(projectName || 'Untitled Graph');
+      setIsEditingName(false);
+    }
+  };
+
   return (
     <div className="bg-white border-b border-slate-200 shadow-sm z-30 shrink-0">
       <div className="min-h-16 px-3 sm:px-4 lg:px-6 py-3 lg:py-0 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
@@ -108,7 +146,37 @@ export const TopBar: React.FC<TopBarProps> = ({
           </div>
 
           <div className="flex flex-col min-w-0">
-            <h1 className="text-base sm:text-lg font-bold text-slate-800 leading-none truncate">{projectName || 'Untitled Project'}</h1>
+            <div className="group/title flex items-center gap-2 min-w-0">
+              {isEditingName ? (
+                <input
+                  ref={nameInputRef}
+                  type="text"
+                  value={localProjectName}
+                  onChange={(e) => setLocalProjectName(e.target.value)}
+                  onBlur={handleProjectNameSave}
+                  onKeyDown={handleProjectNameKeyDown}
+                  className="text-base sm:text-lg font-bold text-slate-800 leading-none bg-transparent border-b-2 border-brand-500 focus:outline-none min-w-0 max-w-full px-1 -mx-1"
+                  placeholder="Enter project name"
+                />
+              ) : (
+                <>
+                  <h1
+                    className="text-base sm:text-lg font-bold text-slate-800 leading-none truncate cursor-pointer hover:text-brand-600 transition-colors"
+                    onClick={() => setIsEditingName(true)}
+                    title="Click to edit project name"
+                  >
+                    {localProjectName || 'Untitled Graph'}
+                  </h1>
+                  <button
+                    onClick={() => setIsEditingName(true)}
+                    className="opacity-0 group-hover/title:opacity-100 transition-opacity p-1 hover:bg-slate-100 rounded"
+                    title="Edit project name"
+                  >
+                    <Pencil className="w-3 h-3 text-slate-400" />
+                  </button>
+                </>
+              )}
+            </div>
             <span className="text-xs text-slate-500 font-medium mt-1 flex items-center gap-1.5">
               <span className={`w-1.5 h-1.5 rounded-full ${hasUnsavedChanges ? 'bg-amber-500' : 'bg-green-500'}`}></span>
               {hasUnsavedChanges ? 'Unsaved Changes' : 'All Saved'}
@@ -119,64 +187,64 @@ export const TopBar: React.FC<TopBarProps> = ({
         {/* Center: Search */}
         <div className="w-full lg:flex-1 lg:max-w-lg lg:mx-6 flex items-center gap-2 min-w-0" ref={searchRef}>
           <div className="relative group flex-1 min-w-0">
-          {isSearching ? (
-            <Loader2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-500 animate-spin" />
-          ) : (
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-hover:text-brand-500 transition-colors" />
-          )}
-          <input
-            type="text"
-            placeholder={graphId ? "Search nodes..." : "Enter Graph ID to enable search"}
-            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all placeholder:text-slate-400 disabled:opacity-50 disabled:cursor-not-allowed"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            onFocus={() => {
-              if (searchResults.length > 0) setShowResults(true);
-            }}
-            disabled={!graphId}
-          />
+            {isSearching ? (
+              <Loader2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-500 animate-spin" />
+            ) : (
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-hover:text-brand-500 transition-colors" />
+            )}
+            <input
+              type="text"
+              placeholder={graphId ? "Search nodes..." : "Enter Graph ID to enable search"}
+              className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all placeholder:text-slate-400 disabled:opacity-50 disabled:cursor-not-allowed"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onFocus={() => {
+                if (searchResults.length > 0) setShowResults(true);
+              }}
+              disabled={!graphId}
+            />
 
-          {/* Results Dropdown */}
-          {showResults && (
-            <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-slate-100 max-h-96 overflow-y-auto z-50 custom-scrollbar animate-fade-in-up">
-              {searchResults.length === 0 ? (
-                <div className="p-4 text-center text-slate-400 text-sm italic">
-                  {isSearching ? 'Searching...' : 'No nodes found'}
-                </div>
-              ) : (
-                <div className="py-2">
-                  <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">Search Results</div>
-                  {searchResults.map((node) => (
-                    <button
-                      key={node.id}
-                      className="w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors flex items-center justify-between group/item border-b border-slate-50 last:border-0"
-                      onClick={() => handleNodeSelect(node)}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-0.5">
-                          <span className="font-bold text-sm text-slate-800 truncate">{node.properties.name}</span>
-                          {node.labels.map(label => (
-                            <span key={label} className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-brand-50 text-brand-600 border border-brand-100">
-                              {label}
-                            </span>
-                          ))}
+            {/* Results Dropdown */}
+            {showResults && (
+              <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-slate-100 max-h-96 overflow-y-auto z-50 custom-scrollbar animate-fade-in-up">
+                {searchResults.length === 0 ? (
+                  <div className="p-4 text-center text-slate-400 text-sm italic">
+                    {isSearching ? 'Searching...' : 'No nodes found'}
+                  </div>
+                ) : (
+                  <div className="py-2">
+                    <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">Search Results</div>
+                    {searchResults.map((node) => (
+                      <button
+                        key={node.id}
+                        className="w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors flex items-center justify-between group/item border-b border-slate-50 last:border-0"
+                        onClick={() => handleNodeSelect(node)}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <span className="font-bold text-sm text-slate-800 truncate">{node.properties.name}</span>
+                            {node.labels.map(label => (
+                              <span key={label} className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-brand-50 text-brand-600 border border-brand-100">
+                                {label}
+                              </span>
+                            ))}
+                          </div>
+                          {node.properties.description && (
+                            <p className="text-xs text-slate-500 truncate">{node.properties.description}</p>
+                          )}
                         </div>
-                        {node.properties.description && (
-                          <p className="text-xs text-slate-500 truncate">{node.properties.description}</p>
-                        )}
-                      </div>
-                      <div className="opacity-0 group-hover/item:opacity-100 transition-opacity">
-                        <div className="w-6 h-6 rounded-full bg-brand-50 text-brand-600 flex items-center justify-center">
-                          <Check className="w-3 h-3" />
+                        <div className="opacity-0 group-hover/item:opacity-100 transition-opacity">
+                          <div className="w-6 h-6 rounded-full bg-brand-50 text-brand-600 flex items-center justify-center">
+                            <Check className="w-3 h-3" />
+                          </div>
                         </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Graph ID Info/Config Button */}
           <div className="relative shrink-0">
@@ -262,7 +330,7 @@ export const TopBar: React.FC<TopBarProps> = ({
           >
             Publish
           </Button>
-      </div>
+        </div>
       </div>
     </div>
   );

@@ -27,6 +27,7 @@ export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName, initialGr
     const [isSavingDraft, setIsSavingDraft] = useState(false);
     const [isPublishing, setIsPublishing] = useState(false);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+    const [localProjectName, setLocalProjectName] = useState(projectName || 'Untitled Graph');
 
     const [isDesktop, setIsDesktop] = useState<boolean>(() => {
         if (typeof window === 'undefined') return true;
@@ -370,13 +371,18 @@ export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName, initialGr
         }
     };
 
+    const handleProjectNameChange = (newName: string) => {
+        setLocalProjectName(newName);
+        setHasUnsavedChanges(true);
+    };
+
     const selectedNode = state.nodes.find(n => n.id === state.selectedNodeId) || null;
     const selectedEdge = state.edges.find(e => e.id === state.selectedEdgeId) || null;
 
     return (
         <div className="flex flex-col h-full min-h-0 bg-slate-100">
             <TopBar
-                projectName={projectName || ''}
+                projectName={localProjectName}
                 graphId={graphId}
                 setGraphId={handleSetGraphId}
                 onSaveDraft={handleSaveDraft}
@@ -389,6 +395,7 @@ export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName, initialGr
                 isRightPanelOpen={isRightPanelOpen}
                 onToggleLeftPanel={toggleLeftPanel}
                 onToggleRightPanel={toggleRightPanel}
+                onProjectNameChange={handleProjectNameChange}
             />
 
             <div className="relative flex flex-1 min-h-0 min-w-0 overflow-hidden">
