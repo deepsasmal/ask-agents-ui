@@ -4,9 +4,10 @@ import { Button } from '../ui/Common';
 
 interface WelcomeStepProps {
   onStart: () => void;
+  onBulkImport?: () => void;
 }
 
-export const WelcomeStep: React.FC<WelcomeStepProps> = ({ onStart }) => {
+export const WelcomeStep: React.FC<WelcomeStepProps> = ({ onStart, onBulkImport }) => {
   return (
     <div className="flex flex-col items-center justify-center min-h-[600px] text-center animate-fade-in-up relative overflow-hidden">
 
@@ -47,7 +48,7 @@ export const WelcomeStep: React.FC<WelcomeStepProps> = ({ onStart }) => {
           size="lg"
           variant="secondary"
           className="px-8 py-5 text-lg bg-white/80 border-slate-200 text-slate-600 hover:text-brand-600 hover:border-brand-200 rounded-full"
-          onClick={() => { }}
+          onClick={onBulkImport}
         >
           Bulk Import
         </Button>

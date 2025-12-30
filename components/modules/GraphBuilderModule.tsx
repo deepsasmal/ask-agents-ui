@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
 import { WizardState, Step, INITIAL_TABLES } from '../../types';
 import { WizardProgress } from '../WizardProgress';
+import { BulkImportProgress, BulkImportStep } from '../BulkImportProgress';
 import { WelcomeStep } from '../steps/WelcomeStep';
 import { OrgDetailsStep } from '../steps/OrgDetailsStep';
 import { DbConnectStep } from '../steps/DbConnectStep';
 import { SchemaStep } from '../steps/SchemaStep';
 import { ReviewStep } from '../steps/ReviewStep';
+import { BulkUploadStep } from '../steps/BulkUploadStep';
+import { BulkReviewStep } from '../steps/BulkReviewStep';
 import { GraphEditor } from '../editor/GraphEditor';
-import { Wand2, Edit3, Database, FileText, ArrowRight, Sparkles, Zap, ScanText, BrainCircuit } from 'lucide-react';
+import { Wand2, Edit3, Database, FileText, ArrowRight, Sparkles, Zap, ScanText, BrainCircuit, Upload } from 'lucide-react';
 
 const INITIAL_STATE: WizardState = {
   orgName: '',
@@ -23,14 +26,26 @@ const INITIAL_STATE: WizardState = {
   tables: INITIAL_TABLES,
 };
 
+interface UploadedFileInfo {
+  name: string;
+  size: number;
+  type: string;
+  content: unknown;
+  lastModified: number;
+}
+
 type ViewMode = 'WIZARD' | 'EDITOR';
-type EntryMode = 'CHOOSER' | 'STRUCTURED';
+type EntryMode = 'CHOOSER' | 'STRUCTURED' | 'BULK_IMPORT';
 
 export const GraphBuilderModule: React.FC = () => {
   const [entryMode, setEntryMode] = useState<EntryMode>('CHOOSER');
   const [viewMode, setViewMode] = useState<ViewMode>('WIZARD');
   const [currentStep, setCurrentStep] = useState<number>(Step.Welcome);
   const [wizardData, setWizardData] = useState<WizardState>(INITIAL_STATE);
+
+  // Bulk Import specific state
+  const [bulkImportStep, setBulkImportStep] = useState<number>(BulkImportStep.Organization);
+  const [uploadedFile, setUploadedFile] = useState<UploadedFileInfo | null>(null);
 
   const updateData = (newData: Partial<WizardState>) => {
     setWizardData(prev => ({ ...prev, ...newData }));
@@ -39,10 +54,57 @@ export const GraphBuilderModule: React.FC = () => {
   const nextStep = () => setCurrentStep(prev => prev + 1);
   const prevStep = () => setCurrentStep(prev => prev - 1);
 
+  const nextBulkStep = () => setBulkImportStep(prev => prev + 1);
+  const prevBulkStep = () => setBulkImportStep(prev => prev - 1);
+
+  // Handler for starting bulk import from WelcomeStep
+  const handleStartBulkImport = () => {
+    setEntryMode('BULK_IMPORT');
+    setBulkImportStep(BulkImportStep.Organization);
+  };
+
+  const renderBulkImportStep = () => {
+    switch (bulkImportStep) {
+      case BulkImportStep.Organization:
+        return (
+          <OrgDetailsStep
+            data={wizardData}
+            updateData={updateData}
+            onNext={nextBulkStep}
+          />
+        );
+      case BulkImportStep.Upload:
+        return (
+          <BulkUploadStep
+            uploadedFile={uploadedFile}
+            onFileUpload={setUploadedFile}
+            onNext={nextBulkStep}
+            onBack={prevBulkStep}
+          />
+        );
+      case BulkImportStep.Review:
+      case BulkImportStep.Success:
+        return (
+          <BulkReviewStep
+            orgName={wizardData.orgName}
+            projectName={wizardData.projectName}
+            description={wizardData.description}
+            domain={wizardData.domain}
+            uploadedFile={uploadedFile}
+            onBack={prevBulkStep}
+            onComplete={() => setBulkImportStep(BulkImportStep.Success)}
+            isSuccess={bulkImportStep === BulkImportStep.Success}
+          />
+        );
+      default:
+        return <div>Unknown Step</div>;
+    }
+  };
+
   const renderWizardStep = () => {
     switch (currentStep) {
       case Step.Welcome:
-        return <WelcomeStep onStart={nextStep} />;
+        return <WelcomeStep onStart={nextStep} onBulkImport={handleStartBulkImport} />;
       case Step.Organization:
         return (
           <OrgDetailsStep
@@ -293,6 +355,20 @@ export const GraphBuilderModule: React.FC = () => {
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      ) : entryMode === 'BULK_IMPORT' ? (
+        <div className="flex-1 flex flex-col relative w-full overflow-hidden z-10">
+          {bulkImportStep !== BulkImportStep.Success && (
+            <div className="shrink-0 pt-4 pb-8 px-2">
+              <BulkImportProgress currentStep={bulkImportStep} />
+            </div>
+          )}
+
+          <div className="flex-1 overflow-y-auto custom-scrollbar p-3 flex justify-center">
+            <div className="w-full max-w-5xl min-h-full flex flex-col">
+              {renderBulkImportStep()}
             </div>
           </div>
         </div>
