@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Network, LayoutDashboard, MessageSquareText, Settings, LogOut, PanelLeftClose, PanelLeft, ChevronRight, Home, ChevronDown, PenLine, Loader2, MessageSquare, Trash2, PieChart, BookOpen, MoreVertical, Moon, Sun, User, ChartNetwork, Database } from 'lucide-react';
+import { Network, LayoutDashboard, MessageSquareText, Settings, LogOut, PanelLeftClose, PanelLeft, ChevronRight, Home, ChevronDown, PenLine, Loader2, MessageSquare, Trash2, PieChart, BookOpen, MoreVertical, Moon, Sun, User, ChartNetwork, Database, Bot } from 'lucide-react';
 import { GraphBuilderModule } from './components/modules/GraphBuilderModule';
 import { ChatModule } from './components/modules/ChatModule';
 import { LandingPageModule } from './components/modules/LandingPageModule';
@@ -7,6 +7,7 @@ import { DataInsightsModule } from './components/modules/DataInsightsModule';
 import { KnowledgeModule } from './components/modules/KnowledgeModule';
 import { SettingsModule } from './components/modules/SettingsModule';
 import { DataModule } from './components/modules/DataModule';
+import { AgentsModule } from './components/modules/AgentsModule';
 import { LoginPage } from './components/auth/LoginPage';
 import { ChatListSkeleton } from './components/ui/ChatSkeletons';
 import { LeaveConfirmModal } from './components/modals/LeaveConfirmModal';
@@ -14,7 +15,7 @@ import { authApi, sessionApi, configApi, Session, Agent } from './services/api';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
-type Module = 'LANDING' | 'GRAPH_BUILDER' | 'CHAT' | 'DATA_INSIGHTS' | 'KNOWLEDGE' | 'DATA' | 'SETTINGS';
+type Module = 'LANDING' | 'GRAPH_BUILDER' | 'CHAT' | 'DATA_INSIGHTS' | 'KNOWLEDGE' | 'DATA' | 'AGENTS' | 'SETTINGS';
 
 const generateUUID = () => {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -336,6 +337,13 @@ const App: React.FC = () => {
                                 collapsed={isSidebarCollapsed}
                                 onClick={() => requestNavigate('DATA')}
                             />
+                            <SidebarItem
+                                icon={<Bot className="w-4 h-4" />}
+                                label="Agents"
+                                isActive={activeModule === 'AGENTS'}
+                                collapsed={isSidebarCollapsed}
+                                onClick={() => requestNavigate('AGENTS')}
+                            />
 
                             <SidebarItem
                                 icon={<Settings className="w-4 h-4" />}
@@ -532,6 +540,7 @@ const App: React.FC = () => {
                         )}
                         {activeModule === 'KNOWLEDGE' && <KnowledgeModule />}
                         {activeModule === 'DATA' && <DataModule />}
+                        {activeModule === 'AGENTS' && <AgentsModule />}
                         {activeModule === 'SETTINGS' && (
                             <SettingsModule
                                 isDarkMode={isDarkMode}
