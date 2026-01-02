@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bot, Globe, Newspaper, Sparkles, ArrowRight, BrainCircuit, ScanText } from 'lucide-react';
+import { Bot, Globe, Newspaper, Sparkles, ArrowRight, BrainCircuit, ScanText, Megaphone } from 'lucide-react';
 
 export const AgentsModule: React.FC = () => {
     return (
@@ -45,7 +45,7 @@ export const AgentsModule: React.FC = () => {
                     <div className="mb-10">
                         <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Available Agents</h1>
                         <p className="text-slate-500 mt-2">
-Automate the hard work by hiring your own agentic workforce.
+                            Automate the hard work by hiring your own agentic workforce.
                         </p>
                     </div>
 
@@ -119,7 +119,7 @@ Automate the hard work by hiring your own agentic workforce.
                                         <Newspaper className="w-7 h-7" />
                                     </div>
                                     <div>
-                                        <div className="text-xl font-extrabold text-slate-600">Ai News Aggregator</div>
+                                        <div className="text-xl font-extrabold text-slate-600">AI News Aggregator</div>
                                         <div className="text-sm text-slate-400">Keep your graph updated with latest trends</div>
                                     </div>
                                 </div>
@@ -143,6 +143,57 @@ Automate the hard work by hiring your own agentic workforce.
                                     <div className="inline-flex items-center gap-2 text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-full border border-slate-200">
                                         <Newspaper className="w-4 h-4" />
                                         Continuous monitoring
+                                    </div>
+                                    <div className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-slate-200 text-slate-400 text-sm font-bold border border-slate-300">
+                                        Configure Agent
+                                        <ArrowRight className="w-4 h-4" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Marketing Campaign Agent */}
+                        <div className="relative rounded-2xl border-2 border-slate-200 bg-gradient-to-br from-slate-50/80 to-white shadow-sm overflow-hidden min-h-[320px] cursor-not-allowed group">
+                            {/* Disabled overlay */}
+                            <div className="absolute inset-0 bg-white/40 backdrop-blur-[2px] z-10" />
+
+                            {/* Coming soon ribbon */}
+                            <div className="absolute top-4 right-4 z-20">
+                                <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500 bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-full shadow-sm">
+                                    Coming Soon
+                                </div>
+                            </div>
+
+                            <div className="p-8 relative">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-14 h-14 rounded-2xl bg-slate-100 border-2 border-slate-200 flex items-center justify-center text-slate-400 shadow-sm">
+                                        <Megaphone className="w-7 h-7" />
+                                    </div>
+                                    <div>
+                                        <div className="text-xl font-extrabold text-slate-600">Marketing Campaign Agent</div>
+                                        <div className="text-sm text-slate-400">Generate and optimize personalized campaigns</div>
+                                    </div>
+                                </div>
+
+                                <ul className="mt-8 space-y-4 text-sm text-slate-500">
+                                    <li className="flex items-center gap-4">
+                                        <span className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
+                                            <BrainCircuit className="w-5 h-5 text-slate-400" />
+                                        </span>
+                                        <span className="font-medium">Audience persona generation</span>
+                                    </li>
+                                    <li className="flex items-center gap-4">
+                                        <span className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
+                                            <ScanText className="w-5 h-5 text-slate-400" />
+                                        </span>
+                                        <span className="font-medium">Multi-channel content strategy</span>
+                                    </li>
+                                </ul>
+
+                                <div className="mt-10 flex items-center justify-between">
+                                    <div className="inline-flex items-center gap-2 text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-full border border-slate-200">
+                                        <Megaphone className="w-4 h-4" />
+                                        Automated ROI tracking
                                     </div>
                                     <div className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-slate-200 text-slate-400 text-sm font-bold border border-slate-300">
                                         Configure Agent

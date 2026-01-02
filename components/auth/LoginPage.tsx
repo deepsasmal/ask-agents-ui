@@ -24,36 +24,38 @@ interface GraphNode {
 
 // Animated Graph Background Component
 const AnimatedGraph: React.FC = () => {
+    const containerRef = useRef<HTMLDivElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const animationRef = useRef<number>(0);
     const nodesRef = useRef<GraphNode[]>([]);
     const mouseRef = useRef({ x: 0, y: 0, active: false });
-    const lastSpawnRef = useRef<number>(0);
+    const lastTimeRef = useRef<number>(0);
+    const dimensionsRef = useRef({ width: 0, height: 0 });
 
     const initNodes = useCallback((width: number, height: number) => {
         const nodes: GraphNode[] = [];
-        const nodeCount = Math.floor((width * height) / 6000); // Higher density (was 15000)
+        const area = width * height;
+        const nodeCount = Math.floor(area / 8000); // Slightly reduced density for better perf
 
-        for (let i = 0; i < Math.min(nodeCount, 180); i++) { // Higher cap (was 60)
-            const type = i < 8 ? 'primary' : i < 30 ? 'secondary' : 'tertiary';
-            // Variable sizes: Primary 5-7, Secondary 3-4.5, Tertiary 1.5-3
+        for (let i = 0; i < Math.min(nodeCount, 150); i++) {
+            const type = i < 6 ? 'primary' : i < 25 ? 'secondary' : 'tertiary';
             let radius;
-            if (type === 'primary') radius = 5 + Math.random() * 2.5;
-            else if (type === 'secondary') radius = 3 + Math.random() * 2;
-            else radius = 1.5 + Math.random() * 2;
+            if (type === 'primary') radius = 4 + Math.random() * 2;
+            else if (type === 'secondary') radius = 2.5 + Math.random() * 1.5;
+            else radius = 1.2 + Math.random() * 1.2;
 
             nodes.push({
                 id: i,
                 x: Math.random() * width,
                 y: Math.random() * height,
-                vx: (Math.random() - 0.5) * 0.3,
-                vy: (Math.random() - 0.5) * 0.3,
+                vx: (Math.random() - 0.5) * 0.4,
+                vy: (Math.random() - 0.5) * 0.4,
                 radius,
                 pulsePhase: Math.random() * Math.PI * 2,
                 type,
-                createdAt: Date.now(),
+                createdAt: performance.now(),
                 isEphemeral: false,
-                opacity: 1,
+                opacity: 0, // Fade in
             });
         }
         return nodes;
@@ -61,54 +63,56 @@ const AnimatedGraph: React.FC = () => {
 
     useEffect(() => {
         const canvas = canvasRef.current;
-        if (!canvas) return;
+        const container = containerRef.current;
+        if (!canvas || !container) return;
 
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d', { alpha: true });
         if (!ctx) return;
 
-        const resizeCanvas = () => {
-            const rect = canvas.parentElement?.getBoundingClientRect();
-            if (rect) {
-                canvas.width = rect.width;
-                canvas.height = rect.height;
-                nodesRef.current = initNodes(canvas.width, canvas.height);
-            }
-        };
+        const resizeObserver = new ResizeObserver((entries) => {
+            const entry = entries[0];
+            if (!entry) return;
 
-        resizeCanvas();
-        window.addEventListener('resize', resizeCanvas);
+            const { width, height } = entry.contentRect;
+            dimensionsRef.current = { width, height };
+            canvas.width = width;
+            canvas.height = height;
+
+            if (nodesRef.current.length === 0) {
+                nodesRef.current = initNodes(width, height);
+            } else {
+                // Adjust node positions to keep them within bounds after resize
+                nodesRef.current.forEach(node => {
+                    node.x = (node.x / canvas.width) * width;
+                    node.y = (node.y / canvas.height) * height;
+                });
+            }
+        });
+
+        resizeObserver.observe(container);
 
         const handleMouseDown = (e: MouseEvent) => {
             const rect = canvas.getBoundingClientRect();
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
 
-            const maxNodes = 200;
+            const maxNodes = 180;
             const nodes = nodesRef.current;
 
             if (nodes.length < maxNodes) {
                 const id = nodes.length > 0 ? nodes[nodes.length - 1].id + 1 : 0;
-                const jitter = 40;
                 const spawnCount = 3;
 
                 for (let s = 0; s < spawnCount; s++) {
                     if (nodes.length >= maxNodes) break;
-
-                    const spawnX = x + (Math.random() - 0.5) * jitter;
-                    const spawnY = y + (Math.random() - 0.5) * jitter;
                     const type: GraphNode['type'] = Math.random() > 0.8 ? 'secondary' : 'tertiary';
-
-                    let radius;
-                    if (type === 'secondary') radius = 3 + Math.random() * 2;
-                    else radius = 1.5 + Math.random() * 2;
-
                     nodes.push({
                         id: id + s,
-                        x: Math.max(20, Math.min(canvas.width - 20, spawnX)),
-                        y: Math.max(20, Math.min(canvas.height - 20, spawnY)),
-                        vx: (Math.random() - 0.5) * 0.8,
-                        vy: (Math.random() - 0.5) * 0.8,
-                        radius,
+                        x: x + (Math.random() - 0.5) * 20,
+                        y: y + (Math.random() - 0.5) * 20,
+                        vx: (Math.random() - 0.5) * 1.2,
+                        vy: (Math.random() - 0.5) * 1.2,
+                        radius: type === 'secondary' ? 2.5 + Math.random() : 1.2 + Math.random(),
                         pulsePhase: Math.random() * Math.PI * 2,
                         type,
                         createdAt: performance.now(),
@@ -121,271 +125,163 @@ const AnimatedGraph: React.FC = () => {
 
         const handleMouseMove = (e: MouseEvent) => {
             const rect = canvas.getBoundingClientRect();
-            mouseRef.current = {
-                x: e.clientX - rect.left,
-                y: e.clientY - rect.top,
-                active: true
-            };
+            mouseRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top, active: true };
         };
 
-        const handleMouseLeave = () => {
-            mouseRef.current.active = false;
-        };
+        const handleMouseLeave = () => { mouseRef.current.active = false; };
 
         canvas.addEventListener('mousedown', handleMouseDown);
         canvas.addEventListener('mousemove', handleMouseMove);
         canvas.addEventListener('mouseleave', handleMouseLeave);
 
-        let time = 0;
-
-        const animate = () => {
+        const animate = (time: number) => {
             if (!ctx || !canvas) return;
 
-            time += 0.016;
-            const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+            // Delta time calculation for consistent speed across refresh rates
+            const dt = lastTimeRef.current ? Math.min((time - lastTimeRef.current) / 16.67, 2) : 1;
+            lastTimeRef.current = time;
+
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Nodes fade out and positions update
-            nodesRef.current = nodesRef.current.filter(node => {
+            const { width, height } = dimensionsRef.current;
+            const nodes = nodesRef.current;
+
+            // Filter out dead ephemeral nodes and handle fade-ins
+            nodesRef.current = nodes.filter(node => {
                 if (node.isEphemeral) {
-                    node.opacity -= 0.005; // Fade out slowly
+                    node.opacity -= 0.005 * dt;
+                } else if (node.opacity < 1) {
+                    node.opacity += 0.02 * dt;
                 }
                 return node.opacity > 0;
             });
 
-            const nodes = nodesRef.current;
+            // Update physics
+            for (let i = 0; i < nodes.length; i++) {
+                const node = nodes[i];
+                node.x += node.vx * dt;
+                node.y += node.vy * dt;
 
-            // Update node positions
-            nodes.forEach(node => {
-                node.x += node.vx;
-                node.y += node.vy;
+                // Boundary bounce with soft padding
+                const pad = 40;
+                if (node.x < pad) { node.vx = Math.abs(node.vx); node.x = pad; }
+                else if (node.x > width - pad) { node.vx = -Math.abs(node.vx); node.x = width - pad; }
+                if (node.y < pad) { node.vy = Math.abs(node.vy); node.y = pad; }
+                else if (node.y > height - pad) { node.vy = -Math.abs(node.vy); node.y = height - pad; }
 
-                // Boundary bounce with padding
-                const padding = 50;
-                if (node.x < padding || node.x > canvas.width - padding) {
-                    node.vx *= -1;
-                    node.x = Math.max(padding, Math.min(canvas.width - padding, node.x));
-                }
-                if (node.y < padding || node.y > canvas.height - padding) {
-                    node.vy *= -1;
-                    node.y = Math.max(padding, Math.min(canvas.height - padding, node.y));
-                }
-
-                // Mouse interaction - nodes repel from cursor (Smooth bouncy effect)
+                // Mouse repulsion
                 if (mouseRef.current.active) {
                     const dx = node.x - mouseRef.current.x;
                     const dy = node.y - mouseRef.current.y;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
-                    const repelRadius = 110;
-                    if (dist < repelRadius && dist > 0) {
-                        const force = 0.006 * (repelRadius - dist);
+                    const d2 = dx * dx + dy * dy;
+                    const r2 = 120 * 120;
+                    if (d2 < r2 && d2 > 0) {
+                        const dist = Math.sqrt(d2);
+                        const force = (1 - dist / 120) * 0.08 * dt;
                         node.vx += (dx / dist) * force;
                         node.vy += (dy / dist) * force;
                     }
                 }
 
-                // Gentle centering force to keep the graph cohesive
-                const centerX = canvas.width / 2;
-                const centerY = canvas.height / 2;
-                const dxCenter = centerX - node.x;
-                const dyCenter = centerY - node.y;
-                node.vx += dxCenter * 0.00002;
-                node.vy += dyCenter * 0.00002;
+                // Smooth friction and minimal movement drift
+                node.vx *= Math.pow(0.98, dt);
+                node.vy *= Math.pow(0.98, dt);
 
-                // Higher friction for a more "viscous" and controlled feel
-                node.vx *= 0.95;
-                node.vy *= 0.95;
-
-                // Limit velocity for a smooth experience
-                const maxVel = 2.5;
-                const vel = Math.sqrt(node.vx * node.vx + node.vy * node.vy);
-                if (vel > maxVel) {
-                    node.vx = (node.vx / vel) * maxVel;
-                    node.vy = (node.vy / vel) * maxVel;
-                }
-
-                // Ensure a minimum movement for non-ephemeral nodes so the graph doesn't go static
-                if (!node.isEphemeral && vel < 0.1) {
-                    node.vx += (Math.random() - 0.5) * 0.1;
-                    node.vy += (Math.random() - 0.5) * 0.1;
-                }
-            });
-
-            const baseConnectionDistance = Math.min(canvas.width, canvas.height) * 0.2;
-            const connectionDistance = mouseRef.current.active ? baseConnectionDistance * 1.35 : baseConnectionDistance;
-
-            // Draw connections
-            for (let i = 0; i < nodes.length; i++) {
-                for (let j = i + 1; j < nodes.length; j++) {
-                    const dx = nodes[j].x - nodes[i].x;
-                    const dy = nodes[j].y - nodes[i].y;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
-
-                    if (dist < connectionDistance) {
-                        const nodeOpacity = Math.min(nodes[i].opacity, nodes[j].opacity);
-                        const opacity = (1 - dist / connectionDistance) * 0.4 * nodeOpacity;
-
-                        // Create gradient for connection lines
-                        const gradient = ctx.createLinearGradient(
-                            nodes[i].x, nodes[i].y,
-                            nodes[j].x, nodes[j].y
-                        );
-                        gradient.addColorStop(0, `rgba(52, 211, 153, ${opacity})`);
-                        gradient.addColorStop(0.5, `rgba(16, 185, 129, ${opacity * 1.2})`);
-                        gradient.addColorStop(1, `rgba(52, 211, 153, ${opacity})`);
-
-                        ctx.beginPath();
-                        ctx.strokeStyle = gradient;
-                        ctx.lineWidth = nodes[i].type === 'primary' || nodes[j].type === 'primary' ? 1.5 : 0.8;
-                        ctx.moveTo(nodes[i].x, nodes[i].y);
-                        ctx.lineTo(nodes[j].x, nodes[j].y);
-                        ctx.stroke();
-
-                        // Animated pulse along connection
-                        if (nodes[i].type === 'primary' || nodes[j].type === 'primary') {
-                            const pulsePos = (time * 0.5 + nodes[i].id * 0.1) % 1;
-                            const pulseX = nodes[i].x + dx * pulsePos;
-                            const pulseY = nodes[i].y + dy * pulsePos;
-
-                            const pulseGradient = ctx.createRadialGradient(
-                                pulseX, pulseY, 0,
-                                pulseX, pulseY, 4
-                            );
-                            pulseGradient.addColorStop(0, `rgba(52, 211, 153, ${opacity * 2})`);
-                            pulseGradient.addColorStop(1, 'rgba(52, 211, 153, 0)');
-
-                            ctx.beginPath();
-                            ctx.fillStyle = pulseGradient;
-                            ctx.arc(pulseX, pulseY, 4, 0, Math.PI * 2);
-                            ctx.fill();
-                        }
+                if (!node.isEphemeral) {
+                    const minSpeed = 0.15;
+                    const speed = Math.sqrt(node.vx * node.vx + node.vy * node.vy);
+                    if (speed < minSpeed) {
+                        const angle = Math.random() * Math.PI * 2;
+                        node.vx += Math.cos(angle) * 0.05 * dt;
+                        node.vy += Math.sin(angle) * 0.05 * dt;
                     }
                 }
             }
 
-            // Extra cursor-local edges for a stronger “listens to mouse” feel
-            if (mouseRef.current.active) {
-                // Connect cursor to nearest few nodes with a soft glow
-                const nearest = [...nodes]
-                    .map(n => ({ n, d: Math.hypot(n.x - mouseRef.current.x, n.y - mouseRef.current.y) }))
-                    .sort((a, b) => a.d - b.d)
-                    .slice(0, 6);
-                nearest.forEach(({ n, d }, idx) => {
-                    const maxD = 220;
-                    if (d > maxD) return;
-                    const opacity = (1 - d / maxD) * 0.35;
-                    const grad = ctx.createLinearGradient(mouseRef.current.x, mouseRef.current.y, n.x, n.y);
-                    grad.addColorStop(0, `rgba(110, 231, 183, ${opacity})`);
-                    grad.addColorStop(1, `rgba(16, 185, 129, ${opacity * 0.9})`);
-                    ctx.beginPath();
-                    ctx.strokeStyle = grad;
-                    ctx.lineWidth = idx < 2 ? 1.6 : 1.0;
-                    ctx.moveTo(mouseRef.current.x, mouseRef.current.y);
-                    ctx.lineTo(n.x, n.y);
-                    ctx.stroke();
-                });
+            // Connection distances based on screen size
+            const maxConnectDist = Math.max(120, Math.min(width, height) * 0.18);
+            const maxConnectDist2 = maxConnectDist * maxConnectDist;
 
-                // Cursor glow point
-                const glow = ctx.createRadialGradient(mouseRef.current.x, mouseRef.current.y, 0, mouseRef.current.x, mouseRef.current.y, 28);
-                glow.addColorStop(0, 'rgba(52, 211, 153, 0.22)');
-                glow.addColorStop(1, 'rgba(52, 211, 153, 0)');
-                ctx.beginPath();
-                ctx.fillStyle = glow;
-                ctx.arc(mouseRef.current.x, mouseRef.current.y, 28, 0, Math.PI * 2);
-                ctx.fill();
+            // Optimized connection loop (One pass, distance squared)
+            ctx.lineWidth = 0.6;
+            for (let i = 0; i < nodes.length; i++) {
+                const n1 = nodes[i];
+                for (let j = i + 1; j < nodes.length; j++) {
+                    const n2 = nodes[j];
+                    const dx = n2.x - n1.x;
+                    const dy = n2.y - n1.y;
+                    const d2 = dx * dx + dy * dy;
+
+                    if (d2 < maxConnectDist2) {
+                        const dist = Math.sqrt(d2);
+                        const opacity = (1 - dist / maxConnectDist) * 0.3 * Math.min(n1.opacity, n2.opacity);
+
+                        ctx.beginPath();
+                        ctx.strokeStyle = `rgba(52, 211, 153, ${opacity})`;
+                        ctx.moveTo(n1.x, n1.y);
+                        ctx.lineTo(n2.x, n2.y);
+                        ctx.stroke();
+                    }
+                }
             }
 
-            // Draw nodes
+            // Draw nodes in separate pass to minimize state changes
             nodes.forEach(node => {
-                const pulse = Math.sin(time * 2 + node.pulsePhase) * 0.3 + 1;
-                const currentRadius = node.radius * pulse;
+                const pulse = Math.sin(time / 1000 + node.pulsePhase) * 0.2 + 1;
+                const r = node.radius * pulse;
 
-                // Outer glow
-                const glowRadius = currentRadius * 3;
-                const glowGradient = ctx.createRadialGradient(
-                    node.x, node.y, 0,
-                    node.x, node.y, glowRadius
-                );
-
-                if (node.type === 'primary') {
-                    glowGradient.addColorStop(0, `rgba(52, 211, 153, ${0.4 * node.opacity})`);
-                    glowGradient.addColorStop(0.5, `rgba(16, 185, 129, ${0.15 * node.opacity})`);
-                    glowGradient.addColorStop(1, `rgba(16, 185, 129, 0)`);
-                } else if (node.type === 'secondary') {
-                    glowGradient.addColorStop(0, `rgba(110, 231, 183, ${0.3 * node.opacity})`);
-                    glowGradient.addColorStop(1, `rgba(110, 231, 183, 0)`);
-                } else {
-                    glowGradient.addColorStop(0, `rgba(167, 243, 208, ${0.2 * node.opacity})`);
-                    glowGradient.addColorStop(1, `rgba(167, 243, 208, 0)`);
-                }
-
-                ctx.beginPath();
-                ctx.fillStyle = glowGradient;
-                ctx.arc(node.x, node.y, glowRadius, 0, Math.PI * 2);
-                ctx.fill();
-
-                // Core node
+                ctx.save();
                 ctx.globalAlpha = node.opacity;
-                const coreGradient = ctx.createRadialGradient(
-                    node.x - currentRadius * 0.3, node.y - currentRadius * 0.3, 0,
-                    node.x, node.y, currentRadius
-                );
 
-                if (node.type === 'primary') {
-                    coreGradient.addColorStop(0, '#6ee7b7');
-                    coreGradient.addColorStop(0.6, '#34d399');
-                    coreGradient.addColorStop(1, '#10b981');
-                } else if (node.type === 'secondary') {
-                    coreGradient.addColorStop(0, '#a7f3d0');
-                    coreGradient.addColorStop(1, '#6ee7b7');
-                } else {
-                    coreGradient.addColorStop(0, '#d1fae5');
-                    coreGradient.addColorStop(1, '#a7f3d0');
-                }
-
-                ctx.beginPath();
-                ctx.fillStyle = coreGradient;
-                ctx.arc(node.x, node.y, currentRadius, 0, Math.PI * 2);
-                ctx.fill();
-
-                // Highlight
-                if (node.type === 'primary') {
+                // Optimized glow: only for primary/secondary
+                if (node.type !== 'tertiary') {
+                    const glow = ctx.createRadialGradient(node.x, node.y, 0, node.x, node.y, r * 3);
+                    glow.addColorStop(0, node.type === 'primary' ? 'rgba(16, 185, 129, 0.4)' : 'rgba(52, 211, 153, 0.2)');
+                    glow.addColorStop(1, 'rgba(16, 185, 129, 0)');
+                    ctx.fillStyle = glow;
                     ctx.beginPath();
-                    ctx.fillStyle = `rgba(255, 255, 255, ${0.8 * node.opacity})`;
-                    ctx.arc(
-                        node.x - currentRadius * 0.25,
-                        node.y - currentRadius * 0.25,
-                        currentRadius * 0.25,
-                        0,
-                        Math.PI * 2
-                    );
+                    ctx.arc(node.x, node.y, r * 3, 0, Math.PI * 2);
                     ctx.fill();
                 }
-                ctx.globalAlpha = 1.0;
+
+                // Core
+                ctx.fillStyle = node.type === 'primary' ? '#10b981' : node.type === 'secondary' ? '#34d399' : '#6ee7b7';
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, r, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.restore();
             });
+
+            // Mouse glow
+            if (mouseRef.current.active) {
+                const mGlow = ctx.createRadialGradient(mouseRef.current.x, mouseRef.current.y, 0, mouseRef.current.x, mouseRef.current.y, 30);
+                mGlow.addColorStop(0, 'rgba(52, 211, 153, 0.15)');
+                mGlow.addColorStop(1, 'rgba(52, 211, 153, 0)');
+                ctx.fillStyle = mGlow;
+                ctx.beginPath();
+                ctx.arc(mouseRef.current.x, mouseRef.current.y, 30, 0, Math.PI * 2);
+                ctx.fill();
+            }
 
             animationRef.current = requestAnimationFrame(animate);
         };
 
-        animate();
+        animationRef.current = requestAnimationFrame(animate);
 
         return () => {
-            window.removeEventListener('resize', resizeCanvas);
+            resizeObserver.disconnect();
             canvas.removeEventListener('mousedown', handleMouseDown);
             canvas.removeEventListener('mousemove', handleMouseMove);
             canvas.removeEventListener('mouseleave', handleMouseLeave);
-            if (animationRef.current) {
-                cancelAnimationFrame(animationRef.current);
-            }
+            if (animationRef.current) cancelAnimationFrame(animationRef.current);
         };
     }, [initNodes]);
 
     return (
-        <canvas
-            ref={canvasRef}
-            className="absolute inset-0 w-full h-full"
-            style={{ opacity: 0.9 }}
-        />
+        <div ref={containerRef} className="absolute inset-0 w-full h-full">
+            <canvas ref={canvasRef} className="block w-full h-full" style={{ opacity: 0.9 }} />
+        </div>
     );
 };
 

@@ -204,10 +204,7 @@ export const GraphBuilderModule: React.FC = () => {
             <div className="flex flex-col">
               <div className="flex items-center gap-2">
                 <h1 className="text-lg font-bold text-slate-900 leading-tight tracking-tight">Graph Builder</h1>
-                <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-brand-50 border border-brand-100 text-brand-700">
-                  <Sparkles className="w-3 h-3" />
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider">AI Powered</span>
-                </div>
+
               </div>
               <p className="text-xs text-slate-500 font-medium">Design and build your knowledge graph schema</p>
             </div>

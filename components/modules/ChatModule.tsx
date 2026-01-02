@@ -374,7 +374,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
                     }
 
                     // Map history
-                    const history = sessionData.chat_history || sessionData.messages || [];
+                    const history = sessionData.chat_history || [];
                     const mappedMessages: Message[] = history
                         // New history responses may contain extra roles (e.g., "tool"). The UI only renders user/assistant bubbles.
                         .filter((m: any) => m.role === 'user' || m.role === 'assistant')
@@ -878,14 +878,21 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
             <style>
                 {`
                   @keyframes stream-verb-fade {
-                    0% { opacity: 0; transform: translateY(-6px); }
-                    20% { opacity: 1; transform: translateY(0); }
-                    80% { opacity: 1; transform: translateY(0); }
-                    100% { opacity: 0; transform: translateY(6px); }
+                    0% { opacity: 0; filter: blur(4px); }
+                    15% { opacity: 1; filter: blur(0); }
+                    85% { opacity: 1; filter: blur(0); }
+                    100% { opacity: 0; filter: blur(4px); }
                   }
                   .animate-stream-verb {
                     animation: stream-verb-fade 3s ease-in-out infinite;
-                    will-change: opacity, transform;
+                    will-change: opacity, filter;
+                  }
+                  @keyframes pulse-dot {
+                    0%, 100% { transform: scale(0.8); opacity: 0.4; }
+                    50% { transform: scale(1.1); opacity: 1; }
+                  }
+                  .animate-pulse-dot {
+                    animation: pulse-dot 1.4s ease-in-out infinite;
                   }
                 `}
             </style>
@@ -1118,17 +1125,19 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
 
                                             {/* Streaming Indicator */}
                                             {msg.isStreaming && !msg.content && (
-                                                <div className="flex items-center gap-2 text-slate-500 animate-fade-in h-7 select-none">
-                                                    {/* Top-to-down fading "signal" bars */}
-                                                    <div className="flex flex-col gap-1">
-                                                        <span className="block w-6 h-[2px] rounded-full bg-gradient-to-r from-emerald-500/0 via-emerald-500/60 to-emerald-500/0 animate-stream-verb" />
-                                                        <span className="block w-6 h-[2px] rounded-full bg-gradient-to-r from-emerald-500/0 via-emerald-500/40 to-emerald-500/0 animate-stream-verb" style={{ animationDelay: '300ms' }} />
-                                                        <span className="block w-6 h-[2px] rounded-full bg-gradient-to-r from-emerald-500/0 via-emerald-500/30 to-emerald-500/0 animate-stream-verb" style={{ animationDelay: '600ms' }} />
+                                                <div className="flex items-center gap-3 px-1 animate-fade-in h-8 select-none">
+                                                    {/* 3-dot pulse animation */}
+                                                    <div className="flex gap-1.5 items-center">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse-dot" />
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse-dot" style={{ animationDelay: '200ms' }} />
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse-dot" style={{ animationDelay: '400ms' }} />
                                                     </div>
 
-                                                    <span className="text-[11px] font-semibold tracking-wide">
-                                                        <span className="inline-block animate-stream-verb">{streamVerb}</span>
-                                                    </span>
+                                                    <div className="h-4 flex items-center">
+                                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] w-32">
+                                                            <span className="inline-block animate-stream-verb">{streamVerb}</span>
+                                                        </span>
+                                                    </div>
                                                 </div>
                                             )}
 
