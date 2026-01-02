@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Save, Share2, Undo2, Redo2, Search, Info, Loader2, X, Check, PanelLeft, PanelRight, Pencil } from 'lucide-react';
+import { Save, Share2, Undo2, Redo2, Search, Info, Loader2, X, Check, PanelLeft, PanelRight, Pencil, Database } from 'lucide-react';
 import { Button } from '../ui/Common';
 import { graphApi, SearchNodeResult } from '../../services/api';
 
@@ -19,6 +19,10 @@ interface TopBarProps {
   onToggleLeftPanel?: () => void;
   onToggleRightPanel?: () => void;
   onProjectNameChange?: (name: string) => void;
+  hasNodes?: boolean;
+  onOpenSelector?: () => void;
+  graphName?: string;
+  orgId?: string;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -35,7 +39,11 @@ export const TopBar: React.FC<TopBarProps> = ({
   isRightPanelOpen = false,
   onToggleLeftPanel,
   onToggleRightPanel,
-  onProjectNameChange
+  onProjectNameChange,
+  hasNodes = false,
+  onOpenSelector,
+  graphName,
+  orgId
 }) => {
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -122,7 +130,7 @@ export const TopBar: React.FC<TopBarProps> = ({
 
   return (
     <div className="bg-white border-b border-slate-200 shadow-sm z-30 shrink-0">
-      <div className="min-h-16 px-3 sm:px-4 lg:px-6 py-3 lg:py-0 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+      <div className="min-h-[44px] px-3 sm:px-4 lg:px-6 py-1 lg:py-0 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
 
         {/* Left: Project Info + Mobile Panel Toggles */}
         <div className="flex items-start sm:items-center gap-3 min-w-0">
@@ -155,13 +163,13 @@ export const TopBar: React.FC<TopBarProps> = ({
                   onChange={(e) => setLocalProjectName(e.target.value)}
                   onBlur={handleProjectNameSave}
                   onKeyDown={handleProjectNameKeyDown}
-                  className="text-base sm:text-lg font-bold text-slate-800 leading-none bg-transparent border-b-2 border-brand-500 focus:outline-none min-w-0 max-w-full px-1 -mx-1"
+                  className="text-sm sm:text-base font-bold text-slate-800 leading-none bg-transparent border-b-2 border-brand-500 focus:outline-none min-w-0 max-w-full px-1 -mx-1"
                   placeholder="Enter project name"
                 />
               ) : (
                 <>
                   <h1
-                    className="text-base sm:text-lg font-bold text-slate-800 leading-none truncate cursor-pointer hover:text-brand-600 transition-colors"
+                    className="text-sm sm:text-base font-bold text-slate-800 leading-none truncate cursor-pointer hover:text-brand-600 transition-colors"
                     onClick={() => setIsEditingName(true)}
                     title="Click to edit project name"
                   >
@@ -177,10 +185,27 @@ export const TopBar: React.FC<TopBarProps> = ({
                 </>
               )}
             </div>
-            <span className="text-xs text-slate-500 font-medium mt-1 flex items-center gap-1.5">
-              <span className={`w-1.5 h-1.5 rounded-full ${hasUnsavedChanges ? 'bg-amber-500' : 'bg-green-500'}`}></span>
-              {hasUnsavedChanges ? 'Unsaved Changes' : 'All Saved'}
-            </span>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="text-[10px] text-slate-500 font-medium flex items-center gap-1">
+                <span className={`w-1.5 h-1.5 rounded-full ${hasUnsavedChanges ? 'bg-amber-500' : 'bg-green-500'}`}></span>
+                {hasUnsavedChanges ? 'Unsaved Changes' : 'All Saved'}
+              </span>
+
+              {graphId && (
+                <>
+                  <span className="text-slate-300 dark:text-slate-700">•</span>
+                  <button
+                    onClick={onOpenSelector}
+                    className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-brand-50/50 dark:bg-brand-900/10 border border-brand-100/50 dark:border-brand-900/20 text-[9px] font-bold text-brand-600 dark:text-brand-400 hover:bg-brand-100/50 transition-all group shrink-0"
+                    title="Current Graph Name - Click to switch"
+                  >
+                    <Database className="w-2.5 h-2.5" />
+                    <span className="uppercase tracking-wider whitespace-nowrap">Graph: {graphName || 'Untitled'} ({orgId || graphId})</span>
+                    <Search className="w-2 h-2 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
@@ -195,7 +220,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             <input
               type="text"
               placeholder={graphId ? "Search nodes..." : "Enter Graph ID to enable search"}
-              className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all placeholder:text-slate-400 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full pl-10 pr-4 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all placeholder:text-slate-400 disabled:opacity-50 disabled:cursor-not-allowed"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               onFocus={() => {
@@ -256,16 +281,6 @@ export const TopBar: React.FC<TopBarProps> = ({
               <Info className="w-4 h-4" />
             </button>
 
-            {/* Switch Graph Button */}
-            {graphId && (
-              <button
-                onClick={() => setGraphId('')}
-                className="p-2 ml-2 rounded-lg border border-slate-200 bg-white text-slate-400 hover:text-brand-600 hover:border-brand-200 transition-all"
-                title="Switch Graph"
-              >
-                <Search className="w-4 h-4" />
-              </button>
-            )}
 
             {isConfigOpen && (
               <div className="absolute top-full right-0 mt-2 w-72 bg-white rounded-xl shadow-xl border border-slate-200 p-4 z-50 animate-fade-in-up">
@@ -310,7 +325,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             size="sm"
             leftIcon={<Save className="w-4 h-4" />}
             onClick={onSaveDraft}
-            disabled={!graphId || isSavingDraft || isPublishing}
+            disabled={!graphId || isSavingDraft || isPublishing || !hasNodes}
             isLoading={isSavingDraft}
             className="shadow-sm"
           >
@@ -323,10 +338,10 @@ export const TopBar: React.FC<TopBarProps> = ({
             size="sm"
             leftIcon={<Share2 className="w-4 h-4" />}
             onClick={onPublish}
-            disabled={!graphId || hasUnsavedChanges || isPublishing || isSavingDraft}
+            disabled={!graphId || hasUnsavedChanges || isPublishing || isSavingDraft || !hasNodes}
             isLoading={isPublishing}
-            title={hasUnsavedChanges ? "You must save changes before publishing" : "Publish to Graph"}
-            className={`shadow-brand-600/20 ${hasUnsavedChanges ? 'opacity-50 cursor-not-allowed' : ''}`}
+            title={!hasNodes ? "Add nodes to the canvas to publish" : hasUnsavedChanges ? "You must save changes before publishing" : "Publish to Graph"}
+            className={`shadow-brand-600/20 ${(!graphId || hasUnsavedChanges || isPublishing || isSavingDraft || !hasNodes) ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             Publish
           </Button>

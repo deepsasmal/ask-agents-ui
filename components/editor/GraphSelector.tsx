@@ -5,7 +5,7 @@ import { Card, Button } from '../ui/Common';
 import { toast } from 'react-toastify';
 
 interface GraphSelectorProps {
-    onSelect: (graphId: string) => void;
+    onSelect: (graphId: string, graphName: string, orgId: string) => void;
 }
 
 export const GraphSelector: React.FC<GraphSelectorProps> = ({ onSelect }) => {
@@ -122,7 +122,7 @@ export const GraphSelector: React.FC<GraphSelectorProps> = ({ onSelect }) => {
                         {filteredGraphs.map(graph => (
                             <div
                                 key={graph.id}
-                                onClick={() => onSelect(graph.id)}
+                                onClick={() => onSelect(graph.id, graph.schema_name || 'Untitled Graph', graph.org_id)}
                                 className={`
                                     group bg-white border border-slate-200 hover:border-brand-300 hover:shadow-brand-500/10 hover:shadow-lg transition-all cursor-pointer overflow-hidden relative
                                     ${viewMode === 'grid' ? 'rounded-2xl flex flex-col p-5' : 'rounded-xl flex items-center p-4 gap-6'}

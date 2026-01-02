@@ -7,13 +7,14 @@ import { RightPanel } from './RightPanel';
 import { Canvas } from './Canvas';
 import { EditorState, EditorNode, EditorEdge, EditorNodeType } from '../../types';
 import { getConstraint } from './editorConfig';
-import { SearchNodeResult, graphApi } from '../../services/api';
+import { SearchNodeResult, graphApi, authApi } from '../../services/api';
 import { toast } from 'react-toastify';
 import { GraphSelector } from './GraphSelector';
 
 interface GraphEditorProps {
     projectName?: string;
     initialGraphId?: string;
+    initialGraphName?: string;
 }
 
 // Initial Mock Data - Empty for production use
@@ -21,8 +22,10 @@ const INITIAL_NODES: EditorNode[] = [];
 
 const INITIAL_EDGES: EditorEdge[] = [];
 
-export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName, initialGraphId }) => {
+export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName, initialGraphId, initialGraphName }) => {
     const [graphId, setGraphId] = useState(initialGraphId || '');
+    const [graphName, setGraphName] = useState(initialGraphName || '');
+    const [orgId, setOrgId] = useState('');
     const [isGraphSelectorOpen, setIsGraphSelectorOpen] = useState(false);
     const [isSavingDraft, setIsSavingDraft] = useState(false);
     const [isPublishing, setIsPublishing] = useState(false);
@@ -85,6 +88,27 @@ export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName, initialGr
     }, [isDesktop]);
 
     useEffect(() => {
+        // Fetch graph details if we have an ID but no name
+        const fetchMetadata = async () => {
+            if (graphId && !graphName) {
+                try {
+                    const email = authApi.getUserEmail();
+                    if (!email) return;
+                    const response = await graphApi.fetchGraphsByEmail(email);
+                    const currentGraph = response.records?.find((g: any) => g.id === graphId);
+                    if (currentGraph) {
+                        setGraphName(currentGraph.schema_name);
+                        setOrgId(currentGraph.org_id);
+                    }
+                } catch (error) {
+                    console.error("Failed to fetch graph metadata", error);
+                }
+            }
+        };
+        fetchMetadata();
+    }, [graphId]);
+
+    useEffect(() => {
         // On smaller screens, open the properties panel automatically when something is selected.
         if (!isDesktop && (state.selectedNodeId || state.selectedEdgeId)) {
             setIsRightPanelOpen(true);
@@ -107,8 +131,23 @@ export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName, initialGr
         });
     };
 
-    const handleSetGraphId = (id: string) => {
+    const handleSelectGraph = (id: string, name: string, oid: string) => {
         setGraphId(id);
+        setGraphName(name);
+        setOrgId(oid);
+        setIsGraphSelectorOpen(false);
+
+        // Reset canvas state when switching graphs
+        setState({
+            nodes: INITIAL_NODES,
+            edges: INITIAL_EDGES,
+            selectedNodeId: null,
+            selectedEdgeId: null,
+            pan: { x: 0, y: 0 },
+            zoom: 1
+        });
+        setHasUnsavedChanges(false);
+
         // If the user clears the graph id (switch graph), open the selector so they aren't "stuck".
         if (!id) setIsGraphSelectorOpen(true);
     };
@@ -384,7 +423,9 @@ export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName, initialGr
             <TopBar
                 projectName={localProjectName}
                 graphId={graphId}
-                setGraphId={handleSetGraphId}
+                graphName={graphName}
+                orgId={orgId}
+                setGraphId={(id) => handleSelectGraph(id, '', '')}
                 onSaveDraft={handleSaveDraft}
                 onPublish={handlePublish}
                 isSavingDraft={isSavingDraft}
@@ -396,6 +437,8 @@ export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName, initialGr
                 onToggleLeftPanel={toggleLeftPanel}
                 onToggleRightPanel={toggleRightPanel}
                 onProjectNameChange={handleProjectNameChange}
+                hasNodes={state.nodes.length > 0}
+                onOpenSelector={() => setIsGraphSelectorOpen(true)}
             />
 
             <div className="relative flex flex-1 min-h-0 min-w-0 overflow-hidden">
@@ -506,10 +549,7 @@ export const GraphEditor: React.FC<GraphEditorProps> = ({ projectName, initialGr
                         />
                         <div className="absolute inset-0">
                             <GraphSelector
-                                onSelect={(id) => {
-                                    setGraphId(id);
-                                    setIsGraphSelectorOpen(false);
-                                }}
+                                onSelect={handleSelectGraph}
                             />
                         </div>
                     </div>
