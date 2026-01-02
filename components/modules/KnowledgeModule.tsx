@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { BookOpen, Plus, ExternalLink, X, FileText, Globe, Type, Info, ChevronDown, ChevronUp, Trash2, Settings, Save, Check, AlertTriangle } from 'lucide-react';
+import { BookOpen, Plus, ExternalLink, X, FileText, Globe, Type, Info, ChevronDown, ChevronUp, Trash2, Settings, Save, Check, AlertTriangle, Database, ArrowUpDown } from 'lucide-react';
 import { configApi, ConfigResponse, knowledgeApi, KnowledgeItem } from '../../services/api';
 import { KnowledgeTableSkeleton } from '../ui/ModuleSkeletons';
 
@@ -1058,7 +1058,7 @@ export const KnowledgeModule: React.FC = () => {
         newMeta.splice(index, 1);
         setEditMetadata(newMeta);
     };
-    
+
     useEffect(() => {
         const fetchConfig = async () => {
             try {
@@ -1151,37 +1151,47 @@ export const KnowledgeModule: React.FC = () => {
             )}
 
             {/* Header */}
-            <div className="flex items-center justify-between px-8 py-6 border-b border-slate-200 dark:border-slate-800">
-                <div className="flex flex-col">
-                    <span className="text-sm text-slate-500 mb-1">Database</span>
-                    {knowledgeDbs.length > 1 ? (
-                        <select
-                            value={selectedDb}
-                            onChange={(e) => setSelectedDb(e.target.value)}
-                            className="bg-transparent text-lg font-medium text-slate-900 dark:text-white focus:outline-none cursor-pointer"
-                        >
-                            {knowledgeDbs.map((db, index) => (
-                                <option key={index} value={db.domain_config.display_name}>
-                                    {db.domain_config.display_name}
-                                </option>
-                            ))}
-                        </select>
-                    ) : (
-                        <h1 className="text-lg font-medium text-slate-900 dark:text-white">
-                            {knowledgeDbs.length > 0 ? knowledgeDbs[0].domain_config.display_name : 'No Database Found'}
-                        </h1>
-                    )}
+            <div className="flex items-center justify-between px-8 py-6 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 sticky top-0 z-40">
+                <div className="flex flex-col gap-1.5">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Knowledge Database</span>
+                    <div className="relative group">
+                        {knowledgeDbs.length > 1 ? (
+                            <>
+                                <select
+                                    value={selectedDb}
+                                    onChange={(e) => setSelectedDb(e.target.value)}
+                                    className="appearance-none pl-9 pr-10 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 text-sm font-medium text-slate-900 dark:text-white shadow-sm hover:bg-white dark:hover:bg-slate-900 transition-all focus:outline-none focus:ring-2 focus:ring-brand-500/15 min-w-[200px] cursor-pointer"
+                                >
+                                    {knowledgeDbs.map((db, index) => (
+                                        <option key={index} value={db.domain_config.display_name}>
+                                            {db.domain_config.display_name}
+                                        </option>
+                                    ))}
+                                </select>
+                                <Database className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-600 pointer-events-none" />
+                                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none group-hover:text-brand-500 transition-colors" />
+                            </>
+                        ) : (
+                            <div className="flex items-center gap-2.5 px-3 py-1.5 bg-slate-50/50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl">
+                                <Database className="w-4 h-4 text-brand-600" />
+                                <h1 className="text-sm font-medium text-slate-900 dark:text-white leading-none">
+                                    {knowledgeDbs.length > 0 ? knowledgeDbs[0].domain_config.display_name : 'No Database Found'}
+                                </h1>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-1.5 bg-white dark:bg-slate-900 dark:border-slate-700">
-                        <span className="text-sm text-slate-500">Sort by:</span>
-                        <select className="bg-transparent text-sm font-medium text-slate-900 dark:text-white focus:outline-none cursor-pointer">
+                    <div className="relative group">
+                        <select className="appearance-none pl-9 pr-10 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-700 dark:text-slate-300 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition-all focus:outline-none focus:ring-2 focus:ring-brand-500/15 cursor-pointer">
                             <option>Date ascending</option>
                             <option>Date descending</option>
                             <option>Name ascending</option>
                             <option>Name descending</option>
                         </select>
+                        <ArrowUpDown className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none group-hover:text-brand-500 transition-colors" />
                     </div>
                 </div>
             </div>
@@ -1231,9 +1241,8 @@ export const KnowledgeModule: React.FC = () => {
                                         <tr
                                             key={item.id}
                                             onClick={() => handleRowClick(item)}
-                                            className={`group cursor-pointer bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-[0_10px_30px_-18px_rgba(15,23,42,0.35)] hover:shadow-[0_16px_40px_-18px_rgba(16,185,129,0.35)] transition-all duration-200 ${
-                                                selectedContentId === item.id ? 'ring-2 ring-emerald-500/50' : ''
-                                            }`}
+                                            className={`group cursor-pointer bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-[0_10px_30px_-18px_rgba(15,23,42,0.35)] hover:shadow-[0_16px_40px_-18px_rgba(16,185,129,0.35)] transition-all duration-200 ${selectedContentId === item.id ? 'ring-2 ring-emerald-500/50' : ''
+                                                }`}
                                         >
                                             <td className="p-4 pl-5 pr-3 first:rounded-l-2xl last:rounded-r-2xl align-middle" onClick={(e) => e.stopPropagation()}>
                                                 <input
@@ -1270,13 +1279,12 @@ export const KnowledgeModule: React.FC = () => {
                                             </td>
                                             <td className="p-4 px-3 first:rounded-l-2xl last:rounded-r-2xl">
                                                 <span
-                                                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide ${
-                                                        item.status === 'completed'
-                                                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-900/40'
-                                                            : item.status === 'failed'
+                                                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide ${item.status === 'completed'
+                                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-900/40'
+                                                        : item.status === 'failed'
                                                             ? 'bg-rose-200 text-rose-900 border border-rose-300 dark:bg-rose-900/30 dark:text-rose-100 dark:border-rose-900/50'
                                                             : 'bg-amber-50 text-amber-600 border border-amber-100 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-900/40'
-                                                    }`}
+                                                        }`}
                                                 >
                                                     {item.status === 'completed' && <Check className="w-3.5 h-3.5" />}
                                                     {item.status === 'failed' && <AlertTriangle className="w-3.5 h-3.5" />}

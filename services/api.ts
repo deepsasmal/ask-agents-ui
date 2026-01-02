@@ -590,12 +590,8 @@ export const authApi = {
     return data;
   },
   logout: () => {
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('user_id');
-    localStorage.removeItem('user_first_name');
-    localStorage.removeItem('user_last_name');
-    localStorage.removeItem('user_email');
-    localStorage.removeItem('user_username');
+    localStorage.clear();
+    sessionStorage.clear();
     // Clear API caches on logout
     cachedConfig = null;
     cachedAgents = null;
@@ -656,7 +652,7 @@ export const configApi = {
 export type AppConfigMetrics = Record<string, any>;
 
 export type AppConfigRefreshResponse = Record<string, any> & {
-  runtime_rebind?: { updated?: number; [k: string]: any };
+  runtime_rebind?: { updated?: number;[k: string]: any };
 };
 
 export const appConfigApi = {

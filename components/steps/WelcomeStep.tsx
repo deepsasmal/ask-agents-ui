@@ -9,17 +9,32 @@ interface WelcomeStepProps {
 
 export const WelcomeStep: React.FC<WelcomeStepProps> = ({ onStart, onBulkImport }) => {
   return (
-    <div className="flex flex-col items-center justify-center min-h-[600px] text-center animate-fade-in-up relative overflow-hidden">
+    <div className="flex flex-col items-center justify-center min-h-[600px] text-center animate-fade-in-up relative">
 
-      {/* Decorative background elements */}
+      {/* Decorative background elements - Reverted to Simple Glow */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-brand-50 rounded-full blur-3xl opacity-60 -z-10" />
 
-      <div className="relative mb-10 group">
-        <div className="absolute inset-0 bg-brand-400/30 blur-2xl opacity-40 group-hover:opacity-60 transition-opacity rounded-full" />
-        <div className="w-28 h-28 bg-gradient-to-br from-white to-brand-50 rounded-3xl flex items-center justify-center shadow-xl shadow-brand-100 ring-1 ring-white relative">
-          <Network className="w-14 h-14 text-brand-600" />
+      <style>
+        {`
+          @keyframes float-slow {
+            0%, 100% { transform: translateY(0) rotate(0); }
+            50% { transform: translateY(-10px) rotate(1deg); }
+          }
+          .animate-float-slow {
+            animation: float-slow 5s ease-in-out infinite;
+          }
+        `}
+      </style>
 
-          <div className="absolute -top-3 -right-3 w-10 h-10 bg-brand-600 rounded-2xl flex items-center justify-center shadow-lg border-[3px] border-white animate-bounce-slow">
+      {/* Main Content Area */}
+      <div className="relative mb-12 group animate-float-slow z-20 p-4">
+        {/* Simplified Glow to prevent "foggy" look */}
+        <div className="absolute inset-0 bg-brand-400/20 blur-2xl opacity-40 group-hover:opacity-60 transition-opacity rounded-full" />
+        <div className="w-32 h-32 bg-gradient-to-br from-white to-brand-50 rounded-3xl flex items-center justify-center shadow-xl shadow-brand-100 ring-1 ring-white relative">
+          <Network className="w-16 h-16 text-brand-600 stroke-[2]" />
+
+          {/* Badge position fixed to prevent clipping and centered more on the corner */}
+          <div className="absolute -top-2 -right-2 w-10 h-10 bg-brand-600 rounded-2xl flex items-center justify-center shadow-lg border-[3px] border-white animate-bounce-slow z-30">
             <Sparkles className="w-5 h-5 text-white fill-white" />
           </div>
         </div>
@@ -30,7 +45,7 @@ export const WelcomeStep: React.FC<WelcomeStepProps> = ({ onStart, onBulkImport 
       </h1>
 
       <p className="text-xl text-slate-500 max-w-2xl mb-12 leading-relaxed font-light">
-        Transform your relational data into a powerful <span className="font-semibold text-slate-900">semantic knowledge graph</span>.
+        Transform your relational data into a powerful <span className="font-semibold text-slate-900 border-b border-brand-100">semantic knowledge graph</span>.
         Visualize connections and unlock insights effortlessly.
       </p>
 

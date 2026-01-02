@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { ArrowRight, ArrowLeft, CheckCircle2, AlertCircle, Database, ChevronDown, ChevronRight, Loader2, Table, RefreshCw, X, KeyRound, Link as LinkIcon, Brain } from 'lucide-react';
 import { Button, Input, Card } from '../ui/Common';
 import { WizardState, Table as TableType, Column } from '../../types';
@@ -65,9 +66,9 @@ const SampleTableModal: React.FC<{
   const rows = sample.data?.rows || [];
   const shownRows = rows.slice(0, MAX_ROWS);
 
-  return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-xl w-[95vw] max-w-6xl h-[90vh] max-h-[900px] border border-slate-200 flex flex-col animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40 backdrop-blur-md">
+      <div className="bg-white rounded-2xl shadow-2xl w-[95vw] max-w-6xl h-[90vh] max-h-[900px] border border-slate-200 flex flex-col animate-in fade-in zoom-in-95 duration-300 overflow-hidden">
         {/* Header */}
         <div className="flex items-start justify-between px-6 py-5 border-b border-slate-200">
           <div className="min-w-0">
@@ -209,7 +210,8 @@ const SampleTableModal: React.FC<{
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

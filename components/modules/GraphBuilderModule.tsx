@@ -11,7 +11,7 @@ import { BulkUploadStep } from '../steps/BulkUploadStep';
 import { BulkReviewStep } from '../steps/BulkReviewStep';
 import { GraphEditor } from '../editor/GraphEditor';
 import { Button } from '../ui/Common';
-import { Wand2, Edit3, Database, FileText, ArrowRight, Sparkles, Zap, ScanText, BrainCircuit, Upload } from 'lucide-react';
+import { Wand2, Edit3, Database, FileText, ArrowRight, Sparkles, Zap, ScanText, BrainCircuit, Upload, Info, HelpCircle, Table, FileStack } from 'lucide-react';
 
 const INITIAL_STATE: WizardState = {
   orgName: '',
@@ -161,6 +161,58 @@ export const GraphBuilderModule: React.FC = () => {
           .animate-shimmer-flash {
             animation: shimmer-flash 3s cubic-bezier(0.4, 0, 0.2, 1) infinite;
           }
+          
+          .custom-tooltip {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+          }
+          
+          .custom-tooltip::before {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%) translateY(10px);
+            width: 200px;
+            padding: 8px 12px;
+            background: #1e293b;
+            color: white;
+            font-size: 11px;
+            font-weight: 500;
+            line-height: 1.4;
+            border-radius: 8px;
+            text-align: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            z-index: 100;
+            pointer-events: none;
+          }
+          
+          .custom-tooltip::after {
+            content: '';
+            position: absolute;
+            bottom: 110%;
+            left: 50%;
+            transform: translateX(-50%) translateY(10px);
+            border-width: 6px;
+            border-style: solid;
+            border-color: #1e293b transparent transparent transparent;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 100;
+            pointer-events: none;
+          }
+          
+          .custom-tooltip:hover::before,
+          .custom-tooltip:hover::after {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(-50%) translateY(0);
+          }
         `}
       </style>
 
@@ -195,51 +247,41 @@ export const GraphBuilderModule: React.FC = () => {
       </div>
 
       {/* Module Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200/60 bg-white/80 backdrop-blur-xl sticky top-0 z-40 shrink-0">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 sticky top-0 z-40 shrink-0">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-brand-50 border border-brand-100 flex items-center justify-center shadow-sm">
-              <BrainCircuit className="w-5 h-5 text-brand-600" />
+            <div className="w-9 h-9 rounded-xl bg-brand-50 dark:bg-brand-900/15 border border-brand-100 dark:border-brand-900/40 flex items-center justify-center shadow-sm">
+              <BrainCircuit className="w-5 h-5 text-brand-700 dark:text-brand-300" />
             </div>
             <div className="flex flex-col">
               <div className="flex items-center gap-2">
-                <h1 className="text-lg font-bold text-slate-900 leading-tight tracking-tight">Graph Builder</h1>
-
+                <h1 className="text-lg font-semibold text-slate-900 dark:text-white leading-tight">Graph Builder</h1>
               </div>
-              <p className="text-xs text-slate-500 font-medium">Design and build your knowledge graph schema</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Design and build your knowledge graph schema</p>
             </div>
           </div>
+        </div>
 
-          {/* View Switcher Tabs - only shown in Structured mode */}
+        <div className="flex items-center gap-3">
+          {/* View Switcher Tabs - Aligned with Data Insights */}
           {entryMode === 'STRUCTURED' && (
-            <div className="ml-2 flex bg-slate-100/80 p-0.5 rounded-xl border border-slate-200/60 shadow-inner">
+            <div className="flex bg-slate-100/80 dark:bg-slate-900/50 p-0.5 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-inner">
               <button
                 onClick={() => setViewMode('WIZARD')}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all duration-200 ${viewMode === 'WIZARD' ? 'bg-white text-brand-600 shadow-sm ring-1 ring-black/5' : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'}`}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all duration-200 ${viewMode === 'WIZARD' ? 'bg-brand-600 text-white shadow-sm ring-1 ring-black/5' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-white/5'}`}
               >
                 <Wand2 className="w-3.5 h-3.5" />
                 Wizard
               </button>
               <button
                 onClick={() => setViewMode('EDITOR')}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all duration-200 ${viewMode === 'EDITOR' ? 'bg-white text-brand-600 shadow-sm ring-1 ring-black/5' : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'}`}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all duration-200 ${viewMode === 'EDITOR' ? 'bg-brand-600 text-white shadow-sm ring-1 ring-black/5' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-white/5'}`}
               >
                 <Edit3 className="w-3.5 h-3.5" />
                 Editor
               </button>
             </div>
           )}
-        </div>
-
-        <div className="flex items-center gap-3">
-          {/* Status Indicator */}
-          <div className="hidden md:flex items-center gap-2.5 text-[10px] font-bold px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 shadow-sm">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
-            System Online
-          </div>
 
           {entryMode !== 'CHOOSER' && (
             <Button
@@ -285,6 +327,11 @@ export const GraphBuilderModule: React.FC = () => {
                 {/* Top accent bar */}
                 <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-brand-400 via-brand-500 to-brand-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
+                {/* Decorative background icon */}
+                <div className="absolute top-0 right-0 p-6 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity transform group-hover:scale-110 duration-500 pointer-events-none">
+                  <Table className="w-48 h-48 text-brand-600" />
+                </div>
+
                 <div className="relative p-7">
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
@@ -306,22 +353,38 @@ export const GraphBuilderModule: React.FC = () => {
                       <span className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-50 to-brand-100 border border-brand-200 flex items-center justify-center shrink-0 group-hover:border-brand-300 group-hover:shadow-sm transition-all">
                         <Zap className="w-5 h-5 text-brand-600" />
                       </span>
-                      <span className="font-medium">Fast &amp; deterministic</span>
+                      <div className="flex flex-col">
+                        <div className="flex items-center gap-1.5 font-medium">
+                          Fast &amp; deterministic
+                          <div className="custom-tooltip" data-tooltip="Direct mapping from tables ensures consistent and predictable graph structures every time.">
+                            <Info className="w-3.5 h-3.5 text-slate-400 hover:text-brand-500 transition-colors cursor-help" />
+                          </div>
+                        </div>
+                        <span className="text-[11px] text-slate-500">Perfect for structured pipelines</span>
+                      </div>
                     </li>
                     <li className="flex items-center gap-4">
                       <span className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-50 to-brand-100 border border-brand-200 flex items-center justify-center shrink-0 group-hover:border-brand-300 group-hover:shadow-sm transition-all">
                         <Database className="w-5 h-5 text-brand-600" />
                       </span>
-                      <span className="font-medium">Column-based graphing</span>
+                      <div className="flex flex-col">
+                        <div className="flex items-center gap-1.5 font-medium">
+                          Column-based graphing
+                          <div className="custom-tooltip" data-tooltip="Automatically converts database columns into entities and relationships based on schema metadata.">
+                            <HelpCircle className="w-3.5 h-3.5 text-slate-400 hover:text-brand-500 transition-colors cursor-help" />
+                          </div>
+                        </div>
+                        <span className="text-[11px] text-slate-500">Automatic schema traversal</span>
+                      </div>
                     </li>
                   </ul>
 
                   <div className="mt-8 flex items-center justify-between">
-                    <div className="inline-flex items-center gap-2 text-xs font-bold text-brand-600 bg-brand-50 px-3 py-1.5 rounded-full border border-brand-100">
-                      <Sparkles className="w-4 h-4" />
+                    <div className="inline-flex items-center gap-2 text-[11px] font-extrabold text-brand-700 bg-brand-100/80 px-4 py-2 rounded-full border border-brand-200 shadow-sm transition-colors group-hover:bg-brand-100 group-hover:border-brand-300">
+                      <Sparkles className="w-4 h-4 text-brand-600" />
                       Best for databases
                     </div>
-                    <div className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-brand-600 text-white text-sm font-bold shadow-md group-hover:bg-brand-700 group-hover:shadow-lg group-hover:shadow-brand-500/25 transition-all duration-300">
+                    <div className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl bg-brand-600 text-white text-sm font-bold shadow-md group-hover:bg-brand-700 active:bg-brand-800 active:scale-[0.98] group-hover:shadow-lg group-hover:shadow-brand-500/25 transition-all duration-300">
                       Build graph from tables
                       <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
                     </div>
@@ -339,6 +402,11 @@ export const GraphBuilderModule: React.FC = () => {
                   <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500 bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-full shadow-sm">
                     Coming Soon
                   </div>
+                </div>
+
+                {/* Decorative background icon */}
+                <div className="absolute top-0 right-0 p-6 opacity-[0.03] transition-opacity pointer-events-none">
+                  <FileStack className="w-48 h-48 text-slate-400" />
                 </div>
 
                 <div className="p-7 relative">
@@ -359,13 +427,29 @@ export const GraphBuilderModule: React.FC = () => {
                       <span className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
                         <BrainCircuit className="w-5 h-5 text-slate-400" />
                       </span>
-                      <span className="font-medium">AI-powered extraction</span>
+                      <div className="flex flex-col">
+                        <div className="flex items-center gap-1.5 font-medium text-slate-600">
+                          AI-powered extraction
+                          <div className="custom-tooltip" data-tooltip="Uses LLMs to extract entities, properties, and relationships from unstructured text.">
+                            <Info className="w-3.5 h-3.5 text-slate-300 hover:text-slate-500 transition-colors cursor-help" />
+                          </div>
+                        </div>
+                        <span className="text-[11px] text-slate-400">LLM-driven knowledge parsing</span>
+                      </div>
                     </li>
                     <li className="flex items-center gap-4">
                       <span className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
                         <ScanText className="w-5 h-5 text-slate-400" />
                       </span>
-                      <span className="font-medium">Semantic interpretation</span>
+                      <div className="flex flex-col">
+                        <div className="flex items-center gap-1.5 font-medium text-slate-600">
+                          Semantic interpretation
+                          <div className="custom-tooltip" data-tooltip="Goes beyond keywords to understand context and meaning within your documents.">
+                            <HelpCircle className="w-3.5 h-3.5 text-slate-300 hover:text-slate-500 transition-colors cursor-help" />
+                          </div>
+                        </div>
+                        <span className="text-[11px] text-slate-400">Deep context understanding</span>
+                      </div>
                     </li>
                   </ul>
 
@@ -374,7 +458,7 @@ export const GraphBuilderModule: React.FC = () => {
                       <FileText className="w-4 h-4" />
                       Document ingestion
                     </div>
-                    <div className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-slate-200 text-slate-400 text-sm font-bold border border-slate-300">
+                    <div className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl bg-slate-200 text-slate-400 text-sm font-bold border border-slate-300">
                       Build graph from documents
                       <ArrowRight className="w-4 h-4" />
                     </div>
@@ -417,7 +501,8 @@ export const GraphBuilderModule: React.FC = () => {
             initialGraphId={wizardData.graphId}
           />
         </div>
-      )}
-    </div>
+      )
+      }
+    </div >
   );
 };

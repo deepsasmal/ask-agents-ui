@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { BarChart2, Database, Loader2, Plus, ChevronDown, ChevronRight, Wand2, RefreshCw, Sparkles, Table2, Info, Square, CheckSquare, Check, KeyRound, Link as LinkIcon, ChartLine, ChartNoAxesColumn, ChartScatter, ChartArea, ChartPie, Grid3X3, Columns3, Lightbulb, PenLine, ArrowRight, Table, X, AlertTriangle, FlaskConical } from 'lucide-react';
 import { Button, Card } from '../ui/Common';
 import { llmApi, mindsdbApi } from '../../services/api';
@@ -66,9 +67,9 @@ const SampleTableModal: React.FC<{
   const rows = sample.data?.rows || [];
   const shownRows = rows.slice(0, MAX_ROWS);
 
-  return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-[95vw] max-w-6xl h-[90vh] max-h-[900px] border border-slate-200 dark:border-slate-800 flex flex-col animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40 backdrop-blur-md">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-[95vw] max-w-6xl h-[90vh] max-h-[900px] border border-slate-200 dark:border-slate-800 flex flex-col animate-in fade-in zoom-in-95 duration-300 overflow-hidden">
         {/* Header */}
         <div className="flex items-start justify-between px-6 py-5 border-b border-slate-200 dark:border-slate-800">
           <div className="min-w-0">
@@ -210,7 +211,8 @@ const SampleTableModal: React.FC<{
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

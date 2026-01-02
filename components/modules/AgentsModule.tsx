@@ -93,7 +93,7 @@ export const AgentsModule: React.FC = () => {
                                         <Globe className="w-4 h-4" />
                                         Real-time scraping
                                     </div>
-                                    <div className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-slate-200 text-slate-400 text-sm font-bold border border-slate-300">
+                                    <div className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl bg-slate-200 text-slate-400 text-sm font-bold border border-slate-300">
                                         Configure Agent
                                         <ArrowRight className="w-4 h-4" />
                                     </div>
