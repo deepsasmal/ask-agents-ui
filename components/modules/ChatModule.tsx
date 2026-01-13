@@ -2,7 +2,8 @@ import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { Bot, MoreHorizontal, Loader2, Sparkles, Copy, BarChart2, Hammer, X, Terminal, Code, Paperclip, ArrowUp, Check, User, Square, PenLine, Mic, MicOff, FileText } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { ToolVisualization, ToolCall } from '../chat/ToolVisualization';
+import { ToolCallList } from '../chat/ToolCallList';
+import { ToolCall } from '../chat/ToolVisualization';
 import { ChartRenderer } from '../chat/ChartRenderer';
 import { agentApi, configApi, sessionApi, authApi, Agent, RunMetrics } from '../../services/api';
 import { ExploredGraphModal } from '../modals/ExploredGraphModal';
@@ -867,6 +868,10 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
         setIsChartModalOpen(true);
     };
 
+    const handleToolCallClick = (toolCall: ToolCall) => {
+        setSelectedToolCall(prev => (prev?.id === toolCall.id ? null : toolCall));
+    };
+
     // Memoized selected agent
     const selectedAgent = useMemo(() =>
         agents.find(a => a.id === selectedAgentId),
@@ -1047,17 +1052,12 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ sessionId, onSessionUpda
 
                                             {/* Tool Call Pills and Visualizations */}
                                             {msg.toolCalls && msg.toolCalls.length > 0 && (
-                                                <div className="flex flex-wrap items-center gap-2 mb-1 w-full">
-                                                    {msg.toolCalls.map((toolCall, idx) => (
-                                                        <ToolVisualization
-                                                            key={idx}
-                                                            toolCall={toolCall}
-                                                            onOpenGraph={handleOpenGraph}
-                                                            onSelectToolCall={setSelectedToolCall}
-                                                            isCollapsed={!msg.isStreaming && msg.toolCalls?.every(tc => tc.status !== 'running')}
-                                                        />
-                                                    ))}
-                                                </div>
+                                                <ToolCallList
+                                                    toolCalls={msg.toolCalls}
+                                                    isStreaming={!!msg.isStreaming}
+                                                    onOpenGraph={handleOpenGraph}
+                                                    onSelectToolCall={handleToolCallClick}
+                                                />
                                             )}
 
                                             {/* Bar Chart Rendering - Rendered in Chat UI */}

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Network, Hammer, Loader2, ChevronDown, Check, AlertCircle } from 'lucide-react';
+import React from 'react';
+import { Network, Loader2, Check, AlertCircle } from 'lucide-react';
 
 export interface ToolCall {
   id: string;
@@ -23,7 +23,6 @@ export const ToolVisualization: React.FC<ToolVisualizationProps> = ({
   onSelectToolCall,
   isCollapsed
 }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
   const isDfsExplore = toolCall.name === 'dfs_explore' && toolCall.status === 'completed';
 
   // Status icon and color
@@ -53,62 +52,28 @@ export const ToolVisualization: React.FC<ToolVisualizationProps> = ({
     }
   };
 
-  // Collapsed capsule view
-  if (isCollapsed && !isExpanded) {
-    return (
-      <button
-        onClick={() => setIsExpanded(true)}
-        className={`flex items-center gap-1.5 pl-2 pr-2.5 py-1 rounded-full text-[10px] font-medium border transition-all shadow-sm hover:shadow-md ${getStatusColor()}`}
-        title={`${toolCall.name} - Click to expand`}
-      >
-        {getStatusIndicator()}
-        <span className="text-slate-700 font-semibold max-w-[120px] truncate">{toolCall.name}</span>
-      </button>
-    );
-  }
-
-  // Expanded view
   return (
     <div className="inline-flex items-center gap-2 animate-fade-in max-w-full">
-      <div className="flex flex-wrap items-center gap-2">
+      {/* Main Capsule Button */}
+      <button
+        onClick={() => onSelectToolCall(toolCall)}
+        className={`flex items-center gap-1.5 pl-2 pr-2.5 py-1 rounded-full text-[10px] font-medium border transition-all shadow-sm hover:shadow-md ${getStatusColor()}`}
+        title={`${toolCall.name} - Click to view details`}
+      >
+        {getStatusIndicator()}
+        <span className="text-slate-700 font-semibold max-w-[150px] truncate">{toolCall.name}</span>
+      </button>
+
+      {/* DFS Explore Graph Visualization Button */}
+      {isDfsExplore && (
         <button
-          onClick={() => {
-            if (isCollapsed) {
-              setIsExpanded(false);
-            } else {
-              onSelectToolCall(toolCall);
-            }
-          }}
-          className={`flex items-center gap-2 pl-2.5 pr-3 py-1.5 text-slate-600 rounded-full text-[10px] font-mono hover:shadow-md transition-all shadow-sm border ${getStatusColor()}`}
+          onClick={() => onOpenGraph(toolCall.result)}
+          className="flex items-center gap-1.5 px-2.5 py-1 bg-brand-600 text-white rounded-full text-[10px] font-bold shadow-md hover:bg-brand-700 hover:shadow-lg hover:scale-105 transition-all"
         >
-          {getStatusIndicator()}
-          <span className="text-slate-700 font-bold">{toolCall.name}</span>
-          {isCollapsed && (
-            <ChevronDown className="w-3 h-3 text-slate-400 rotate-180" />
-          )}
+          <Network className="w-3 h-3" />
+          Visualize
         </button>
-
-        {/* DFS Explore Graph Visualization Button */}
-        {isDfsExplore && (
-          <button
-            onClick={() => onOpenGraph(toolCall.result)}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-brand-600 text-white rounded-full text-[10px] font-bold shadow-md hover:bg-brand-700 hover:shadow-lg hover:scale-105 transition-all"
-          >
-            <Network className="w-3 h-3" />
-            Visualize
-          </button>
-        )}
-
-        {/* View Details Button (when collapsed) */}
-        {isCollapsed && (
-          <button
-            onClick={() => onSelectToolCall(toolCall)}
-            className="flex items-center gap-1 px-2.5 py-1.5 bg-white text-slate-600 rounded-full text-[10px] font-medium hover:bg-slate-50 transition-all shadow-sm border border-slate-200"
-          >
-            View Details
-          </button>
-        )}
-      </div>
+      )}
     </div>
   );
 };
