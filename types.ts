@@ -7,6 +7,7 @@ export interface Column {
   isPrimaryKey?: boolean;
   isForeignKey?: boolean;
   foreignKeyReference?: string;
+  selected?: boolean;
 }
 
 export interface Table {
@@ -36,7 +37,7 @@ export interface WizardState {
   // Step 3: Schema
   schemaName?: string;
   tables: Table[];
-  
+
   // Step 3.5: Graph Creation ID
   graphId?: string; // Store the ID returned from updating schema
 }
