@@ -113,7 +113,7 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
                 const newTables: Table[] = result.tables.map(tableName => ({
                     id: tableName, // Using name as ID for simplicity in this context
                     name: tableName,
-                    selected: false,
+                    selected: true,
                     columns: [],
                     loaded: false
                 }));
@@ -186,9 +186,9 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
                 };
 
                 if (aiData?.columns[col.name]) {
-                    return { ...columnWithFk, description: aiData.columns[col.name], selected: true };
+                    return { ...columnWithFk, description: aiData.columns[col.name], selected: table?.selected ?? true };
                 }
-                return { ...columnWithFk, selected: true };
+                return { ...columnWithFk, selected: table?.selected ?? true };
             });
 
             const updatedTables = data.tables.map(t =>
@@ -222,9 +222,12 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
     const toggleColumnSelection = (tableId: string, colName: string) => {
         const updatedTables = data.tables.map(t => {
             if (t.id !== tableId) return t;
+            const newColumns = t.columns.map(c => c.name === colName ? { ...c, selected: !(c.selected !== false) } : c);
+            const allSelected = newColumns.every(c => c.selected !== false);
             return {
                 ...t,
-                columns: t.columns.map(c => c.name === colName ? { ...c, selected: !c.selected } : c)
+                selected: allSelected,
+                columns: newColumns
             };
         });
         updateData({ tables: updatedTables });
@@ -426,8 +429,8 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
     };
 
     const handleBatchTableAutofill = async () => {
-        // Get selected tables
-        const selectedTables = data.tables.filter(t => t.selected);
+        // Get selected tables (explicitly selected OR has at least one selected column)
+        const selectedTables = data.tables.filter(t => t.selected || t.columns.some(c => c.selected !== false));
         const selectedTableNames = selectedTables.map(t => t.name);
 
         if (selectedTableNames.length === 0) {
@@ -567,7 +570,7 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
     };
 
     // Validation: require descriptions for all selected tables + their columns before enabling Next
-    const selectedTables = data.tables.filter(t => t.selected);
+    const selectedTables = data.tables.filter(t => t.selected || t.columns.some(c => c.selected !== false));
     const tablesNotLoadedCount = selectedTables.filter(t => !t.loaded).length;
     const tablesMissingDescCount = selectedTables.filter(t => !t.description || !t.description.trim()).length;
     const columnsMissingDescCount = selectedTables.reduce((acc, t) => {
@@ -594,7 +597,7 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
         }
         setIsSaving(true);
         try {
-            const selectedTables = data.tables.filter(t => t.selected);
+            const selectedTables = data.tables.filter(t => t.selected || t.columns.some(c => c.selected !== false));
 
             // Use sanitized project name as the initial org_id
             const graphIdPayload = data.projectName.trim().replace(/\s+/g, '_').toLowerCase();
@@ -637,7 +640,8 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
         }
     };
 
-    const selectedCount = data.tables.filter(t => t.selected).length;
+    // A table is included if it's explicitly selected OR has active columns
+    const selectedCount = data.tables.filter(t => t.selected || t.columns.some(c => c.selected !== false)).length;
     const isTableLoading = (id: string) => loadingColumns.has(id);
 
     const validationHint = (() => {
@@ -802,7 +806,8 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
                                                     <h3 className="text-lg font-bold text-slate-900 leading-none mb-1.5">{table.name}</h3>
                                                     <div className="flex items-center gap-2">
                                                         <p className="text-xs text-slate-500 font-medium">Table Configuration</p>
-                                                        {!table.selected && (
+                                                        <p className="text-xs text-slate-500 font-medium">Table Configuration</p>
+                                                        {(!table.selected && !table.columns.some(c => c.selected !== false)) && (
                                                             <span className="px-1.5 py-0.5 text-[9px] uppercase font-bold tracking-wide text-amber-700 bg-amber-50 rounded-full border border-amber-200">
                                                                 Ignored
                                                             </span>
@@ -867,7 +872,7 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
                                             ) : (
                                                 table.columns.map(col => (
                                                     <div key={col.name} className={`flex flex-col xl:flex-row xl:items-start gap-3 p-3 rounded-xl border transition-all duration-300 group
-                                                        ${!col.selected ? 'bg-slate-50 border-slate-100 opacity-60' : 'bg-slate-50/30 border-slate-100 hover:shadow-md hover:border-brand-200 hover:bg-white'}
+                                                        ${col.selected === false ? 'bg-slate-50 border-slate-100 opacity-60' : 'bg-slate-50/30 border-slate-100 hover:shadow-md hover:border-brand-200 hover:bg-white'}
                                                     `}>
                                                         <div className="w-full xl:w-1/3 space-y-1">
                                                             <div className="flex items-center gap-2">
@@ -888,7 +893,7 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
                                                                         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                                                                     </svg>
                                                                 </div>
-                                                                <span className={`font-bold text-xs break-all ${!col.selected ? 'text-slate-400' : 'text-slate-800'}`}>{col.name}</span>
+                                                                <span className={`font-bold text-xs break-all ${col.selected === false ? 'text-slate-400' : 'text-slate-800'}`}>{col.name}</span>
                                                                 <div className="flex gap-1 shrink-0">
                                                                     {col.isPrimaryKey && (
                                                                         <span className="flex items-center justify-center w-5 h-5 rounded bg-amber-100 text-amber-600 cursor-help" title="Primary Key">
@@ -910,14 +915,14 @@ export const SchemaStep: React.FC<SchemaStepProps> = ({ data, updateData, onNext
                                                         <div className="flex-1 flex gap-2 group/input relative">
                                                             <input
                                                                 className={`flex-1 px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all group-hover:border-slate-300 disabled:bg-slate-50 disabled:text-slate-400`}
-                                                                placeholder={col.selected ? `Description for ${col.name}...` : "Column excluded"}
-                                                                value={col.description}
+                                                                placeholder={col.selected !== false ? `Description for ${col.name}...` : "Column excluded"}
+                                                                value={col.selected !== false ? col.description : ''}
                                                                 onChange={(e) => updateColumnDescription(table.id, col.name, e.target.value)}
-                                                                disabled={!col.selected}
+                                                                disabled={col.selected === false}
                                                             />
                                                             <button
                                                                 onClick={() => handleAiAutofill(table.id, col)}
-                                                                disabled={!col.selected}
+                                                                disabled={col.selected === false}
                                                                 className={`p-2 rounded-lg border transition-all flex-shrink-0 flex items-center justify-center
                                                             ${col.description
                                                                         ? 'opacity-0 group-hover/input:opacity-100 bg-white text-brand-600 border-brand-200 shadow-md absolute right-0 top-0 bottom-0 z-10 w-10'

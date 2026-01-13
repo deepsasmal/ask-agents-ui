@@ -69,7 +69,7 @@ export const ToolVisualization: React.FC<ToolVisualizationProps> = ({
 
   // Expanded view
   return (
-    <div className="flex flex-col gap-2 w-full animate-fade-in">
+    <div className="inline-flex items-center gap-2 animate-fade-in max-w-full">
       <div className="flex flex-wrap items-center gap-2">
         <button
           onClick={() => {
@@ -79,7 +79,7 @@ export const ToolVisualization: React.FC<ToolVisualizationProps> = ({
               onSelectToolCall(toolCall);
             }
           }}
-          className={`flex items-center gap-2 pl-2.5 pr-3 py-1.5 text-slate-600 rounded-xl text-[10px] font-mono hover:shadow-md transition-all shadow-sm border ${getStatusColor()}`}
+          className={`flex items-center gap-2 pl-2.5 pr-3 py-1.5 text-slate-600 rounded-full text-[10px] font-mono hover:shadow-md transition-all shadow-sm border ${getStatusColor()}`}
         >
           {getStatusIndicator()}
           <span className="text-slate-700 font-bold">{toolCall.name}</span>
@@ -92,7 +92,7 @@ export const ToolVisualization: React.FC<ToolVisualizationProps> = ({
         {isDfsExplore && (
           <button
             onClick={() => onOpenGraph(toolCall.result)}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-brand-600 text-white rounded-xl text-[10px] font-bold shadow-md hover:bg-brand-700 hover:shadow-lg hover:scale-105 transition-all"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-brand-600 text-white rounded-full text-[10px] font-bold shadow-md hover:bg-brand-700 hover:shadow-lg hover:scale-105 transition-all"
           >
             <Network className="w-3 h-3" />
             Visualize
@@ -103,7 +103,7 @@ export const ToolVisualization: React.FC<ToolVisualizationProps> = ({
         {isCollapsed && (
           <button
             onClick={() => onSelectToolCall(toolCall)}
-            className="flex items-center gap-1 px-2.5 py-1.5 bg-white text-slate-600 rounded-xl text-[10px] font-medium hover:bg-slate-50 transition-all shadow-sm border border-slate-200"
+            className="flex items-center gap-1 px-2.5 py-1.5 bg-white text-slate-600 rounded-full text-[10px] font-medium hover:bg-slate-50 transition-all shadow-sm border border-slate-200"
           >
             View Details
           </button>
