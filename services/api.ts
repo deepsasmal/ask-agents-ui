@@ -351,6 +351,19 @@ interface GraphMetadataByEmailResponse {
   records: GraphMetadataSummary[];
 }
 
+export interface GraphBulkImportRequest {
+  org_id: string;
+  email: string;
+  graph_payload: any;
+  schema_name?: string;
+  table_name?: string;
+  postgres_schema?: string;
+}
+
+export interface GraphBulkImportResponse {
+  id: string;
+}
+
 // Search Interfaces
 export interface SearchNodeResult {
   id: number | string;
@@ -1268,6 +1281,18 @@ export const graphApi = {
       body: JSON.stringify({ email }),
     });
     return handleResponse<GraphMetadataByEmailResponse>(response);
+  },
+
+  bulkImport: async (payload: GraphBulkImportRequest) => {
+    const response = await fetch(`${API_BASE_URL}/graph/bulk_import`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders()
+      },
+      body: JSON.stringify(payload),
+    });
+    return handleResponse<GraphBulkImportResponse>(response);
   }
 };
 

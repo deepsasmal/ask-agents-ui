@@ -11,6 +11,8 @@ import { BulkUploadStep } from '../steps/BulkUploadStep';
 import { BulkReviewStep } from '../steps/BulkReviewStep';
 import { GraphEditor } from '../editor/GraphEditor';
 import { Button } from '../ui/Common';
+import { toast } from 'react-toastify';
+import { graphApi, authApi } from '../../services/api';
 import { Wand2, Edit3, Database, FileText, ArrowRight, Sparkles, Zap, ScanText, BrainCircuit, Upload, Info, HelpCircle, Table, FileStack } from 'lucide-react';
 
 const INITIAL_STATE: WizardState = {
@@ -47,6 +49,7 @@ export const GraphBuilderModule: React.FC = () => {
   // Bulk Import specific state
   const [bulkImportStep, setBulkImportStep] = useState<number>(BulkImportStep.Organization);
   const [uploadedFile, setUploadedFile] = useState<UploadedFileInfo | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const updateData = (newData: Partial<WizardState>) => {
     setWizardData(prev => ({ ...prev, ...newData }));
@@ -62,6 +65,58 @@ export const GraphBuilderModule: React.FC = () => {
   const handleStartBulkImport = () => {
     setEntryMode('BULK_IMPORT');
     setBulkImportStep(BulkImportStep.Organization);
+    setUploadedFile(null); // Reset file
+  };
+
+  const handleBulkUpload = async () => {
+    if (!uploadedFile) return;
+
+    setIsSubmitting(true);
+    try {
+      const email = authApi.getUserEmail();
+      const payload = {
+        org_id: wizardData.orgName || 'default_org',
+        email: email,
+        graph_payload: uploadedFile.content,
+        schema_name: wizardData.projectName?.replace(/\s+/g, '_').toLowerCase() || 'default_schema',
+        table_name: 'graph_metadata', // Default or derived
+        postgres_schema: 'ai',
+      };
+
+      const response = await graphApi.bulkImport(payload);
+
+      // Update wizard data with the returned graph ID
+      updateData({ graphId: response.id });
+
+      toast.success('File uploaded successfully!');
+      nextBulkStep(); // Move to Review step
+    } catch (error: any) {
+      console.error("Bulk upload failed", error);
+      toast.error(error.message || 'Failed to upload graph configuration.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleBulkBuild = async (options: { enableTextIndexing: boolean; enableVectorSearch: boolean }) => {
+    // Check if we have a graph ID from the previous step
+    if (!wizardData.graphId) {
+      toast.error('Graph ID missing. Please re-upload schema.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await graphApi.createGraphFromMetadata(wizardData.graphId, options);
+
+      toast.success('Knowledge Graph created successfully!');
+      setBulkImportStep(BulkImportStep.Success);
+    } catch (error: any) {
+      console.error("Graph build failed", error);
+      toast.error(error.message || 'Failed to build knowledge graph.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const renderBulkImportStep = () => {
@@ -79,8 +134,9 @@ export const GraphBuilderModule: React.FC = () => {
           <BulkUploadStep
             uploadedFile={uploadedFile}
             onFileUpload={setUploadedFile}
-            onNext={nextBulkStep}
+            onNext={handleBulkUpload}
             onBack={prevBulkStep}
+            isLoading={isSubmitting}
           />
         );
       case BulkImportStep.Review:
@@ -89,11 +145,9 @@ export const GraphBuilderModule: React.FC = () => {
           <BulkReviewStep
             orgName={wizardData.orgName}
             projectName={wizardData.projectName}
-            description={wizardData.description}
-            domain={wizardData.domain}
             uploadedFile={uploadedFile}
             onBack={prevBulkStep}
-            onComplete={() => setBulkImportStep(BulkImportStep.Success)}
+            onBuild={handleBulkBuild}
             isSuccess={bulkImportStep === BulkImportStep.Success}
           />
         );

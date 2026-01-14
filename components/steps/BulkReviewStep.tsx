@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Rocket, CheckCircle, FileJson, Building2, Layers, Check, Sparkles, Network, Box, Link2, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Rocket, CheckCircle, Database, FileText, Check, Settings2, Search, BrainCircuit, Layers } from 'lucide-react';
 import { Button, Card } from '../ui/Common';
 
 interface UploadedFileInfo {
@@ -13,73 +13,60 @@ interface UploadedFileInfo {
 interface BulkReviewStepProps {
     orgName: string;
     projectName: string;
-    description: string;
-    domain?: string;
     uploadedFile: UploadedFileInfo | null;
     onBack: () => void;
-    onComplete: () => void;
+    onBuild: (options: { enableTextIndexing: boolean; enableVectorSearch: boolean }) => Promise<void>;
     isSuccess?: boolean;
 }
 
 export const BulkReviewStep: React.FC<BulkReviewStepProps> = ({
     orgName,
     projectName,
-    description,
-    domain,
     uploadedFile,
     onBack,
-    onComplete,
+    onBuild,
     isSuccess = false
 }) => {
     const [isImporting, setIsImporting] = useState(false);
+    const [enableTextIndexing, setEnableTextIndexing] = useState(true);
+    const [enableVectorSearch, setEnableVectorSearch] = useState(false);
 
     // Parse schema statistics from uploaded file
     const getSchemaStats = () => {
         if (!uploadedFile?.content || typeof uploadedFile.content !== 'object') {
-            return { nodes: 0, edges: 0, properties: 0 };
+            return { tables: 0, columns: 0 };
         }
 
-        const content = uploadedFile.content as Record<string, unknown>;
+        const content = uploadedFile.content as any;
 
-        // Try to detect common schema structures
-        const nodes = Array.isArray(content.nodes) ? content.nodes.length :
-            Array.isArray(content.entities) ? content.entities.length :
-                Array.isArray(content.vertices) ? content.vertices.length : 0;
+        let tables = 0;
+        let columns = 0;
 
-        const edges = Array.isArray(content.edges) ? content.edges.length :
-            Array.isArray(content.relationships) ? content.relationships.length :
-                Array.isArray(content.links) ? content.links.length : 0;
-
-        // Count total properties
-        let properties = 0;
-        if (Array.isArray(content.nodes)) {
-            properties = content.nodes.reduce((acc: number, node: unknown) => {
-                if (typeof node === 'object' && node !== null) {
-                    return acc + Object.keys(node).length;
+        if (Array.isArray(content.tables)) {
+            tables = content.tables.length;
+            columns = content.tables.reduce((acc: number, table: any) => {
+                if (Array.isArray(table.columns)) {
+                    return acc + table.columns.length;
                 }
                 return acc;
             }, 0);
         }
 
-        return { nodes, edges, properties };
+        return { tables, columns };
     };
 
     const stats = getSchemaStats();
 
-    const formatFileSize = (bytes: number): string => {
-        if (bytes === 0) return '0 Bytes';
-        const k = 1024;
-        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-    };
-
-    const handleImport = async () => {
+    const handleBuildClick = async () => {
         setIsImporting(true);
-        // Simulate import process - no API calls as requested
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        setIsImporting(false);
-        onComplete();
+        try {
+            await onBuild({
+                enableTextIndexing,
+                enableVectorSearch
+            });
+        } finally {
+            setIsImporting(false);
+        }
     };
 
     if (isSuccess) {
@@ -94,7 +81,7 @@ export const BulkReviewStep: React.FC<BulkReviewStepProps> = ({
 
                 <h2 className="text-4xl font-bold text-slate-900 mb-4 tracking-tight">Import Successful!</h2>
                 <p className="text-xl text-slate-500 max-w-lg mx-auto mb-10">
-                    Your graph schema has been imported with {stats.nodes} nodes and {stats.edges} relationships.
+                    Your graph schema has been imported with {stats.tables} tables and {stats.columns} columns.
                 </p>
 
                 <Button onClick={() => window.location.reload()} size="lg" className="px-10 shadow-brand-600/30">
@@ -112,134 +99,106 @@ export const BulkReviewStep: React.FC<BulkReviewStepProps> = ({
             </div>
 
             <div className="flex flex-col gap-6">
-                {/* Stats Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <Card className="shadow-sm border-slate-200 bg-white/50" noPadding>
                         <div className="flex flex-col items-center text-center p-4">
                             <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mb-3">
-                                <Box className="w-6 h-6" />
+                                <Database className="w-6 h-6" />
                             </div>
-                            <span className="text-3xl font-bold text-slate-900">{stats.nodes}</span>
-                            <span className="text-sm font-medium text-slate-500">Nodes Detected</span>
+                            <span className="text-3xl font-bold text-slate-900">{stats.tables}</span>
+                            <span className="text-sm font-medium text-slate-500">Tables Detected</span>
                         </div>
                     </Card>
 
                     <Card className="shadow-sm border-slate-200 bg-white/50" noPadding>
                         <div className="flex flex-col items-center text-center p-4">
                             <div className="w-12 h-12 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center mb-3">
-                                <Link2 className="w-6 h-6" />
+                                <Layers className="w-6 h-6" />
                             </div>
-                            <span className="text-3xl font-bold text-slate-900">{stats.edges}</span>
-                            <span className="text-sm font-medium text-slate-500">Relationships</span>
+                            <span className="text-3xl font-bold text-slate-900">{stats.columns}</span>
+                            <span className="text-sm font-medium text-slate-500">Columns Detected</span>
                         </div>
                     </Card>
 
                     <Card className="shadow-sm border-slate-200 bg-white/50" noPadding>
                         <div className="flex flex-col items-center text-center p-4">
                             <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mb-3">
-                                <Layers className="w-6 h-6" />
+                                <FileText className="w-6 h-6" />
                             </div>
-                            <span className="text-3xl font-bold text-slate-900">{stats.properties}</span>
-                            <span className="text-sm font-medium text-slate-500">Properties</span>
+                            <span className="text-xl font-bold text-slate-900 truncate max-w-full px-2">{projectName?.replace(/\s+/g, '_').toLowerCase() || 'default_schema'}</span>
+                            <span className="text-sm font-medium text-slate-500">Target Schema</span>
                         </div>
                     </Card>
                 </div>
 
-                {/* Configuration Summary */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    {/* Organization Details */}
+                <div className="space-y-6">
                     <Card className="shadow-supreme border-0" noPadding>
-                        <div className="flex items-center gap-4 border-b border-slate-100 p-4">
+                        <div className="flex items-center gap-4 border-b border-slate-100 p-6">
                             <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center text-brand-600">
-                                <Building2 className="w-5 h-5" />
+                                <Settings2 className="w-5 h-5" />
                             </div>
                             <div>
-                                <h3 className="text-lg font-bold text-slate-900">Organization</h3>
-                                <p className="text-sm text-slate-500">Project configuration</p>
+                                <h3 className="text-lg font-bold text-slate-900">Graph Configuration</h3>
+                                <p className="text-sm text-slate-500">Configure indexing and search capabilities.</p>
                             </div>
                         </div>
 
-                        <div className="p-4 space-y-3">
-                            <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
-                                <span className="text-sm text-slate-500">Organization</span>
-                                <span className="text-sm font-bold text-slate-900">{orgName || 'Not specified'}</span>
-                            </div>
-                            <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
-                                <span className="text-sm text-slate-500">Project</span>
-                                <span className="text-sm font-bold text-slate-900">{projectName || 'Not specified'}</span>
-                            </div>
-                            {domain && (
-                                <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
-                                    <span className="text-sm text-slate-500">Domain</span>
-                                    <span className="text-sm font-bold text-slate-900">{domain}</span>
+                        <div className="p-6 space-y-4">
+                            {/* Text Indexing Option */}
+                            <label className={`flex items-start gap-4 p-4 rounded-xl border transition-all cursor-pointer ${enableTextIndexing ? 'bg-brand-50/50 border-brand-200' : 'bg-white border-slate-200 hover:border-brand-200'}`}>
+                                <div className="relative flex items-center mt-1">
+                                    <input
+                                        type="checkbox"
+                                        checked={enableTextIndexing}
+                                        onChange={(e) => setEnableTextIndexing(e.target.checked)}
+                                        className="peer h-5 w-5 cursor-pointer appearance-none rounded-md border border-slate-300 transition-all checked:border-brand-600 checked:bg-brand-600 focus:ring-2 focus:ring-brand-500/20"
+                                    />
+                                    <Check className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white opacity-0 transition-opacity peer-checked:opacity-100" />
                                 </div>
-                            )}
-                            {description && (
-                                <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-                                    <span className="text-sm text-slate-500 block mb-1">Description</span>
-                                    <span className="text-sm text-slate-700">{description}</span>
+                                <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <Search className="w-4 h-4 text-slate-600" />
+                                        <span className="font-bold text-slate-900">Enable Text Indexing</span>
+                                    </div>
+                                    <p className="text-sm text-slate-500">Creates full-text search indexes on name and description fields for faster keyword lookup.</p>
                                 </div>
-                            )}
+                            </label>
+
+                            {/* Vector Search Option (Disabled) */}
+                            <label className="flex items-start gap-4 p-4 rounded-xl border border-slate-100 bg-slate-50 cursor-not-allowed opacity-70">
+                                <div className="relative flex items-center mt-1">
+                                    <input
+                                        type="checkbox"
+                                        checked={enableVectorSearch}
+                                        disabled
+                                        className="h-5 w-5 appearance-none rounded-md border border-slate-300 bg-slate-100"
+                                    />
+                                </div>
+                                <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <BrainCircuit className="w-4 h-4 text-slate-400" />
+                                        <span className="font-bold text-slate-500">Enable Vector Search</span>
+                                        <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 border border-slate-200 px-1.5 py-0.5 rounded">Coming Soon</span>
+                                    </div>
+                                    <p className="text-sm text-slate-400">Generates embeddings for content to enable semantic similarity search.</p>
+                                </div>
+                            </label>
                         </div>
                     </Card>
 
-                    {/* File Details */}
-                    <Card className="shadow-supreme border-0" noPadding>
-                        <div className="flex items-center gap-4 border-b border-slate-100 p-4">
-                            <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
-                                <FileJson className="w-5 h-5" />
-                            </div>
+                    <Card className="shadow-supreme border-0 bg-gradient-to-br from-brand-600 to-brand-700 text-white overflow-hidden relative" noPadding>
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
+                        <div className="relative p-8 flex items-center justify-between">
                             <div>
-                                <h3 className="text-lg font-bold text-slate-900">Uploaded File</h3>
-                                <p className="text-sm text-slate-500">Schema definition</p>
+                                <h3 className="text-2xl font-bold mb-2">Ready to Import?</h3>
+                                <p className="text-brand-100 max-w-md">This will create the knowledge graph structure from your uploaded schema. The process may take a few moments.</p>
                             </div>
-                        </div>
-
-                        <div className="p-4 space-y-3">
-                            {uploadedFile ? (
-                                <>
-                                    <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
-                                        <span className="text-sm text-slate-500">File Name</span>
-                                        <span className="text-sm font-bold text-slate-900 truncate max-w-[200px]">{uploadedFile.name}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
-                                        <span className="text-sm text-slate-500">File Size</span>
-                                        <span className="text-sm font-bold text-slate-900">{formatFileSize(uploadedFile.size)}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
-                                        <span className="text-sm text-slate-500">Format</span>
-                                        <span className="text-sm font-bold text-slate-900">JSON</span>
-                                    </div>
-
-                                    {/* Validation Status */}
-                                    <div className="flex items-center gap-3 p-3 rounded-xl bg-brand-50 border border-brand-100">
-                                        <CheckCircle className="w-5 h-5 text-brand-600" />
-                                        <span className="text-sm font-medium text-brand-700">Schema validated successfully</span>
-                                    </div>
-                                </>
-                            ) : (
-                                <div className="flex items-center gap-3 p-4 rounded-xl bg-amber-50 border border-amber-100">
-                                    <AlertTriangle className="w-5 h-5 text-amber-600" />
-                                    <span className="text-sm font-medium text-amber-700">No file uploaded</span>
-                                </div>
-                            )}
+                            <div className="hidden md:block">
+                                <Rocket className="w-16 h-16 text-white/20 rotate-45" />
+                            </div>
                         </div>
                     </Card>
                 </div>
-
-                {/* Ready to Import */}
-                <Card className="shadow-supreme border-0 bg-gradient-to-br from-brand-600 to-brand-700 text-white overflow-hidden relative" noPadding>
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
-                    <div className="relative p-8 flex items-center justify-between">
-                        <div>
-                            <h3 className="text-2xl font-bold mb-2">Ready to Import?</h3>
-                            <p className="text-brand-100 max-w-md">This will create the knowledge graph structure from your uploaded schema. The process may take a few moments.</p>
-                        </div>
-                        <div className="hidden md:block">
-                            <Network className="w-16 h-16 text-white/20" />
-                        </div>
-                    </div>
-                </Card>
             </div>
 
             <div className="flex justify-between pt-6 pb-6">
@@ -247,7 +206,7 @@ export const BulkReviewStep: React.FC<BulkReviewStepProps> = ({
                     Back
                 </Button>
                 <Button
-                    onClick={handleImport}
+                    onClick={handleBuildClick}
                     isLoading={isImporting}
                     disabled={!uploadedFile}
                     rightIcon={<Rocket className="w-4 h-4" />}

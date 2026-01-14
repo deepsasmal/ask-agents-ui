@@ -27,7 +27,7 @@ export const Chart = forwardRef<ChartRef, ChartProps>(({ options, height = '300p
           pixelRatio: 2,
           backgroundColor: '#fff'
         });
-        
+
         const link = document.createElement('a');
         link.href = url;
         link.download = filename;
@@ -50,7 +50,7 @@ export const Chart = forwardRef<ChartRef, ChartProps>(({ options, height = '300p
     // Enhance options with better interactivity
     if (options && interactive) {
       // Detect chart type from options if not specified
-      const detectedType = chartType === 'auto' 
+      const detectedType = chartType === 'auto'
         ? (options.series?.[0]?.type || 'bar')
         : chartType;
 
@@ -232,13 +232,24 @@ export const Chart = forwardRef<ChartRef, ChartProps>(({ options, height = '300p
 
       // Enhance bar chart series specifically
       const isBarChart = detectedType === 'bar';
-      if (isBarChart && enhancedOptions.series) {
+      if (isBarChart && enhancedOptions.series && Array.isArray(enhancedOptions.series)) {
+        const hasMultipleSeries = enhancedOptions.series.length > 1;
+        const isStacked = enhancedOptions.series.some((s: any) => !!s.stack);
+        // If stacked, we treat it visually as single bar width-wise
+        const shouldAutoSize = hasMultipleSeries && !isStacked;
+
         enhancedOptions.series = enhancedOptions.series.map((series: any, idx: number) => ({
           ...series,
           type: 'bar',
-          barWidth: '60%',
+          // Auto-adjust width for grouped bars to prevent congestion
+          // If grouped (not stacked), let ECharts handle width or restrict it
+          barWidth: shouldAutoSize ? undefined : '60%',
+          barMaxWidth: shouldAutoSize ? 30 : 80, // Restrict max width to prevent huge bars
+          barGap: shouldAutoSize ? '20%' : undefined, // Gap between bars in a group
+          barCategoryGap: '30%', // Gap between categories
           itemStyle: {
-            color: series.itemStyle?.color || chartColors[idx] || '#14b8a6',
+            // Use modulo to cycle through colors safely
+            color: series.itemStyle?.color || chartColors[idx % chartColors.length] || '#14b8a6',
             borderRadius: [4, 4, 0, 0],
             ...series.itemStyle
           },
@@ -368,10 +379,10 @@ export const Chart = forwardRef<ChartRef, ChartProps>(({ options, height = '300p
   }, []);
 
   return (
-    <div 
-      ref={chartRef} 
-      className={`w-full ${className}`} 
-      style={{ height }} 
+    <div
+      ref={chartRef}
+      className={`w-full ${className}`}
+      style={{ height }}
     />
   );
 });

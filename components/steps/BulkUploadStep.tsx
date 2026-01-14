@@ -16,16 +16,19 @@ interface BulkUploadStepProps {
     onFileUpload: (file: UploadedFileInfo | null) => void;
     onNext: () => void;
     onBack: () => void;
+    isLoading?: boolean;
 }
 
 export const BulkUploadStep: React.FC<BulkUploadStepProps> = ({
     uploadedFile,
     onFileUpload,
     onNext,
-    onBack
+    onBack,
+    isLoading = false
 }) => {
     const [isDragging, setIsDragging] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
     const [isProcessing, setIsProcessing] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -254,17 +257,19 @@ export const BulkUploadStep: React.FC<BulkUploadStepProps> = ({
                                 onClick={onBack}
                                 leftIcon={<ArrowLeft className="w-3.5 h-3.5" />}
                                 size="sm"
+                                disabled={isLoading}
                             >
                                 Back
                             </Button>
                             <Button
                                 onClick={onNext}
-                                disabled={!uploadedFile}
+                                disabled={!uploadedFile || isLoading}
+                                isLoading={isLoading}
                                 rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
                                 size="sm"
                                 className="px-6 shadow-brand-600/30"
                             >
-                                Review & Import
+                                Review Configuration
                             </Button>
                         </div>
                     </Card>
@@ -363,7 +368,7 @@ export const BulkUploadStep: React.FC<BulkUploadStepProps> = ({
                                 <div className="flex items-start gap-2">
                                     <div className="w-1.5 h-1.5 rounded-full bg-brand-500 mt-1.5 shrink-0" />
                                     <p className="text-[11px] text-slate-600 font-medium leading-tight">
-                                        <span className="text-slate-900 font-bold uppercase text-[9px]">Meta:</span> Accurate descriptions improve AI model performance.
+                                        <span className="text-slate-900 font-bold uppercase text-[9px]">Meta:</span> Accurate descriptions improve Agent's performance.
                                     </p>
                                 </div>
                             </div>
