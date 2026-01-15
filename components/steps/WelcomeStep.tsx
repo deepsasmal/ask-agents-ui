@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-import { ArrowRight, Sparkles, Network } from 'lucide-react';
+import { ArrowRight, Sparkles, Network, Edit3 } from 'lucide-react';
 import { Button } from '../ui/Common';
 
 interface WelcomeStepProps {
   onStart: () => void;
   onBulkImport?: () => void;
+  onStartEditing?: () => void;
 }
 
-export const WelcomeStep: React.FC<WelcomeStepProps> = ({ onStart, onBulkImport }) => {
+export const WelcomeStep: React.FC<WelcomeStepProps> = ({ onStart, onBulkImport, onStartEditing }) => {
   return (
     <div className="flex flex-col items-center justify-center min-h-[600px] text-center animate-fade-in-up relative">
 
@@ -49,28 +50,40 @@ export const WelcomeStep: React.FC<WelcomeStepProps> = ({ onStart, onBulkImport 
         Visualize connections and unlock insights effortlessly.
       </p>
 
-      <div className="flex items-center gap-4">
-        <Button
-          size="lg"
-          onClick={onStart}
-          rightIcon={<ArrowRight className="w-5 h-5" />}
-          className="px-12 py-5 text-lg shadow-brand-600/30 hover:shadow-brand-600/50 hover:-translate-y-1 rounded-full"
-        >
-          Start Building
-        </Button>
+      <div className="flex flex-col items-center gap-6">
+        <div className="flex items-center gap-4">
+          <Button
+            size="lg"
+            onClick={onStart}
+            rightIcon={<ArrowRight className="w-5 h-5" />}
+            className="px-12 py-5 text-lg shadow-brand-600/30 hover:shadow-brand-600/50 hover:-translate-y-1 rounded-full"
+          >
+            Start Building
+          </Button>
 
-        <Button
-          size="lg"
-          variant="secondary"
-          className="px-8 py-5 text-lg bg-white/80 border-slate-200 text-slate-600 hover:text-brand-600 hover:border-brand-200 rounded-full"
-          onClick={onBulkImport}
+          <Button
+            size="lg"
+            variant="secondary"
+            className="px-8 py-5 text-lg bg-white/80 border-slate-200 text-slate-600 hover:text-brand-600 hover:border-brand-200 rounded-full"
+            onClick={onBulkImport}
+          >
+            Bulk Import
+          </Button>
+        </div>
+
+        <button
+          onClick={onStartEditing}
+          className="group flex items-center gap-2.5 px-6 py-3 rounded-full bg-white/50 hover:bg-white border border-transparent hover:border-brand-200/60 text-slate-500 hover:text-brand-600 hover:shadow-lg hover:shadow-brand-500/10 transition-all duration-300 font-medium text-sm backdrop-blur-sm"
         >
-          Bulk Import
-        </Button>
+          <span className="w-6 h-6 rounded-full bg-slate-100 group-hover:bg-brand-50 flex items-center justify-center transition-colors">
+            <Edit3 className="w-3.5 h-3.5" />
+          </span>
+          Start Editing
+        </button>
       </div>
 
       {/* Feature pills */}
-      <div className="mt-16 flex flex-wrap justify-center gap-4 opacity-70">
+      <div className="mt-12 flex flex-wrap justify-center gap-4 opacity-70">
         {['PostgreSQL Compatible', 'Auto-Schema Detection', 'No-Code Ontology'].map((text) => (
           <span key={text} className="px-5 py-2.5 bg-white/80 backdrop-blur-sm rounded-full text-sm font-medium text-slate-600 border border-slate-200 shadow-sm">
             {text}

@@ -159,7 +159,7 @@ export const GraphBuilderModule: React.FC = () => {
   const renderWizardStep = () => {
     switch (currentStep) {
       case Step.Welcome:
-        return <WelcomeStep onStart={nextStep} onBulkImport={handleStartBulkImport} />;
+        return <WelcomeStep onStart={nextStep} onBulkImport={handleStartBulkImport} onStartEditing={() => setViewMode('EDITOR')} />;
       case Step.Organization:
         return (
           <OrgDetailsStep
@@ -322,7 +322,7 @@ export const GraphBuilderModule: React.FC = () => {
                 className={`flex items-center gap-2 px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all duration-200 ${viewMode === 'WIZARD' ? 'bg-brand-600 text-white shadow-sm ring-1 ring-black/5' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-white/5'}`}
               >
                 <Wand2 className="w-3 h-3" />
-                Wizard
+                Build
               </button>
               <button
                 onClick={() => setViewMode('EDITOR')}
