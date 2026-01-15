@@ -1,9 +1,9 @@
 import React from 'react';
-import { Network, MessageSquareText, ArrowRight, Sparkles, Bot, Database, PieChart } from 'lucide-react';
+import { Network, MessageSquareText, ArrowRight, Sparkles, Bot, Database, PieChart, BookOpen } from 'lucide-react';
 import { Button } from '../ui/Common';
 
 interface LandingPageProps {
-    onNavigate: (module: 'GRAPH_BUILDER' | 'CHAT' | 'DATA_INSIGHTS') => void;
+    onNavigate: (module: 'GRAPH_BUILDER' | 'CHAT' | 'DATA_INSIGHTS' | 'KNOWLEDGE' | 'AGENTS') => void;
 }
 
 export const LandingPageModule: React.FC<LandingPageProps> = ({ onNavigate }) => {
@@ -122,12 +122,12 @@ export const LandingPageModule: React.FC<LandingPageProps> = ({ onNavigate }) =>
 
             {/* Feature Cards */}
             <div className="max-w-5xl mx-auto px-6 pb-20 w-full">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
 
                     {/* Graph Builder Card */}
                     <div
                         onClick={() => onNavigate('GRAPH_BUILDER')}
-                        className="group relative bg-white rounded-2xl p-6 border border-slate-200 shadow-xl shadow-slate-200/50 hover:shadow-2xl hover:shadow-brand-900/5 transition-all duration-300 cursor-pointer overflow-hidden min-h-[240px]"
+                        className="group relative bg-white rounded-2xl p-6 border border-slate-200 shadow-xl shadow-slate-200/50 hover:shadow-2xl hover:shadow-brand-900/5 transition-all duration-300 cursor-pointer overflow-hidden min-h-[240px] md:col-span-2"
                     >
                         <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 duration-500">
                             <Network className="w-48 h-48 text-brand-600" />
@@ -152,7 +152,7 @@ export const LandingPageModule: React.FC<LandingPageProps> = ({ onNavigate }) =>
                     {/* AI Assistant Card */}
                     <div
                         onClick={() => onNavigate('CHAT')}
-                        className="group relative bg-white rounded-2xl p-6 border border-slate-200 shadow-xl shadow-slate-200/50 hover:shadow-2xl hover:shadow-brand-900/5 transition-all duration-300 cursor-pointer overflow-hidden min-h-[240px]"
+                        className="group relative bg-white rounded-2xl p-6 border border-slate-200 shadow-xl shadow-slate-200/50 hover:shadow-2xl hover:shadow-brand-900/5 transition-all duration-300 cursor-pointer overflow-hidden min-h-[240px] md:col-span-2"
                     >
                         <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 duration-500">
                             <Bot className="w-48 h-48 text-brand-600" />
@@ -185,7 +185,7 @@ export const LandingPageModule: React.FC<LandingPageProps> = ({ onNavigate }) =>
                             </span>
                         </div>
                         <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 duration-500">
-                            <PieChart className="w-48 h-48 text-brand-600" />
+                            <PieChart className="w-48 h-48 text-emerald-600" />
                         </div>
 
                         <div className="relative z-10 h-full flex flex-col items-start">
@@ -200,6 +200,66 @@ export const LandingPageModule: React.FC<LandingPageProps> = ({ onNavigate }) =>
 
                             <span className="mt-auto inline-flex items-center text-sm text-emerald-700 font-bold group-hover:gap-2 transition-all">
                                 Open Insights <ArrowRight className="w-3.5 h-3.5 ml-1" strokeWidth={2.5} />
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Knowledge Card */}
+                    <div
+                        onClick={() => onNavigate('KNOWLEDGE')}
+                        className="group relative bg-white rounded-2xl p-6 border border-slate-200 shadow-xl shadow-slate-200/50 hover:shadow-2xl hover:shadow-brand-900/5 transition-all duration-300 cursor-pointer overflow-hidden min-h-[240px] md:col-span-1"
+                    >
+                        <div className="absolute top-5 right-5 z-20">
+                            <span className="inline-flex items-center rounded-full bg-red-50 text-red-700 border border-red-200 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider shadow-sm">
+                                ⚠️ Experimental
+                            </span>
+                        </div>
+                        <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 duration-500">
+                            <BookOpen className="w-48 h-48 text-violet-600" />
+                        </div>
+
+                        <div className="relative z-10 h-full flex flex-col items-start">
+                            <div className="w-12 h-12 rounded-xl bg-violet-50 flex items-center justify-center text-violet-600 mb-4 group-hover:scale-110 transition-transform duration-300 shadow-sm">
+                                <BookOpen className="w-6 h-6" strokeWidth={2} />
+                            </div>
+
+                            <h3 className="text-xl font-bold text-slate-900 mb-2">Knowledge Base</h3>
+                            <p className="text-slate-500 text-sm mb-6 max-w-xs leading-relaxed">
+                                Manage and organize your documents, text, and external data sources for agent context.
+                            </p>
+
+                            <span className="mt-auto inline-flex items-center text-sm text-violet-600 font-bold group-hover:gap-2 transition-all">
+                                Open Knowledge <ArrowRight className="w-3.5 h-3.5 ml-1" strokeWidth={2.5} />
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Agents Card */}
+                    <div
+                        onClick={() => onNavigate('AGENTS')}
+                        className="group relative bg-white rounded-2xl p-6 border border-slate-200 shadow-xl shadow-slate-200/50 hover:shadow-2xl hover:shadow-brand-900/5 transition-all duration-300 cursor-pointer overflow-hidden min-h-[240px] md:col-span-1"
+                    >
+                        <div className="absolute top-5 right-5 z-20">
+                            <span className="inline-flex items-center rounded-full bg-red-50 text-red-700 border border-red-200 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider shadow-sm">
+                                ⚠️ Experimental
+                            </span>
+                        </div>
+                        <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 duration-500">
+                            <Bot className="w-48 h-48 text-amber-600" />
+                        </div>
+
+                        <div className="relative z-10 h-full flex flex-col items-start">
+                            <div className="w-12 h-12 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600 mb-4 group-hover:scale-110 transition-transform duration-300 shadow-sm">
+                                <Bot className="w-6 h-6" strokeWidth={2} />
+                            </div>
+
+                            <h3 className="text-xl font-bold text-slate-900 mb-2">AI Agents</h3>
+                            <p className="text-slate-500 text-sm mb-6 max-w-xs leading-relaxed">
+                                Explore autonomous agents to perform complex tasks.
+                            </p>
+
+                            <span className="mt-auto inline-flex items-center text-sm text-amber-600 font-bold group-hover:gap-2 transition-all">
+                                Open Agents <ArrowRight className="w-3.5 h-3.5 ml-1" strokeWidth={2.5} />
                             </span>
                         </div>
                     </div>
